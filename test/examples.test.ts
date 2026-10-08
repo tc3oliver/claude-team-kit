@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { DEFAULT_PROFILE, parseLayer, profileToPluginOptions, resolveEffective } from '../src/core/schema.ts'
-import { DEFAULT_OPTIONS, readOptions } from '../plugin/ctk/shared/policy.ts'
+import { DEFAULT_OPTIONS, readOptions } from '../plugins/ctk/shared/policy.ts'
 
 const dir = join(import.meta.dirname, '..', 'examples', 'profiles')
 

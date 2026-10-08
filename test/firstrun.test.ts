@@ -101,7 +101,7 @@ test('config dir without write permission: names the path, exit 1', { skip: proc
 })
 
 test('an incomplete package (plugin/ or .claude-plugin/ missing) is named, exit 1, nothing runs', async t => {
-  for (const rel of ['.claude-plugin', join('plugin', 'ctk', '.claude-plugin')]) {
+  for (const rel of ['.claude-plugin', join('plugins', 'ctk', '.claude-plugin')]) {
     const e = makeEnv(t)
     rmSync(join(e.root, rel), { recursive: true })
     const r = await runInstall(e.ctx, flags, e.root)

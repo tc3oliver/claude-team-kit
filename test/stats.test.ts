@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { runStats } from '../src/cli/commands/stats.ts'
-import { emptyStats, STATS_SCHEMA_VERSION } from '../plugin/ctk/shared/stats.ts'
+import { emptyStats, STATS_SCHEMA_VERSION } from '../plugins/ctk/shared/stats.ts'
 import { makeEnv, writeJson } from './helpers.ts'
 
 test('stats says so when nothing is recorded', t => {

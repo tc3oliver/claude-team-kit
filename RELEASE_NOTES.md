@@ -6,7 +6,7 @@ git-based profile sync.
 
 ## Included
 
-**Plugin (`plugin/ctk`)**
+**Plugin (`plugins/ctk`)**
 
 - Skills: `/ctk:team` (run a goal with a capped native agent team), `/ctk:review`
   (risk-based review of the current change), `/ctk:debug` (reproduce, minimize,

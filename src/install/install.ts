@@ -42,7 +42,7 @@ const effectiveWithFlags = (ctx: Ctx, flags: InstallFlags): Profile => {
 
 /** Names the files a complete ctk package carries; null when all are there. */
 export const packageProblem = (root: string): string | null => {
-  const missing = [join('.claude-plugin', 'marketplace.json'), join('plugin', 'ctk', '.claude-plugin', 'plugin.json')].filter(rel => !existsSync(join(root, rel)))
+  const missing = [join('.claude-plugin', 'marketplace.json'), join('plugins', 'ctk', '.claude-plugin', 'plugin.json')].filter(rel => !existsSync(join(root, rel)))
   return missing.length === 0
     ? null
     : `the ctk package at ${root} is incomplete (missing ${missing.join(', ')}); get a complete copy (clone the repository, then run "npm ci && npm run build") and run ctk from there.`

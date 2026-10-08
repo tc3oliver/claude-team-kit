@@ -69,7 +69,7 @@ export const packageRoot = (): string => {
   throw new Error('ctk: cannot locate the claude-team-kit package root')
 }
 
-export const pluginSourceDir = (root = packageRoot()): string => join(root, 'plugin', 'ctk')
+export const pluginSourceDir = (root = packageRoot()): string => join(root, 'plugins', 'ctk')
 export const marketplaceDir = (root = packageRoot()): string => root
 
 export const PLUGIN_NAME = 'ctk'

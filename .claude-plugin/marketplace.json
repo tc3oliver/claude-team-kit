@@ -1,4 +1,5 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ctk-kit",
   "owner": {
     "name": "tc3oliver",
@@ -8,7 +9,7 @@
   "plugins": [
     {
       "name": "ctk",
-      "source": "./plugin/ctk",
+      "source": "./plugins/ctk",
       "description": "Token-light team companion: capped agent teams, risk-based review, disciplined debugging."
     }
   ]

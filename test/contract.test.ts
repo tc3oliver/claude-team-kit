@@ -3,10 +3,10 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { AGENT_TYPES, DEFAULT_EFFORT, DEFAULT_OPTIONS, ROLES, modelFor } from '../plugin/ctk/shared/policy.ts'
+import { AGENT_TYPES, DEFAULT_EFFORT, DEFAULT_OPTIONS, ROLES, modelFor } from '../plugins/ctk/shared/policy.ts'
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..')
-const plugin = join(repo, 'plugin', 'ctk')
+const plugin = join(repo, 'plugins', 'ctk')
 const read = (...p: string[]) => readFileSync(join(plugin, ...p), 'utf8')
 
 const frontmatter = (text: string): Record<string, string> => {
@@ -47,11 +47,11 @@ test('types path is only declared when the file exists', () => {
   if (manifest.types !== undefined) assert.ok(existsSync(join(plugin, manifest.types)))
 })
 
-test('marketplace ctk-kit lists the ctk plugin from ./plugin/ctk', () => {
+test('marketplace ctk-kit lists the ctk plugin from ./plugins/ctk', () => {
   assert.equal(marketplace.name, 'ctk-kit')
   assert.equal(marketplace.plugins.length, 1)
   assert.equal(marketplace.plugins[0].name, 'ctk')
-  assert.equal(marketplace.plugins[0].source, './plugin/ctk')
+  assert.equal(marketplace.plugins[0].source, './plugins/ctk')
 })
 
 const fileOf: Record<string, string> = {

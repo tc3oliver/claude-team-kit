@@ -14,5 +14,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "plugin/ctk/shared/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "plugins/ctk/shared/**/*.ts"]
 }

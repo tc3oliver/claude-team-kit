@@ -55,7 +55,7 @@ const negatives: [string, string][] = [
   ['npm integrity', '"integrity": "sha512-' + 'Zk3Vn9Xb2LmP4wR8tY1cHd5FgJ6sAe7QpW0oIuYtRe3Mnb5Vcx7Zl9KjHg2FdSa4Pq6Ow8Er1Ty3Ui5Op7AsDfGhJk9Lz==' + '"'],
   ['go.sum', 'golang.org/x/text v0.3.0 h1:' + 'g17k0bR5s4h2qJ9x8Ay3mN1pVwZc7LdTfEoYuIiKj2o='],
   ['yarn integrity', '  integrity sha1-' + 'Zk3Vn9Xb2LmP4wR8tY1cHd5FgJ6sAe7Q='],
-  ['long path', 'see plugin/ctk/skills/team/references/spawn-confirmation-protocol.md'],
+  ['long path', 'see plugins/ctk/skills/team/references/spawn-confirmation-protocol.md'],
   ['alphabet run', 'abcdefghijklmnopqrstuvwxyz0123456789'],
   ['env var name', 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'],
   ['camel identifier', 'getUserProfileDataFromServer2Async'],

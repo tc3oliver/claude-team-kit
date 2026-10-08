@@ -2,8 +2,8 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { readJsonIfExists } from '../../core/fsx.ts'
-import { DASH, fmtModels, pct, usd } from '../../../plugin/ctk/shared/format.ts'
-import { parseStats, type StatsRecord } from '../../../plugin/ctk/shared/stats.ts'
+import { DASH, fmtModels, pct, usd } from '../../../plugins/ctk/shared/format.ts'
+import { parseStats, type StatsRecord } from '../../../plugins/ctk/shared/stats.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 

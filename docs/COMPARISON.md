@@ -42,7 +42,7 @@ Counts are from the sources named in the last column.
 
 | Project | Skills | Agents | Hooks | MCP server | Source |
 |---|---|---|---|---|---|
-| CTK | 3 | 4 | `Hooks (0)` in `claude plugin details`; one in-process mod | none | `plugin/ctk/`, `claude plugin details ctk@ctk-kit` |
+| CTK | 3 | 4 | `Hooks (0)` in `claude plugin details`; one in-process mod | none | `plugins/ctk/`, `claude plugin details ctk@ctk-kit` |
 | Agent Teams | n/a | uses subagent definitions as teammate roles | events `TeammateIdle`, `TaskCreated`, `TaskCompleted` | n/a | agent-teams page |
 | OMC 5.3.0 | 37 listed in `plugin.json` | 19 (`agents/*.md`) | 25 hook commands over 11 events in `hooks/hooks.json` | 1 (`t`, `node bridge/mcp-server.cjs`, `.mcp.json`) | local cache, `5.3.0/` |
 | superpowers 6.4.2 | 15 `skills/*/SKILL.md` | none in the repository tree | 1 command hook (`SessionStart`, matcher `startup\|clear\|compact`) | none seen in the tree | repository tree, `hooks/hooks.json` |
@@ -97,7 +97,7 @@ refresh. Each entry below is what the project's own documentation or source show
 
 | Project | Data read | Network, credentials | Source |
 |---|---|---|---|
-| CTK | The JSON that Claude Code passes to a `statusLine` command on stdin; `.git/HEAD` and the repository's git config files; one `git status`. The team band uses the public Mods API (roster, session usage). | No network calls. No credential reads. No OAuth or usage API. | `docs/ARCHITECTURE.md`, `docs/THREAT-MODEL.md`; `claude plugin validate plugin/ctk --strict` lists the mod's host calls |
+| CTK | The JSON that Claude Code passes to a `statusLine` command on stdin; `.git/HEAD` and the repository's git config files; one `git status`. The team band uses the public Mods API (roster, session usage). | No network calls. No credential reads. No OAuth or usage API. | `docs/ARCHITECTURE.md`, `docs/THREAT-MODEL.md`; `claude plugin validate plugins/ctk --strict` lists the mod's host calls |
 | OMC 5.3.0 | Claude Code's stdin JSON, the session transcript, `.omc/state/**` files, and rate limits fetched by `getUsage()` | **Reads Claude Code's stored OAuth credential** (macOS Keychain item "Claude Code-credentials", otherwise `~/.claude/.credentials.json`), **calls `GET api.anthropic.com/api/oauth/usage`** with the bearer token, and when the credential is expired **refreshes it and writes the refreshed tokens back** to the Keychain or the credentials file. On by default (`rateLimits: true`). For third-party base URLs it can also read `ANTHROPIC_AUTH_TOKEN` and other provider keys and call z.ai, MiniMax and Kimi usage endpoints. | `dist/hud/usage-api.js` (header comment lines 3-12; request at lines 610-618; token refresh at line 34 and lines 1665-1675; write-back at lines 721-840; third-party endpoints from line 1598); `dist/hud/index.js` lines 277-283; `dist/hud/types.js` line 96 |
 | claude-hud | Claude Code's stdin; optionally the session transcript, Claude settings files, git/jj metadata; with `display.showAuth`, the `oauthAccount` block of `~/.claude.json`; with `display.externalUsagePath`, a local file you supply | Its README says: "Claude HUD is local-only. It makes no network requests, never reads credentials, and calls no undocumented APIs." A text search of its `src/**/*.ts` found no network calls and no Keychain or `.credentials` access; the only `http` strings are for provider-label detection (`src/stdin.ts`) and a displayed github.com link (`src/git.ts`). `src/auth.ts` reads account metadata (plan, name) from `~/.claude.json` only when `display.showAuth` is on. | README "How It Works" and "Security"; `src/**/*.ts` |
 
@@ -231,5 +231,5 @@ compare. The line numbers above apply to 5.3.0 only.
 
 Agent Teams statements: read https://code.claude.com/docs/en/agent-teams (sections on display
 modes, model selection, best practices and limitations). CTK statements: `claude plugin validate
-plugin/ctk --strict` for the mod's host calls and `claude plugin details ctk@ctk-kit` for the
+plugins/ctk --strict` for the mod's host calls and `claude plugin details ctk@ctk-kit` for the
 fixed-context estimate.

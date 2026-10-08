@@ -82,7 +82,7 @@ only when a spawn names a CTK agent type (`ctk:explorer`, `ctk:implementer`, `ct
 overridden.
 
 **Effort is not a profile field.** Each agent's reasoning effort comes only from the `effort:`
-line in its definition (`plugin/ctk/agents/*.md`): `medium` for `explorer`, `implementer` and
+line in its definition (`plugins/ctk/agents/*.md`): `medium` for `explorer`, `implementer` and
 `reviewer`, `high` for `high-risk-reviewer`. A profile cannot change it, because Claude Code's
 spawn hook can set a model but not an effort; a layer containing `routing.<role>.effort` is
 rejected. To use a different effort, edit or fork the agent files.
@@ -133,7 +133,7 @@ Used by `ctk sync`; see [ARCHITECTURE](ARCHITECTURE.md#sync).
 
 ## How fields reach the plugin
 
-The plugin declares seven `userConfig` options in `plugin/ctk/.claude-plugin/plugin.json`.
+The plugin declares seven `userConfig` options in `plugins/ctk/.claude-plugin/plugin.json`.
 CTK writes the effective values to `settings.json`, one key each, under
 `/pluginConfigs/ctk@ctk-kit/options/`:
 

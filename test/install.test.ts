@@ -166,7 +166,7 @@ test('a claude failure mid-install is reported and the partial work is ledgered'
   assert.equal(ledger.transactions.length, 1)
 })
 
-const bump = (root: string, script: string) => writeFileSync(join(root, 'plugin', 'ctk', 'statusline', 'ctk-statusline.mjs'), script)
+const bump = (root: string, script: string) => writeFileSync(join(root, 'plugins', 'ctk', 'statusline', 'ctk-statusline.mjs'), script)
 
 test('a status line script the user edited is never overwritten by install or update (exit 2)', async t => {
   const e = makeEnv(t)
@@ -331,7 +331,7 @@ test('ctk update never enables a disabled plugin, with or without a re-point', a
   await runInstall(e.ctx, flags, e.root)
   setEnabled(e, false)
   bump(e.root, '// statusline v1\n')
-  writeJson(join(e.root, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), { name: 'ctk', version: '0.2.0' })
+  writeJson(join(e.root, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), { name: 'ctk', version: '0.2.0' })
   const u = await runUpdate(e.ctx, e.root)
   assert.equal(u.code, 0, u.lines.join('\n'))
   assert.ok(e.log().some(c => c[1] === 'update'), 'the plugin update did run')

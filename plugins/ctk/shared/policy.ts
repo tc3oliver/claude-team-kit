@@ -32,7 +32,7 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   recordStats: true,
 }
 
-/** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugin/ctk/agents/. */
+/** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugins/ctk/agents/. */
 export const DEFAULT_EFFORT: Record<Role, string> = {
   explorer: 'medium',
   implementer: 'medium',

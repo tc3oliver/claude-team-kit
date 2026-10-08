@@ -51,7 +51,7 @@ Evidence levels used below:
   its own event counts, labelled counted. It never estimates a per-worker number.
 - **Effort per role comes from the agent files and cannot be set from a profile.** The spawn
   hook can set a model but not an effort. `explorer`, `implementer` and `reviewer` are `medium`,
-  `high-risk-reviewer` is `high`, as written in `plugin/ctk/agents/*.md`. A profile with
+  `high-risk-reviewer` is `high`, as written in `plugins/ctk/agents/*.md`. A profile with
   `routing.<role>.effort` is rejected (Live: `error: routing.implementer.effort:
   routing.implementer: Unrecognized key: "effort"`). To change effort, edit or fork the agent
   files.

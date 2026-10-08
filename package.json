@@ -29,8 +29,8 @@
   },
   "files": [
     "dist/src",
-    "dist/plugin",
-    "plugin",
+    "dist/plugins",
+    "plugins",
     ".claude-plugin",
     "examples",
     "docs",
@@ -38,9 +38,9 @@
     "README.md",
     "CHANGELOG.md",
     "THIRD_PARTY_NOTICES.md",
-    "!plugin/ctk/tsconfig.json",
-    "!plugin/ctk/tests",
-    "!plugin/ctk/statusline/test",
+    "!plugins/ctk/tsconfig.json",
+    "!plugins/ctk/tests",
+    "!plugins/ctk/statusline/test",
     "!docs/assets/*.gif",
     "!docs/assets/*.mp4",
     "!docs/assets/*.frames.jsonl"
@@ -53,9 +53,9 @@
     "prepack": "npm run build",
     "ctk": "node dist/src/cli/bin.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test \"test/**/*.test.ts\" \"plugin/ctk/statusline/test/*.test.mjs\"",
-    "test:plugin": "claude plugin test plugin/ctk",
-    "validate:plugin": "claude plugin validate plugin/ctk --strict && claude plugin validate . --strict",
+    "test": "node --test \"test/**/*.test.ts\" \"plugins/ctk/statusline/test/*.test.mjs\"",
+    "test:plugin": "claude plugin test plugins/ctk",
+    "validate:plugin": "claude plugin validate plugins/ctk --strict && claude plugin validate . --strict",
     "check": "npm run typecheck && npm test && npm run test:plugin && npm run validate:plugin"
   },
   "dependencies": {

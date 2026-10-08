@@ -13,7 +13,7 @@ and written, secrets), [LIMITATIONS](LIMITATIONS.md) (evidence levels), [ROLLBAC
 
 ```
 ctk (Node CLI)                          Claude Code
-src/cli      router, help, exit codes     plugin ctk@ctk-kit  (plugin/ctk)
+src/cli      router, help, exit codes     plugin ctk@ctk-kit  (plugins/ctk)
 src/install  install update undo apply      hooks/register.tsx + team.ts + band.ts   the mod
              marketplace statusline txn     shared/policy.ts stats.ts format.ts      option defaults, stats record
 src/core     claude.ts (only spawner of     skills/{team,review,debug}  agents/*.md  prompts, no code
@@ -29,13 +29,13 @@ src/sync     engine git files secrets     <config> = Claude config dir
 Data flow for options: profile (defaults, user layer, device layer) is resolved by
 `src/core/schema.ts`, written by `src/install/apply.ts` to `settings.json` under
 `/pluginConfigs/ctk@ctk-kit/options`, and read by the mod through `register(on, options)` and
-`readOptions` in `plugin/ctk/shared/policy.ts`. The mod never reads the profile files.
+`readOptions` in `plugins/ctk/shared/policy.ts`. The mod never reads the profile files.
 
 Processes: `ctk` spawns `claude plugin ...` (argv array, `CLAUDE_CONFIG_DIR` set) and, for
 sync, `git`. The mod runs inside Claude Code. The status line script runs as a separate `node`
 process started by Claude Code and runs one `git status`. There is no daemon and no network
 client in CTK's code (`grep` for `node:http`, `node:https`, `node:net`, `fetch(` in `src/`,
-`plugin/ctk/hooks`, `plugin/ctk/shared` and the status line script returns nothing).
+`plugins/ctk/hooks`, `plugins/ctk/shared` and the status line script returns nothing).
 
 ## 2. Key decisions and reasons
 
@@ -74,8 +74,8 @@ for the plugin checks (no login needed), git for the sync tests. Run from the re
 npm ci
 npm run typecheck          # tsc -p tsconfig.json --noEmit
 npm test                   # node --test test/**/*.test.ts and the status line .mjs tests
-npm run test:plugin        # claude plugin test plugin/ctk
-npm run validate:plugin    # claude plugin validate plugin/ctk --strict, and the marketplace
+npm run test:plugin        # claude plugin test plugins/ctk
+npm run validate:plugin    # claude plugin validate plugins/ctk --strict, and the marketplace
 npm run check              # all four of the above, in order
 node scripts/measure-context.mjs 500    # always-on text budget; exit 1 above 500 tokens
 npm run build && npm pack --dry-run     # package contents (prepack also builds)
@@ -95,8 +95,8 @@ cat "$CLAUDE_CONFIG_DIR/settings.json"   # {} for a fresh directory
 ```
 
 Reproducing the plugin types (they are generated, not committed):
-`claude --plugin-dir plugin/ctk -p "/ctk-stats"` with a scratch `CLAUDE_CONFIG_DIR` writes
-`plugin/ctk/.claude-plugin/types/`; then `npx tsc -p plugin/ctk --noEmit` typechecks the mod.
+`claude --plugin-dir plugins/ctk -p "/ctk-stats"` with a scratch `CLAUDE_CONFIG_DIR` writes
+`plugins/ctk/.claude-plugin/types/`; then `npx tsc -p plugins/ctk --noEmit` typechecks the mod.
 
 Documentation consistency (`test/docs.test.ts`, part of `npm test`): every `ctk` command shown
 in a doc parses against the router, every relative link and anchor resolves, no machine-local
@@ -111,14 +111,14 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 
 ### 5.1 Hard concurrency limit and race handling
 
-- **Read:** `plugin/ctk/hooks/register.tsx` (`agent.spawn` handler, `liveTeammates`, `.catch`),
-  `plugin/ctk/hooks/team.ts` (`effectiveLive`, `PENDING_TTL_MS`, `capacityDeny`, `guardDeny`).
+- **Read:** `plugins/ctk/hooks/register.tsx` (`agent.spawn` handler, `liveTeammates`, `.catch`),
+  `plugins/ctk/hooks/team.ts` (`effectiveLive`, `PENDING_TTL_MS`, `capacityDeny`, `guardDeny`).
 - **Invariant:** with cap N, the number of live teammates plus accepted-but-unlisted teammates
   plus in-flight reservations never exceeds N when a spawn is allowed; concurrent spawns see each
   other's reservations; an accepted teammate stays counted until the roster lists it or 10 s pass;
   any failure before `next()` denies (`TEAM_GUARD_FAILED`); only `isTeammate === true` spawns are
   gated.
-- **Tests** (`plugin/ctk/tests/cap.test.ts`, `policy.test.ts`, run by `claude plugin test`; simulated
+- **Tests** (`plugins/ctk/tests/cap.test.ts`, `policy.test.ts`, run by `claude plugin test`; simulated
   host): "6 concurrent teammate spawns: exactly 3 start, 3 refused, peak never above 3", "2 already
   live + 6 concurrent: exactly 1 more starts", "fails closed when the roster cannot be read", "the
   same roster failure never blocks a plain subagent", race stress, double-count window, and
@@ -143,7 +143,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 
 ### 5.2 Worker spawn refusal and capacity recovery
 
-- **Read:** `plugin/ctk/skills/team/SKILL.md` (sections 3 and 4), `plugin/ctk/skills/team/references/protocol.md`,
+- **Read:** `plugins/ctk/skills/team/SKILL.md` (sections 3 and 4), `plugins/ctk/skills/team/references/protocol.md`,
   `capacityDeny` in `team.ts`, the acceptance check in `register.tsx`.
 - **Invariant:** a refusal text always begins `TEAM_CAPACITY_REACHED:` (or `TEAM_GUARD_FAILED:`);
   the skill treats that text, a missing teammate id, or a bare "Done" row as "not started" and
@@ -160,18 +160,18 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 
 ### 5.3 Mods API compatibility
 
-- **Read:** `plugin/ctk/.claude-plugin/plugin.json`, `plugin/ctk/tsconfig.json`,
+- **Read:** `plugins/ctk/.claude-plugin/plugin.json`, `plugins/ctk/tsconfig.json`,
   `MODS_MIN_VERSION` and `probeClaude` in `src/core/claude.ts`, the version branch in
   `src/install/install.ts`, the "mods" check in `src/cli/commands/doctor.ts`.
 - **Invariant:** every host call in the mod is wrapped so an unsupported API degrades (no band,
   no stats) and the cap stays fail-closed; on Claude Code older than 2.1.287 `ctk install` still
   installs skills, agents and the status line and says what is inactive; `claude plugin validate
   --strict` passes for the build in use.
-- **Tests:** `claude plugin test plugin/ctk` (76 tests) and `validate:plugin` (both pass);
+- **Tests:** `claude plugin test plugins/ctk` (76 tests) and `validate:plugin` (both pass);
   `test/firstrun.test.ts` "Claude Code older than 2.1.287: says what is unavailable and which
   version is needed, then installs the rest" (stub `claude`); `test/doctor.test.ts` ("old Claude
   Code warns about mods").
-- **Types:** generated per build into `plugin/ctk/.claude-plugin/types/` (git-ignored); they are the
+- **Types:** generated per build into `plugins/ctk/.claude-plugin/types/` (git-ignored); they are the
   contract the mod was written against. A different build can ship different types.
 - **What happens on an unsupported build:** version below the floor: stub-tested as above. A build
   at or above the floor where the API changed: **not tested**; the mod would fail to load, and
@@ -181,8 +181,8 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 
 ### 5.4 HUD permissions and data sources
 
-- **Read:** `claude plugin validate plugin/ctk --strict` output, `plugin/ctk/hooks/register.tsx`
-  (`statsPath`, `persist`, `boot`), `plugin/ctk/hooks/band.ts`, `plugin/ctk/statusline/ctk-statusline.mjs`.
+- **Read:** `claude plugin validate plugins/ctk --strict` output, `plugins/ctk/hooks/register.tsx`
+  (`statsPath`, `persist`, `boot`), `plugins/ctk/hooks/band.ts`, `plugins/ctk/statusline/ctk-statusline.mjs`.
 - **Invariant:** the mod calls only read-only host APIs plus `$.fs.write` for its own stats file,
   `$.fs.read` for that same file, `$.tool.register` and `$.command.register`; it reads only the
   environment variables `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE`, writes none; no network, no
@@ -193,10 +193,10 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   `calls: $.agent.list, $.clock.now, $.command.register, $.env.get, $.fs.read, $.fs.write,
   $.session.id, $.session.usage, $.tool.register, $.ui.invalidate, $.ui.resolve`;
   `env reads: CLAUDE_CONFIG_DIR, HOME, USERPROFILE`; `env writes: nothing`.
-- **Tests:** `plugin/ctk/tests/hud.test.tsx` (band content, 80-column truncation, missing
+- **Tests:** `plugins/ctk/tests/hud.test.tsx` (band content, 80-column truncation, missing
   figures as dashes, hidden when `hudBand` is false, yields to the survey prompt), stats tests in
   `cap.test.ts`/`policy.test.ts` (file content, throttling, a failing write never affects a spawn,
-  `recordStats=false` writes nothing), `plugin/ctk/statusline/test/statusline.test.mjs`.
+  `recordStats=false` writes nothing), `plugins/ctk/statusline/test/statusline.test.mjs`.
 - **Stats file content:** counters, percentages, cost, model names, session id. No prompts, paths
   or per-worker figures ([THREAT-MODEL](THREAT-MODEL.md#what-the-stats-files-contain)).
 - **Mutation:** not mutation-tested (the band and stats code).
@@ -302,7 +302,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 ### 5.8 Status line git-config gate
 
 - **Read:** `repoConfigSafe`, `repoConfigFiles`, `UNSAFE_CONFIG`, `isDirty`, `gitEnv` in
-  `plugin/ctk/statusline/ctk-statusline.mjs`.
+  `plugins/ctk/statusline/ctk-statusline.mjs`.
 - **Invariant:** the script runs `git status` only if none of the repo-local config files git would
   read for this worktree (gitdir config, `config.worktree`, the common dir's config for a linked
   worktree) is over 64 KiB or matches a pattern that can make git run a command (fsmonitor,
@@ -315,7 +315,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   for Windows ships `core.autocrlf=true` in the system config, and ignoring it (an earlier
   `GIT_CONFIG_NOSYSTEM=1`) made every clean Windows repository show a dirty marker. Only repo-local
   config is distrusted.
-- **Tests:** `plugin/ctk/statusline/test/statusline.test.mjs` (31 tests): "inherited GIT_DIR cannot
+- **Tests:** `plugins/ctk/statusline/test/statusline.test.mjs` (31 tests): "inherited GIT_DIR cannot
   redirect the dirty check", "system autocrlf", "hostile repo config (fsmonitor)
   never runs and the branch still shows", "hostile repo config (filter driver) skips the dirty
   marker", "hostile common config reached from a linked worktree skips the dirty marker", "oversized
@@ -357,7 +357,7 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Unit and integration tests | PASS | `npm test`: 324 tests (31 of them the status line tests), 324 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
 | Plugin tests | PASS | `npm run test:plugin`: 76 pass, 0 fail |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
-| Mod type check | PASS | `npx tsc -p plugin/ctk --noEmit`, exit 0 (types generated locally) |
+| Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |
 | Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |
 | Real `claude` 2.1.294, macOS: install, idempotent re-install, doctor, rollback, uninstall, re-point, disabled plugin, edited script/options | PASS | run in scratch config directories (see section 4 to repeat) |
 | Mod loads in `claude -p "/ctk-stats"` | PASS | output printed; also with OMC installed beside it |

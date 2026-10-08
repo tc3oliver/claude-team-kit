@@ -57,7 +57,7 @@ else if (['install', 'uninstall', 'enable', 'disable', 'update'].includes(sub)) 
   const mk = state.marketplaces.find((m) => id.endsWith('@' + m.name))
   if (sub === 'install') {
     if (!mk) fail('stub: marketplace not found')
-    const version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
+    const version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
     state.plugins = state.plugins.filter((p) => p.id !== id).concat({ id, version, enabled: true, scope: 'user' })
     const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: true }; save(s)
   } else if (sub === 'uninstall') {
@@ -73,7 +73,7 @@ else if (['install', 'uninstall', 'enable', 'disable', 'update'].includes(sub)) 
   } else if (sub === 'update') {
     const p = state.plugins.find((x) => x.id === id)
     if (p && process.env.STUB_UPDATE_ENABLES) p.enabled = true
-    if (p && mk) p.version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
+    if (p && mk) p.version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
     save(null)
   }
   console.log(JSON.stringify({ outcome: 'ok' }))
@@ -94,9 +94,9 @@ export const makeEnv = (t: TestContext, over: Partial<Ctx> = {}, stubEnv: Record
     writeFileSync(join(root, rel), text)
   }
   w('package.json', JSON.stringify({ name: 'claude-team-kit', version: '0.1.0' }))
-  w('.claude-plugin/marketplace.json', JSON.stringify({ name: 'ctk-kit', owner: { name: 't' }, plugins: [{ name: 'ctk', source: './plugin/ctk' }] }))
-  w('plugin/ctk/.claude-plugin/plugin.json', JSON.stringify({ name: 'ctk', version: '0.1.0' }))
-  w('plugin/ctk/statusline/ctk-statusline.mjs', '// statusline v1\n')
+  w('.claude-plugin/marketplace.json', JSON.stringify({ name: 'ctk-kit', owner: { name: 't' }, plugins: [{ name: 'ctk', source: './plugins/ctk' }] }))
+  w('plugins/ctk/.claude-plugin/plugin.json', JSON.stringify({ name: 'ctk', version: '0.1.0' }))
+  w('plugins/ctk/statusline/ctk-statusline.mjs', '// statusline v1\n')
   const stub = join(dir, 'claude-stub.mjs')
   writeFileSync(stub, STUB_CLAUDE)
   chmodSync(stub, 0o755)

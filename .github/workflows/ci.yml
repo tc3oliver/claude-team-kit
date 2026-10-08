@@ -47,9 +47,9 @@ jobs:
       - run: npm ci
       - run: npm install -g @anthropic-ai/claude-code
       - run: claude --version
-      - run: claude plugin validate plugin/ctk --strict
+      - run: claude plugin validate plugins/ctk --strict
       - run: claude plugin validate . --strict
-      - run: claude plugin test plugin/ctk
+      - run: claude plugin test plugins/ctk
       - name: Always-on context budget
         run: node scripts/measure-context.mjs 500
 

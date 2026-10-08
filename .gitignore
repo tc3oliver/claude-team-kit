@@ -3,5 +3,5 @@ dist/
 *.tgz
 .omc/
 .DS_Store
-plugin/ctk/.claude-plugin/types/
-plugin/ctk/tsconfig.json
+plugins/ctk/.claude-plugin/types/
+plugins/ctk/tsconfig.json

@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugin', 'ctk')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugins', 'ctk')
 const budget = Number(process.argv[2] ?? 500)
 
 export function frontmatter(text) {

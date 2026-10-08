@@ -70,7 +70,7 @@ export const roleOf = (subagentType: string): Role | undefined => ROLES.find(r =
 /**
  * Model routing by role. An explicit `model` always wins and `inherit` passes through.
  * Effort is deliberately not overridden here: the options carry models only, so effort
- * comes from each agent's frontmatter (`effort:` in plugin/ctk/agents/).
+ * comes from each agent's frontmatter (`effort:` in plugins/ctk/agents/).
  */
 export const routed = (e: AgentSpawnInput, opts: PolicyOptions): AgentSpawnInput => {
   if (e.model !== undefined) return e

@@ -12,8 +12,8 @@ import { makeEnv, mutating, snapshot, writeJson } from './helpers.ts'
 const flags = { statusline: true, enableTeams: true }
 
 const bump = (root: string, version: string, script: string) => {
-  writeJson(join(root, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), { name: 'ctk', version })
-  writeFileSync(join(root, 'plugin', 'ctk', 'statusline', 'ctk-statusline.mjs'), script)
+  writeJson(join(root, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), { name: 'ctk', version })
+  writeFileSync(join(root, 'plugins', 'ctk', 'statusline', 'ctk-statusline.mjs'), script)
 }
 
 test('update refreshes the plugin and the status line script, backs up first, and is idempotent', async t => {

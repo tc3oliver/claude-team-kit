@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { DEFAULT_OPTIONS, type PolicyOptions } from '../../plugin/ctk/shared/policy.ts'
+import { DEFAULT_OPTIONS, type PolicyOptions } from '../../plugins/ctk/shared/policy.ts'
 import { deepMerge, type JsonObject } from './jsonx.ts'
 
 export const PROFILE_SCHEMA_VERSION = 1
@@ -14,7 +14,7 @@ export const PORTABLE_SETTINGS_KEYS = ['model', 'effortLevel', 'teammateMode', '
 export type PortableSettingsKey = (typeof PORTABLE_SETTINGS_KEYS)[number]
 
 const model = z.string().min(1).max(100)
-// Models only: reasoning effort per role comes from the agent frontmatter (plugin/ctk/agents/),
+// Models only: reasoning effort per role comes from the agent frontmatter (plugins/ctk/agents/),
 // because Claude Code's spawn hook can set a model but not an effort.
 const roleSchema = z.strictObject({ model })
 

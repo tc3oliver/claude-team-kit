@@ -133,7 +133,7 @@ changes anything (exit `1`):
 | `claude` not on `PATH` | `error: Claude Code was not found. Install it from https://code.claude.com/docs/en/quickstart, then run ctk install again.` |
 | Config directory not writable | `error: the Claude config dir <dir> is not writable (EACCES); fix its permissions or pick another with --config-dir.` |
 | `settings.json` is not valid JSON | `error: <config>/settings.json is not valid JSON (...); refusing to modify it` then a second line saying that CTK will not modify `<config>/settings.json` and to fix it by hand (or move it aside) and run the command again |
-| The CTK package is incomplete (for example `dist/` copied without `plugin/`) | `error: the ctk package at <dir> is incomplete (missing .claude-plugin/marketplace.json, plugin/ctk/.claude-plugin/plugin.json); get a complete copy (clone the repository, then run "npm ci && npm run build") and run ctk from there.` |
+| The CTK package is incomplete (for example `dist/` copied without `plugin/`) | `error: the ctk package at <dir> is incomplete (missing .claude-plugin/marketplace.json, plugins/ctk/.claude-plugin/plugin.json); get a complete copy (clone the repository, then run "npm ci && npm run build") and run ctk from there.` |
 
 A failing `claude plugin ...` step prints Claude's own message and then says that nothing
 else was changed and that whatever CTK had added is in its ledger, so running the command
