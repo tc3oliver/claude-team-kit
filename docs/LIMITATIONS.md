@@ -31,10 +31,16 @@ The plugin installs with `/plugin marketplace add tc3oliver/claude-team-kit` and
 `/plugin install ctk@ctk-kit` and needs no CLI ([INSTALLATION](INSTALLATION.md)). What that means
 in practice:
 
-- **A stranger installing from a public GitHub repository is not verified.** The repository was
-  private during testing, and the install worked through the tester's own ssh git credentials,
-  from a scratch config directory (Live). Nobody else has tried it. A local-directory marketplace
-  is also covered by the integration test `test/native-install.integration.test.ts`.
+- **A stranger-style install from the public repository was verified once, with a narrow scope.**
+  The repository is public. On one macOS machine with Claude Code 2.1.294, in a scratch config
+  directory with an empty `HOME`, a clean environment, `GIT_CONFIG_GLOBAL=/dev/null` and ssh blocked
+  (`GIT_SSH_COMMAND=/usr/bin/false`; `git ls-remote` over ssh failed there, over https worked),
+  `claude plugin marketplace add tc3oliver/claude-team-kit` cloned over HTTPS on its own,
+  `claude plugin install ctk@ctk-kit` succeeded (3 skills, 4 agents, about 187 tokens always-on) and
+  `claude -p "/ctk-doctor"` ran with no model call. Not covered: other machines, operating systems
+  or Claude Code versions; anything that calls a model; typing `/plugin install` in an interactive
+  session (the CLI form was run). A local-directory marketplace is also covered by
+  `test/native-install.integration.test.ts`.
 - **Nothing in a native install turns Agent Teams on.** You add
   `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to `settings.json` once. Until then
   `/ctk:team` spawns nothing and says so; `/ctk-doctor` shows the one exact fix (Live for
@@ -108,11 +114,11 @@ in practice:
 | Platform | Status |
 |---|---|
 | macOS | Live: install, rollback, uninstall, doctor, a same-version `update`, the mod in `claude -p`, npm tarball install. |
-| Linux | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), ubuntu-latest, Node 22 and 24, plus plugin validate and plugin test). Interactive behaviour not verified. |
-| Windows native | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), windows-latest, Node 22 and 24, plus plugin validate and plugin test). The first Windows runs failed and found real bugs, since fixed (see [REVIEW](REVIEW.md#5a-found-by-ci-on-windows)). A real `ctk install`, the mod and `/ctk:team` were not run interactively; the `.cmd`/`.exe` handling and the Git Bash status line command are covered only by CI's unit tests. |
+| Linux | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), ubuntu-latest, Node 22 and 24, plus plugin validate and plugin test). Interactive behaviour not verified. |
+| Windows native | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), windows-latest, Node 22 and 24, plus plugin validate and plugin test). The first Windows runs failed and found real bugs, since fixed (see [REVIEW](REVIEW.md#5a-found-by-ci-on-windows)). A real `ctk install`, the mod and `/ctk:team` were not run interactively; the `.cmd`/`.exe` handling and the Git Bash status line command are covered only by CI's unit tests. |
 | Windows Terminal, VS Code terminal | Not verified. |
 | WSL | Not tested. Mods are reported unsupported there; the status line script is the fallback. |
-| CI (`.github/workflows`) | One run passed all 10 jobs ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), 2026-10-09): tests on ubuntu, macos and windows with Node 22 and 24, plugin validate `--strict` and plugin test on the three systems, and the pack audit. The repository was private during these runs, they used GitHub-hosted runners only, and Claude Code came from npm `latest` at the time. |
+| CI (`.github/workflows`) | The latest run passed all 10 jobs ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), 2026-10-09): tests on ubuntu, macos and windows with Node 22 and 24, plugin validate `--strict` and plugin test on the three systems, and the pack audit. Earlier runs after the move to `plugins/ctk` passed too. They used GitHub-hosted runners only, and Claude Code came from npm `latest` at the time. |
 
 In an interactive session, whether Claude Code asks you to approve the plugin or its mod on
 first load was not tested: the interactive check went as far as the login screen, which needs

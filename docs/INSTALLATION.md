@@ -58,9 +58,10 @@ The plugin cache for this install was about 160 KB (`du` of `<config>/plugins/ca
 `claude plugin details ctk@ctk-kit` lists Skills (3) `debug, review, team`, Agents (4), and about
 187 tokens always-on.
 
-**The repository must be public for anyone but its owner.** It was private during testing; the
-add worked there through the tester's own git credentials over ssh. A native install of a public
-repository by someone else has **not been verified**.
+**The repository is public**, so no credentials are needed. A stranger-style run (empty `HOME`,
+clean environment, ssh blocked, one macOS machine, Claude Code 2.1.294) cloned it over HTTPS on its
+own, installed the plugin and ran `/ctk-doctor` through `claude -p`. That run did not call a model and
+did not type `/plugin install` interactively; see [LIMITATIONS](LIMITATIONS.md#the-native-install).
 
 ## One-time setup: Agent Teams
 
@@ -594,7 +595,7 @@ What the code does for Windows, and what has and has not been tested:
   `"`, `$`, a backtick or `%` is refused. This is from the code and its comments; it was not run
   on Windows.
 - CTK's tests and the plugin validation and plugin test jobs ran on `windows-latest` in GitHub
-  Actions and passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), 2026-10-09). That is automated coverage only.
+  Actions and passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), 2026-10-09). That is automated coverage only.
 - **Not verified interactively:** a real `ctk install`, the mod, or `/ctk:team` on native Windows,
   Windows Terminal, VS Code's terminal, or WSL.
 - WSL: install CTK and Claude Code inside the Linux distribution and keep

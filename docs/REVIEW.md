@@ -338,8 +338,17 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **Live evidence:** `/ctk-doctor` and `/ctk-stats` through `claude -p` in scratch directories, with and
   without the teams flag, on a native install from the GitHub repository at commit 70fc90a, including
   the cap row `cap: 2 live teammates (set in plugin options)` after `--config maxWorkers=2`.
-- **Not verified:** a native install by someone other than the owner from a *public* repository. The
-  repository was private during testing and the add worked through the tester's own ssh credentials.
+- **Stranger-style install (public repository):** verified on one macOS machine, Claude Code 2.1.294,
+  scratch config with an empty `HOME`, a clean environment, `GIT_CONFIG_GLOBAL=/dev/null` and ssh blocked
+  (`GIT_SSH_COMMAND=/usr/bin/false`; `git ls-remote` over ssh failed, over https worked).
+  `claude plugin marketplace add tc3oliver/claude-team-kit` cloned over HTTPS on its own (Claude Code
+  falls back from the ssh URL), `claude plugin install ctk@ctk-kit` succeeded (3 skills, 4 agents,
+  about 187 tokens always-on, cache at commit b1594d3) and `claude -p "/ctk-doctor"` ran with no model
+  call: mod active, cap 3 (default), one `[action]` row (agent teams not enabled, with the exact fix).
+  Scope: one machine, one Claude Code version, no model call; `/plugin install` typed in an interactive
+  session was not exercised (the CLI form was). An earlier attempt of this test was invalid: macOS ssh
+  still authenticated through the system agent despite an empty `HOME`. A negative-credential test must
+  prove that the credential path is closed.
 
 ### 5.7 Windows and WSL fallback
 
@@ -356,7 +365,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **Untested:** everything that needs Windows or WSL to run: real `ctk install`, the `.cmd` shim
   path, Git Bash handling of the status line command, the mod under Windows Terminal or VS Code,
   WSL behaviour (mods are reported unsupported there; `ctk install` decides by version only and does
-  not detect WSL for this). `UNVERIFIED`. CI on `windows-latest` passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991)); that is automated coverage only.
+  not detect WSL for this). `UNVERIFIED`. CI on `windows-latest` passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745)); that is automated coverage only.
 
 ### 5.8 Status line git-config gate
 
@@ -420,14 +429,14 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |
 | Real `claude` 2.1.294, macOS: install, idempotent re-install, doctor, rollback, uninstall, re-point, disabled plugin, edited script/options | PASS | run in scratch config directories (see section 4 to repeat) |
 | Mod loads in `claude -p "/ctk-stats"` | PASS | output printed; also with OMC installed beside it |
-| Native install from the GitHub repository (private, via the tester's ssh credentials) in a scratch config: marketplace add, plugin install, `/ctk-doctor`, `/ctk-stats`, `ctk install` over it, `ctk update`, `ctk uninstall`, native removal | PASS | commands and output in [INSTALLATION](INSTALLATION.md) and [ROLLBACK](ROLLBACK.md); plugin cache about 160 KB |
+| Native install from the GitHub repository (tested while it was private, via the tester's ssh credentials) in a scratch config: marketplace add, plugin install, `/ctk-doctor`, `/ctk-stats`, `ctk install` over it, `ctk update`, `ctk uninstall`, native removal | PASS | commands and output in [INSTALLATION](INSTALLATION.md) and [ROLLBACK](ROLLBACK.md); plugin cache about 160 KB |
 | Native install with the local repository directory as the marketplace | PASS | `test/native-install.integration.test.ts` (real `claude`) |
-| Native install of a **public** repository by someone other than the owner | **UNVERIFIED** | until the repository is public |
+| Native install of the public repository by a stranger (empty `HOME`, clean environment, ssh blocked) | PASS, narrow scope | one macOS machine, Claude Code 2.1.294, CLI form, no model call, `/plugin install` not typed interactively; details in 5.6a |
 | `/plugin configure ctk@ctk-kit` (interactive) and a real version bump through `/plugin update` | UNVERIFIED | `--config KEY=VALUE` at install was run |
 | npm tarball install (`--prefix`) and install from it | PASS | `npm pack`, `npm install --prefix`, `ctk install`, plugin loaded |
 | Documentation consistency | PASS | `test/docs.test.ts`, part of `npm test` |
 | Mutation checks | PARTIAL | 38 single-line mutations: 36 KILLED, 2 SURVIVED (5.8: the `GIT_EXTERNAL_DIFF` half of the scrub, a guard that cannot be observed; the `core.fsmonitor=false` override, defence in depth behind the repo-config gate). Three earlier survivors (5.1 early reservation, 5.5 `ext` transport, 5.8 `GIT_DIR` scrub) were pinned by new tests and re-run: now killed. |
-| CI on GitHub, commit f4b9a13: tests on ubuntu, macos and windows x Node 22 and 24; plugin validate `--strict` and plugin test on ubuntu, macos and windows; pack audit | PASS (10 of 10 jobs, 2026-10-08 UTC) | [https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991). Earlier runs failed on Windows and found real bugs (section 5a). The repository was private during these runs; they used GitHub-hosted runners only, with Claude Code from npm `latest` at the time. |
+| CI on GitHub, commit b1594d3 (the final README commit): tests on ubuntu, macos and windows x Node 22 and 24; plugin validate `--strict` and plugin test on ubuntu, macos and windows; pack audit | PASS (10 of 10 jobs) | [https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745). Earlier runs for 0aaa9a0, 70fc90a and 4297975 also passed, after the move to `plugins/ctk`; the first Windows runs failed and found real bugs (section 5a), run [37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991) was the first green one. GitHub-hosted runners only, with Claude Code from npm `latest` at the time. |
 | Hard cap against real concurrent spawns | UNVERIFIED (independently) | Reported by the maintainers: 6 concurrent, 3 started, 3 refused, on 2.1.294; simulated-host tests pass |
 | `/ctk:team` on a real task with live agents | UNVERIFIED | skill text and cap checked separately |
 | `/ctk:review`, `/ctk:debug` on real changes | UNVERIFIED | validated as plugin components only |
@@ -452,8 +461,6 @@ must stay in place.
 ## 8. Unresolved issues
 
 - Two mutation survivors (section 5.8) have no test, for the reasons given there.
-- The CI run in section 6 is for commit f4b9a13. It predates the move to `plugins/ctk`, the native install
-  and this round of changes; a later run is not recorded here.
 - `ctk doctor`'s onboarding check passes after `ctk install` on a directory where `claude` was
   never launched (any `claude plugin` command creates `.claude.json`).
 - The next-step lines (`Try: /ctk:team <goal>`) print after a no-change install even when the
