@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { DEFAULT_EFFORT, DEFAULT_OPTIONS, ROLES, type PolicyOptions, type Role } from '../../plugin/ctk/shared/policy.ts'
+import { DEFAULT_OPTIONS, type PolicyOptions } from '../../plugin/ctk/shared/policy.ts'
 import { deepMerge, type JsonObject } from './jsonx.ts'
 
 export const PROFILE_SCHEMA_VERSION = 1
@@ -14,8 +14,9 @@ export const PORTABLE_SETTINGS_KEYS = ['model', 'effortLevel', 'teammateMode', '
 export type PortableSettingsKey = (typeof PORTABLE_SETTINGS_KEYS)[number]
 
 const model = z.string().min(1).max(100)
-const effort = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
-const roleSchema = z.strictObject({ model, effort })
+// Models only: reasoning effort per role comes from the agent frontmatter (plugin/ctk/agents/),
+// because Claude Code's spawn hook can set a model but not an effort.
+const roleSchema = z.strictObject({ model })
 
 /** Complete profile: what `effective` resolves to. */
 export const profileSchema = z.strictObject({
@@ -40,7 +41,7 @@ export const profileSchema = z.strictObject({
 export type Profile = z.infer<typeof profileSchema>
 
 /** A layer (user profile file or device override) is any subset of a profile. */
-const partialRole = z.strictObject({ model: model.optional(), effort: effort.optional() })
+const partialRole = z.strictObject({ model: model.optional() })
 export const profileLayerSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION).optional(),
   team: z.strictObject({ maxWorkers: profileSchema.shape.team.shape.maxWorkers.optional() }).optional(),
@@ -64,10 +65,10 @@ export const DEFAULT_PROFILE: Profile = {
   schemaVersion: PROFILE_SCHEMA_VERSION,
   team: { maxWorkers: DEFAULT_OPTIONS.maxWorkers },
   routing: {
-    explorer: { model: DEFAULT_OPTIONS.explorerModel, effort: DEFAULT_EFFORT.explorer as Profile['routing']['explorer']['effort'] },
-    implementer: { model: DEFAULT_OPTIONS.implementerModel, effort: DEFAULT_EFFORT.implementer as Profile['routing']['implementer']['effort'] },
-    reviewer: { model: DEFAULT_OPTIONS.reviewerModel, effort: DEFAULT_EFFORT.reviewer as Profile['routing']['reviewer']['effort'] },
-    highRisk: { model: DEFAULT_OPTIONS.highRiskModel, effort: DEFAULT_EFFORT.highRisk as Profile['routing']['highRisk']['effort'] },
+    explorer: { model: DEFAULT_OPTIONS.explorerModel },
+    implementer: { model: DEFAULT_OPTIONS.implementerModel },
+    reviewer: { model: DEFAULT_OPTIONS.reviewerModel },
+    highRisk: { model: DEFAULT_OPTIONS.highRiskModel },
   },
   hud: { band: DEFAULT_OPTIONS.hudBand, statusLine: 'auto' },
   stats: { record: DEFAULT_OPTIONS.recordStats },
@@ -108,5 +109,3 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   hudBand: p.hud.band,
   recordStats: p.stats.record,
 })
-
-export const roles: readonly Role[] = ROLES

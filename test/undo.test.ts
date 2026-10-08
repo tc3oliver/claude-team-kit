@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { runConfig } from '../src/cli/commands/config.ts'
+import { sha256 } from '../src/core/fsx.ts'
 import { loadLedger, saveLedger } from '../src/core/ledger.ts'
 import { saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
-import { rollback, uninstall } from '../src/install/undo.ts'
+import { isInside, rollback, uninstall } from '../src/install/undo.ts'
 import { makeEnv, mutating, readJson, snapshot, writeJson } from './helpers.ts'
 
 const flags = { statusline: true, enableTeams: true }
@@ -34,9 +35,37 @@ test('uninstall restores settings, removes plugin/marketplace/ctk dir, keeps bac
   assert.ok(readdirSync(e.ctx.paths.backupsDir).length >= 2)
 })
 
-test('uninstall leaves a marketplace it did not add, and keys the user edited after install', async t => {
+test('uninstall: an option the user edited goes with the plugin, reported honestly and without a conflict', async t => {
   const e = makeEnv(t)
-  await runInstall(e.ctx, flags, e.root) // registers the marketplace
+  await runInstall(e.ctx, flags, e.root)
+  const s = readJson(e.ctx.paths.settings)
+  s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers = 8
+  writeJson(e.ctx.paths.settings, s)
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.deepEqual(r.report.conflicts, [])
+  const note = r.report.notes.find(n => n.startsWith('/pluginConfigs/ctk@ctk-kit/options/maxWorkers'))
+  assert.match(note ?? '', /removed with the plugin by Claude Code \(your value 8 is kept in backup \S+\)/)
+  const id = /kept in backup (\S+)\)/.exec(note ?? '')?.[1] as string
+  const kept = readJson(join(e.ctx.paths.backupsDir, id, 'files', '0'))
+  assert.equal(kept.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 8)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs?.['ctk@ctk-kit'], undefined)
+})
+
+test('uninstall: a real conflict on a key outside the plugin config still exits 2', async t => {
+  const e = makeEnv(t)
+  saveUserLayer(e.ctx.paths, { portable: { settings: { model: 'opus' } } })
+  await runInstall(e.ctx, flags, e.root)
+  writeJson(e.ctx.paths.settings, { ...readJson(e.ctx.paths.settings), model: 'mine' })
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 2)
+  assert.deepEqual(r.report.conflicts.map(c => c.key), ['/model'])
+  assert.equal(readJson(e.ctx.paths.settings).model, 'mine')
+})
+
+test('rollback with a pre-existing plugin (not uninstalled by ctk) leaves an edited option in place as a conflict', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
   const { rmSync } = await import('node:fs')
   rmSync(e.ctx.paths.ctk, { recursive: true, force: true })
   const fresh = readJson(e.ctx.paths.settings)
@@ -47,13 +76,26 @@ test('uninstall leaves a marketplace it did not add, and keys the user edited af
   const s = readJson(e.ctx.paths.settings)
   s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers = 8
   writeJson(e.ctx.paths.settings, s)
-  const r = await uninstall(e.ctx)
+  const r = await rollback(e.ctx)
   assert.equal(r.code, 2)
   assert.deepEqual(r.report.conflicts.map(c => c.key), ['/pluginConfigs/ctk@ctk-kit/options/maxWorkers'])
-  const after = readJson(e.ctx.paths.settings)
-  assert.deepEqual(after.pluginConfigs, { 'ctk@ctk-kit': { options: { maxWorkers: 8 } } })
-  assert.equal(after.statusLine, undefined)
-  assert.equal(registry(e).marketplaces.length, 1)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 8)
+  assert.equal(registry(e).plugins.length, 1, 'plugin not uninstalled')
+})
+
+test('rollback notes each rolled-back key a profile layer still sets, and leaves profile.json alone', async t => {
+  const e = makeEnv(t)
+  saveUserLayer(e.ctx.paths, { team: { maxWorkers: 5 }, portable: { settings: { model: 'opus' } } })
+  await runInstall(e.ctx, flags, e.root)
+  const profileBefore = snapshot(e.ctx.paths.ctk)['/profile.json']
+  const r = await rollback(e.ctx)
+  assert.equal(r.code, 0)
+  const notes = r.report.notes.filter(n => n.startsWith('profile layer still sets'))
+  assert.deepEqual(notes.sort(), [
+    'profile layer still sets portable.settings.model; run `ctk config unset portable.settings.model` or the next update/config will re-apply it',
+    'profile layer still sets team.maxWorkers; run `ctk config unset team.maxWorkers` or the next update/config will re-apply it',
+  ])
+  assert.equal(snapshot(e.ctx.paths.ctk)['/profile.json'], profileBefore)
 })
 
 test('uninstall --dry-run writes nothing', async t => {
@@ -157,4 +199,64 @@ test('a corrupt ledger is reported, not replaced', async t => {
   writeFileSync(e.ctx.paths.ledger, '{"schemaVersion": 2}')
   await assert.rejects(rollback(e.ctx), /invalid ledger/)
   await assert.rejects(runInstall(e.ctx, flags, e.root), /invalid ledger/)
+})
+
+test('a failed plugin uninstall keeps the ledger and ctk dir; a re-run completes', async t => {
+  const e = makeEnv(t, {}, { STUB_FAIL: 'uninstall' })
+  await runInstall(e.ctx, flags, e.root)
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 2)
+  assert.ok(r.report.conflicts.some(c => c.key === 'plugin'))
+  assert.ok(existsSync(e.ctx.paths.ledger), 'ledger kept')
+  assert.ok(existsSync(e.ctx.paths.statusline), 'nothing wiped')
+  assert.equal(registry(e).plugins.length, 1)
+  const env = { ...e.ctx.env }
+  delete env.STUB_FAIL
+  const again = await uninstall({ ...e.ctx, env })
+  assert.equal(again.code, 0, JSON.stringify(again.report))
+  assert.deepEqual(registry(e).plugins, [])
+  assert.deepEqual(readdirSync(e.ctx.paths.ctk), ['backups'])
+})
+
+test('uninstall keeps the device layer and the sync clone and says where they are', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  writeJson(e.ctx.paths.deviceFile(e.ctx.device), { schemaVersion: 1, team: { maxWorkers: 2 } })
+  mkdirSync(e.ctx.paths.syncRepo, { recursive: true })
+  writeFileSync(join(e.ctx.paths.syncDir, 'config.json'), '{}')
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 0)
+  assert.deepEqual(readdirSync(e.ctx.paths.ctk).sort(), ['backups', 'devices', 'sync'])
+  assert.ok(existsSync(e.ctx.paths.deviceFile(e.ctx.device)))
+  assert.ok(r.report.notes.some(n => n.includes(e.ctx.paths.syncDir) && /kept/.test(n)))
+  assert.ok(r.report.notes.some(n => n.includes(e.ctx.paths.devicesDir)))
+})
+
+test('uninstall removes the status line script only if it is still what CTK wrote', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  writeFileSync(e.ctx.paths.statusline, '// mine\n')
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 2)
+  assert.deepEqual(r.report.conflicts.map(c => c.key), [e.ctx.paths.statusline])
+  assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// mine\n')
+  assert.ok(existsSync(e.ctx.paths.ledger))
+})
+
+test('path-prefix checks compare whole segments: a sibling named like the ctk dir is not inside it', async t => {
+  assert.equal(isInside('/c/ctk', '/c/ctk/bin/x'), true)
+  assert.equal(isInside('/c/ctk', '/c/ctk-extra/x'), false)
+  assert.equal(isInside('/c/ctk', '/c/ctk'), false)
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const sibling = join(e.ctx.configDir, 'ctk-extra', 'f.txt')
+  mkdirSync(join(e.ctx.configDir, 'ctk-extra'), { recursive: true })
+  writeFileSync(sibling, 'x')
+  const ledger = loadLedger(e.ctx)
+  assert.ok(ledger)
+  ledger.entries.push({ kind: 'file', path: sibling, sha256: sha256('x'), priorSha256: null })
+  saveLedger(e.ctx, ledger)
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.ok(!existsSync(sibling), 'the sibling file was reverted like any other recorded file')
 })

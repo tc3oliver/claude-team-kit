@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'claude-code/testing'
 
+import { STATUS_TOOL } from '../hooks/team.ts'
 import { engine, fresh, spawnInput } from './world.ts'
 
 const STATS = '/cfg/ctk/stats/sess_1.json'
-const STATUS_TOOL = 'mcp__ctk__ctk_team_status'
 
 const END = { reason: 'other', sessionId: 'sess/1' } as never
 
@@ -125,6 +125,52 @@ describe('verified acceptance and stats', () => {
     const r = await $.agent.spawn(spawnInput(0))
     expect(r.deny).toBeUndefined()
     expect(w.started).toBe(1)
+  })
+})
+
+describe('session.start again (enable, respawn, reload)', () => {
+  const START = { cwd: '/w', surface: null, isInteractive: false } as const
+
+  test('counters continue from the stats file', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    await $.session.start(START)
+    for (let i = 0; i < 4; i++) await $.agent.spawn(spawnInput(i))
+    await $.classic.TaskCreated({ task_id: '1', task_subject: 'a' })
+    await $.session.end(END)
+    const startedAt = written(w).startedAt
+    await $.session.start(START)
+    const out = await $.command.run({ command: 'ctk-stats', args: '' } as never)
+    expect(out.text).toContain('teammate spawns: 3 accepted, 1 refused at capacity')
+    expect(out.text).toContain('tasks created/completed: 1/0')
+    await $.session.end(END)
+    expect(written(w).startedAt).toBe(startedAt)
+  })
+
+  for (const [label, text] of [
+    ['another session', JSON.stringify({ schemaVersion: 1, sessionId: 'other', spawnsAccepted: 9, spawnsRejected: 9 })],
+    ['a broken file', '{not json'],
+  ] as const) {
+    test(`a stats file of ${label} is ignored`, async ($, on) => {
+      const w = fresh()
+      w.files.set(STATS, text)
+      engine(on, w)
+      await $.session.start(START)
+      const out = await $.command.run({ command: 'ctk-stats', args: '' } as never)
+      expect(out.text).toContain('teammate spawns: 0 accepted, 0 refused at capacity')
+    })
+  }
+
+  test('a failed write is retried by the forced write at session end', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    w.failWrites = true
+    await $.session.start(START)
+    await $.agent.spawn(spawnInput(0))
+    expect(w.files.size).toBe(0)
+    w.failWrites = false
+    await $.session.end(END)
+    expect(written(w).spawnsAccepted).toBe(1)
   })
 })
 

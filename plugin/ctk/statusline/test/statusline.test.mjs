@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,8 +53,8 @@ test('API-key payload without rate_limits', () => {
 })
 
 test('empty object and nulls', () => {
-  assert.equal(render({}), '? · ctx – · 5h – · 7d – · – · –')
-  assert.equal(render({ context_window: { used_percentage: null } }), '? · ctx – · 5h – · 7d – · – · –')
+  assert.equal(render({}), '– · ctx – · 5h – · 7d – · – · –')
+  assert.equal(render({ context_window: { used_percentage: null } }), '– · ctx – · 5h – · 7d – · – · –')
 })
 
 test('effort is shown after the model when present', () => {
@@ -158,6 +158,54 @@ for (const [label, stdin] of [['valid JSON', JSON.stringify(FULL)], ['garbage', 
     assert.equal(r.stdout.split('\n').filter(Boolean).length, 1)
   })
 }
+
+test('hostile repo config (fsmonitor) never runs and the branch still shows', t => {
+  const dir = makeRepo(t)
+  const marker = join(tempDir(t, 'ctk-sl-marker-'), 'PWNED')
+  git(dir, 'config', 'core.fsmonitor', `touch ${marker}; false`)
+  writeFileSync(join(dir, 'a.txt'), 'changed\n')
+  assert.equal(render(withDir(dir)).endsWith(' · main'), true)
+  assert.equal(existsSync(marker), false)
+})
+
+test('hostile repo config (filter driver) skips the dirty marker', t => {
+  const dir = makeRepo(t)
+  const marker = join(tempDir(t, 'ctk-sl-marker-'), 'PWNED')
+  git(dir, 'config', 'filter.x.clean', `touch ${marker}; cat`)
+  writeFileSync(join(dir, '.gitattributes'), 'a.txt filter=x\n')
+  writeFileSync(join(dir, 'a.txt'), 'changed\n')
+  assert.ok(render(withDir(dir)).endsWith(' · main'))
+  assert.equal(existsSync(marker), false)
+})
+
+test('hostile common config reached from a linked worktree skips the dirty marker', t => {
+  const dir = makeRepo(t)
+  const wt = join(tempDir(t, 'ctk-sl-wt-'), 'wt')
+  git(dir, 'worktree', 'add', '-q', '-b', 'feature-wt', wt)
+  git(dir, 'config', 'core.fsmonitor', 'false')
+  writeFileSync(join(wt, 'a.txt'), 'changed\n')
+  assert.ok(render(withDir(wt)).endsWith(' · feature-wt'))
+})
+
+test('oversized repo config skips the dirty marker', t => {
+  const dir = makeRepo(t)
+  appendFileSync(join(dir, '.git', 'config'), `# ${'x'.repeat(65 * 1024)}\n`)
+  writeFileSync(join(dir, 'a.txt'), 'changed\n')
+  assert.ok(render(withDir(dir)).endsWith(' · main'))
+})
+
+test('control characters from HEAD and input are stripped', t => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, '.git', 'HEAD'), 'ref: refs/heads/ma\x1b[31min\x07\n')
+  const line = render({ ...withDir(dir), model: { display_name: 'Op\x1b[2Jus' } })
+  assert.ok(line.startsWith('Op[2Jus · '))
+  assert.match(line, / · ma\[31min\*?$/)
+  assert.equal(/[\x00-\x1f\x7f-\x9f]/.test(line), false)
+})
+
+test('missing model prints a dash', () => {
+  assert.equal(render({ model: {} }).split(' · ')[0], '–')
+})
 
 test('process latency well under the 300 ms debounce', t => {
   const dir = makeRepo(t)

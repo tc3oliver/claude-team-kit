@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { main, type Io } from '../src/cli/index.ts'
@@ -57,10 +60,16 @@ test('install, config and uninstall through the router; install --dry-run writes
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs, undefined)
 })
 
-test('sync arguments are handed over after global options are removed', async t => {
+test('sync arguments are handed over after global options are removed; sync init --dry-run writes nothing', async t => {
   const e = makeEnv(t)
+  const remote = join(e.dir, 'remote.git')
+  assert.equal(spawnSync('git', ['init', '--bare', '-q', remote]).status, 0)
   const out: string[] = []
-  const code = await main(['sync', 'init', '--remote', '/x/y', '--config-dir', e.ctx.configDir, '--dry-run'], { out: l => out.push(l), err: l => out.push(l), env: e.ctx.env, cwd: e.dir })
-  // sync.ts may not exist yet in this build; either way the router must not crash
-  assert.ok(code === 0 || code === 1 || code === 2)
+  const code = await main(['sync', 'init', '--remote', remote, '--config-dir', e.ctx.configDir, '--dry-run', '--json'], { out: l => out.push(l), err: l => out.push(l), env: e.ctx.env, cwd: e.dir })
+  assert.equal(code, 0, out.join('\n'))
+  const doc = JSON.parse(out.join('\n'))
+  assert.equal(doc.command, 'sync init')
+  assert.equal(doc.status, 'dry-run')
+  assert.equal(doc.remote, remote)
+  assert.equal(existsSync(join(e.ctx.configDir, 'ctk', 'sync')), false)
 })

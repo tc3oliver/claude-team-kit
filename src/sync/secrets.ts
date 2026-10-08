@@ -18,9 +18,13 @@ export const shannon = (s: string): number => {
   return h
 }
 
-const KEYWORD = '(?:api[_-]?key|secret|token|password)'
-// Prose such as `token: use-the-keychain-instead` is not a credential: kebab or snake words only.
-const wordsOnly = (v: string) => /^[A-Za-z]+(?:[-_][A-Za-z]+)+$/.test(v)
+const KEYWORD = '(?:api[_-]?key|access[_-]?key|private[_-]?key|secret|token|passw(?:or)?d|pwd|auth|credential)'
+// Prose such as `token: use-the-keychain-instead` is not a credential: two or more lowercase words of 3+ letters.
+const wordsOnly = (v: string) => /^[a-z]{3,}(?:[-_][a-z]{3,})+$/.test(v)
+// Documentation placeholders after a keyword: `token: required`, `password: redacted`.
+const PLACEHOLDER = /^(?:required|optional|disabled|enabled|default|unset|redacted|example|placeholder|sensitive)$/i
+// `${VAR}`, `$VAR`, `<your-key>`, `{{ secret }}` and plain file paths are references, not values.
+const reference = (v: string) => /^(?:\$|<|\{\{|%)/.test(v) || /^(?:~|\.{1,2})?\/[\w.-]+(?:\/[\w.-]+)+$/.test(v)
 
 const RULES: Rule[] = [
   { id: 'anthropic-key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g },
@@ -46,9 +50,9 @@ const RULES: Rule[] = [
   },
   {
     id: 'generic-secret',
-    re: new RegExp(`${KEYWORD}["']?\\s*[:=]\\s*["']?([A-Za-z0-9/+_-]{16,})`, 'gi'),
+    re: new RegExp(`${KEYWORD}["']?\\s*[:=]\\s*["']?([^\\s"'\`]{8,})`, 'gi'),
     secret: 1,
-    skip: m => wordsOnly(m[1] ?? ''),
+    skip: m => wordsOnly(m[1] ?? '') || PLACEHOLDER.test(m[1] ?? '') || reference(m[1] ?? ''),
   },
 ]
 
@@ -58,7 +62,21 @@ const CANDIDATE = /[A-Za-z0-9+/_=-]{24,}/g
 // Lockfile style digests are public: npm/yarn/pnpm `sha512-<base64>`, go.sum `h1:<base64>`.
 const DIGEST = /\b(?:sha(?:1|256|384|512)-|h1:)[A-Za-z0-9+/=]+/g
 
-const looksRandom = (c: string) => /[A-Z]/.test(c) && /[a-z]/.test(c) && /\d/.test(c) && shannon(c) > ENTROPY_MIN
+const isHex = (c: string) => /^[0-9a-f]+$/i.test(c)
+const isBase32 = (c: string) => /^(?:[a-z2-7]+|[A-Z2-7]+)$/.test(c) && (c.match(/[2-7]/g)?.length ?? 0) >= 2 && /[a-zA-Z]/.test(c)
+
+/** Random-looking token. Hex is never judged on its own (git SHAs, digests); it needs a keyword or URL context. */
+const looksRandom = (c: string) => {
+  if (isHex(c)) return false
+  if (/[A-Z]/.test(c) && /[a-z]/.test(c) && /\d/.test(c) && shannon(c) > ENTROPY_MIN) return true
+  return c.length >= 32 && isBase32(c) && shannon(c) > 4
+}
+
+// A long hex or base32 segment in a URL path or query is a bearer token (webhooks, signed links),
+// unless the segment before it says it names a git object or digest.
+const URL_RE = /\bhttps?:\/\/[^\s"'<>)#]+/gi
+const OBJECT_SEGMENTS = new Set(['commit', 'commits', 'blob', 'blobs', 'tree', 'raw', 'compare', 'archive', 'sha', 'digest', 'objects'])
+const tokenSegment = (seg: string) => seg.length >= 32 && /\d/.test(seg) && /[a-zA-Z]/.test(seg) && (isHex(seg) || isBase32(seg))
 
 const DENIED_KEYS = new Set(['apikey', 'token', 'secret', 'password', 'credentials', 'authorization', 'refreshtoken', 'apikeyhelper', 'env'])
 const SUFFIXES = ['apikey', 'secret', 'password', 'token']
@@ -91,13 +109,22 @@ export const scanText = (file: string, text: string, opts: ScanOptions = {}): Fi
         add(rule.id, redact(m[rule.secret ?? 0] ?? m[0]), idx, idx + m[0].length)
       }
     }
+    for (const u of raw.matchAll(URL_RE)) {
+      const base = u.index ?? 0
+      const segs = [...u[0].replace(/^\w+:\/\/[^/?]*/, m => ' '.repeat(m.length)).matchAll(/[^/?&=;\s]+/g)]
+      segs.forEach((sg, i) => {
+        const prev = segs[i - 1]?.[0].toLowerCase() ?? ''
+        if (tokenSegment(sg[0]) && !OBJECT_SEGMENTS.has(prev)) add('url-token', redact(sg[0]), base + (sg.index ?? 0), base + (sg.index ?? 0) + sg[0].length)
+      })
+    }
     if (json) {
       for (const m of raw.matchAll(KEY_RE)) {
         const key = m[1] ?? ''
         if (isDeniedKey(key)) out.push({ file, line, rule: `denied-key:${key}`, preview: '' })
       }
     }
-    const masked = raw.replace(DIGEST, s => ' '.repeat(s.length))
+    // Digests are public, and a URL is judged one path segment at a time.
+    const masked = raw.replace(DIGEST, s => ' '.repeat(s.length)).replace(URL_RE, u => u.replace(/\//g, ' '))
     for (const m of masked.matchAll(CANDIDATE)) {
       const idx = m.index ?? 0
       if (m[0].length >= ENTROPY_LEN && looksRandom(m[0])) add('high-entropy', redact(m[0]), idx, idx + m[0].length)

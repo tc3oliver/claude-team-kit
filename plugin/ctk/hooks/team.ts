@@ -79,3 +79,24 @@ export const routed = (e: AgentSpawnInput, opts: PolicyOptions): AgentSpawnInput
   const model = modelFor(opts, role)
   return model === 'inherit' ? e : { ...e, model }
 }
+
+/** Full name Claude Code gives the status tool (`mcp__<plugin>__<name>`); the tool.call hook matches it. */
+export const STATUS_TOOL_NAME = 'ctk_team_status'
+export const STATUS_TOOL = `mcp__ctk__${STATUS_TOOL_NAME}`
+
+/** How long an accepted teammate stays counted while the roster has not listed it yet. */
+export const PENDING_TTL_MS = 10_000
+
+/**
+ * Live teammates for the cap: the roster's live ones plus accepted ones the roster has not
+ * listed yet (teammateId -> accepted-at ms). A listed one is dropped from `pending` and the
+ * roster's status governs from then on; an unlisted one is dropped after the TTL, so a
+ * teammate that finished instantly cannot hold a slot forever. Mutates `pending`.
+ */
+export const effectiveLive = (roster: AgentInfo[], pending: Map<string, number>, now: number): number => {
+  const listed = new Set(roster.flatMap(a => (a.teammateId === undefined ? [] : [a.teammateId])))
+  for (const [id, at] of pending) {
+    if (listed.has(id) || now - at >= PENDING_TTL_MS) pending.delete(id)
+  }
+  return roster.filter(isLiveTeammate).length + pending.size
+}

@@ -10,9 +10,15 @@ export const SKILL_EXTENSIONS = ['.md', '.txt', '.json', '.yaml', '.yml', '.mjs'
 export const MAX_SKILL_FILE_BYTES = 256 * 1024
 export const MAX_SKILL_FILES = 100
 
+const CONTROL = /[\x00-\x1f\x7f-\x9f]/
+const CONTROL_ALL = /[\x00-\x1f\x7f-\x9f]/g
+
+/** Remove terminal control characters from text that came from outside before it is printed. */
+export const stripControl = (s: string): string => s.replace(CONTROL_ALL, '')
+
 /** A repo-relative POSIX path with no traversal, no absolute or drive-letter form, no `.git` segment. */
 export const isSafeRelPath = (rel: string): boolean => {
-  if (rel === '' || rel.includes('\0') || rel.includes('\\') || rel.startsWith('/') || /^[A-Za-z]:/.test(rel)) return false
+  if (rel === '' || CONTROL.test(rel) || rel.includes('\\') || rel.includes(':') || rel.startsWith('/')) return false
   return rel.split('/').every(seg => seg !== '' && seg !== '.' && seg !== '..' && seg.toLowerCase() !== '.git')
 }
 
@@ -45,16 +51,17 @@ export const collectSkill = (dir: string, opts: { ignoreMarker?: boolean } = {})
       if (out.files.size > MAX_SKILL_FILES) return
       const r = rel === '' ? ent.name : `${rel}/${ent.name}`
       const full = join(abs, ent.name)
+      const shown = stripControl(r)
       if (rel === '' && ent.name === MANAGED_MARKER && opts.ignoreMarker) continue
-      if (ent.isSymbolicLink()) out.problems.push(`${r}: symlinks are not allowed`)
+      if (ent.isSymbolicLink()) out.problems.push(`${shown}: symlinks are not allowed`)
       else if (ent.isDirectory()) walk(full, r)
-      else if (!ent.isFile()) out.problems.push(`${r}: not a regular file`)
-      else if (!isSafeRelPath(r)) out.problems.push(`${r}: unsafe path`)
-      else if (!SKILL_EXTENSIONS.includes(extname(ent.name).toLowerCase())) out.problems.push(`${r}: extension not allowed`)
-      else if (lstatSync(full).size > MAX_SKILL_FILE_BYTES) out.problems.push(`${r}: larger than ${MAX_SKILL_FILE_BYTES / 1024} KiB`)
+      else if (!ent.isFile()) out.problems.push(`${shown}: not a regular file`)
+      else if (!isSafeRelPath(r)) out.problems.push(`${shown}: unsafe path`)
+      else if (!SKILL_EXTENSIONS.includes(extname(ent.name).toLowerCase())) out.problems.push(`${shown}: extension not allowed`)
+      else if (lstatSync(full).size > MAX_SKILL_FILE_BYTES) out.problems.push(`${shown}: larger than ${MAX_SKILL_FILE_BYTES / 1024} KiB`)
       else {
         const content = readFileSync(full, 'utf8')
-        if (content.includes('\0')) out.problems.push(`${r}: not a text file`)
+        if (content.includes('\0')) out.problems.push(`${shown}: not a text file`)
         else {
           out.files.set(r, content)
           out.hashes[r] = sha256(content)
@@ -79,4 +86,21 @@ export const isPlainPath = (root: string, rel: string): boolean => {
     }
   }
   return cur.startsWith(root + sep)
+}
+
+/**
+ * Null when every EXISTING component of `rel` under `root` is a regular directory or file.
+ * A missing component is fine (the caller will create it); a symlink anywhere on the way is not.
+ */
+export const symlinkOnPath = (root: string, rel: string): string | null => {
+  let cur = root
+  for (const seg of rel.split('/')) {
+    cur = join(cur, seg)
+    try {
+      if (lstatSync(cur).isSymbolicLink()) return seg
+    } catch {
+      return null
+    }
+  }
+  return null
 }

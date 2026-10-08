@@ -1,14 +1,11 @@
+import { DASH, fmtModels, pct, usd } from '../shared/format.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import type { Snapshot } from './team.ts'
 
-// Pure text for the AbovePrompt band and the /ctk-stats summary. A figure Claude Code
-// did not report renders as a dash, never as a guess.
-
-const DASH = '–'
+// Pure text for the AbovePrompt band and the /ctk-stats summary (figure formatting is in
+// shared/format.ts, which `ctk stats` uses too).
 
 const num = (v: number | null): string => (v === null ? DASH : String(v))
-const usd = (v: number | null): string => (v === null ? DASH : `$${v.toFixed(2)}`)
-const pct = (v: number | null): string => (v === null ? DASH : `${Math.round(v)}%`)
 
 export const fmtElapsed = (ms: number | null): string => {
   if (ms === null) return DASH
@@ -17,12 +14,6 @@ export const fmtElapsed = (ms: number | null): string => {
   const m = Math.floor(s / 60)
   return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 }
-
-export const fmtModels = (models: Record<string, number>): string =>
-  Object.keys(models)
-    .sort()
-    .map(m => `${m}×${models[m]}`)
-    .join(' ')
 
 export const truncate = (line: string, columns: number): string => {
   if (columns < 1) return ''

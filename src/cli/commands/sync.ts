@@ -3,9 +3,17 @@ import { parseArgs } from 'node:util'
 import { JsonParseError } from '../../core/fsx.ts'
 import { ProfileError } from '../../core/schema.ts'
 import { defaultDeps, syncInit, syncPublish, syncPull, syncResolve, syncStatus, type Outcome, type SyncDeps } from '../../sync/engine.ts'
-import { SyncError } from '../../sync/git.ts'
+import { stripControl } from '../../sync/files.ts'
+import { redactUrls, SyncError } from '../../sync/git.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import { emit } from '../report.ts'
+
+/** Anything printed may include text from the remote (file names, keys): drop terminal control characters. */
+const clean = (v: unknown): unknown =>
+  typeof v === 'string' ? redactUrls(stripControl(v)) : Array.isArray(v) ? v.map(clean) : v !== null && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [stripControl(k), clean(x)])) : v
+
+/** Multi-line messages (git output) are split first, so only deliberate line breaks survive. */
+const printable = (lines: string[]): string[] => lines.flatMap(l => l.split('\n')).map(l => redactUrls(stripControl(l)))
 
 const USAGE = `usage: ctk sync [pull]
        ctk sync init --remote <url|path> [--branch main]
@@ -56,11 +64,12 @@ export async function runSync(argv: string[], ctx: Ctx, deps: SyncDeps = default
       ctx.err(`error: unknown sync subcommand "${sub}"\n${USAGE}`)
       return EXIT.error
     }
-    return emit(c, { code: out.exit, data: { command: `sync ${sub}`, ...out.data }, lines: out.lines })
+    return emit(c, { code: out.exit, data: clean({ command: `sync ${sub}`, ...out.data }) as Record<string, unknown>, lines: printable(out.lines) })
   } catch (e) {
     if (e instanceof SyncError || e instanceof ProfileError || e instanceof JsonParseError) {
       const code = e instanceof SyncError ? e.exit : EXIT.error
-      return emit(c, { code, data: { command: `sync ${sub}`, error: e.message }, lines: [`error: ${e.message}`] })
+      const message = redactUrls(stripControl(e.message.replace(/\n/g, ' ')))
+      return emit(c, { code, data: { command: `sync ${sub}`, error: message }, lines: printable([`error: ${message}`]) })
     }
     throw e
   }

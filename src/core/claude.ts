@@ -75,7 +75,8 @@ export const claudeVersion = async (ctx: Ctx): Promise<string | null> => {
 }
 
 export type MarketplaceInfo = { name: string; path: string | null }
-export type PluginInfo = { id: string; version: string | null; enabled: boolean }
+/** `errors` are Claude's own load errors for the plugin, e.g. "Marketplace ctk-kit failed to load: cache-miss". */
+export type PluginInfo = { id: string; version: string | null; enabled: boolean; errors: string[] }
 
 const jsonArray = async (ctx: Ctx, args: string[]): Promise<Record<string, unknown>[]> => {
   const r = await runClaude(ctx, args)
@@ -101,6 +102,7 @@ export const listPlugins = async (ctx: Ctx): Promise<PluginInfo[]> =>
     id: String(p.id),
     version: typeof p.version === 'string' ? p.version : null,
     enabled: p.enabled === true,
+    errors: Array.isArray(p.errors) ? p.errors.map(String) : [],
   }))
 
 /** Run a mutating `claude plugin ...` command; throws with claude's own message on failure. */

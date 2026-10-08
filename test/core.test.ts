@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -92,4 +92,55 @@ test('paths: config dir precedence, device and profile names, posix paths', () =
   assert.ok(isValidProfileName('work_1') && !isValidProfileName('../x') && !isValidProfileName('A'))
   assert.equal(toPosix('C:\\Users\\a\\.claude\\ctk'), 'C:/Users/a/.claude/ctk')
   assert.ok(ctkPaths('/c').ledger.endsWith('ledger.json'))
+})
+
+test('writeFileAtomic keeps an existing file mode; new files and backups are owner-only', { skip: process.platform === 'win32' }, () => {
+  const d = tmp()
+  try {
+    const f = join(d, 'settings.json')
+    writeFileSync(f, '{}')
+    chmodSync(f, 0o640)
+    writeFileAtomic(f, '{"a":1}')
+    assert.equal(statSync(f).mode & 0o777, 0o640)
+    const g = join(d, 'new.json')
+    writeFileAtomic(g, 'x')
+    assert.equal(statSync(g).mode & 0o777, 0o600)
+    const m = createBackup(join(d, 'backups'), 'install', [f])
+    assert.equal(statSync(m.entries[0]!.backup!).mode & 0o777, 0o600)
+    assert.equal(statSync(join(d, 'backups', m.id)).mode & 0o777, 0o700)
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('writeFileAtomic writes through a symlink instead of replacing it', { skip: process.platform === 'win32' }, () => {
+  const d = tmp()
+  try {
+    const real = join(d, 'dotfiles-settings.json')
+    const link = join(d, 'settings.json')
+    writeFileSync(real, '{"a":1}')
+    symlinkSync(real, link)
+    writeFileAtomic(link, '{"a":2}')
+    assert.ok(lstatSync(link).isSymbolicLink())
+    assert.equal(readFileSync(real, 'utf8'), '{"a":2}')
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('two backups in the same millisecond do not collide', () => {
+  const d = tmp()
+  try {
+    const f = join(d, 's.json')
+    writeFileSync(f, 'one')
+    const at = new Date('2026-01-01T00:00:00.000Z')
+    const a = createBackup(join(d, 'backups'), 'sync-pull', [f], at)
+    writeFileSync(f, 'two')
+    const b = createBackup(join(d, 'backups'), 'sync-pull', [f], at)
+    assert.notEqual(a.id, b.id)
+    assert.equal(readFileSync(a.entries[0]!.backup!, 'utf8'), 'one')
+    assert.equal(readFileSync(b.entries[0]!.backup!, 'utf8'), 'two')
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
 })

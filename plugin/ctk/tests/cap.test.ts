@@ -125,3 +125,79 @@ describe('double-count window', () => {
     })
   }
 })
+
+describe('roster lags behind an accepted spawn', () => {
+  const seq = async ($: any, from: number, n: number) => {
+    const out = []
+    for (let i = 0; i < n; i++) out.push(await $.agent.spawn(spawnInput(from + i)))
+    return out
+  }
+
+  test('a teammate the roster has not listed yet still holds its slot', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { rosterLag: 50 })
+    await seq($, 0, 3)
+    const r = await $.agent.spawn(spawnInput(3))
+    expect(String(r.deny)).toMatch(/^TEAM_CAPACITY_REACHED: live=3 starting=0 max=3\./)
+    expect(w.started).toBe(3)
+    expect(w.peak).toBeLessThanOrEqual(3)
+  })
+
+  for (const lag of [1, 2, 3, 7]) {
+    test(`roster lags ${lag} list calls: sequential spawns never pass the cap`, async ($, on) => {
+      const w = fresh()
+      engine(on, w, undefined, { rosterLag: lag })
+      const results = await seq($, 0, 6)
+      expect(results.filter(r => r.deny === undefined).length).toBe(3)
+      expect(w.peak).toBeLessThanOrEqual(3)
+    })
+  }
+
+  test('once listed, the roster governs: a teammate listed as completed frees its slot', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { rosterLag: 50 })
+    await seq($, 0, 3)
+    w.agents[0]!.status = 'completed'
+    // Finished but not listed yet: the slot is held.
+    expect((await $.agent.spawn(spawnInput(3))).deny).toBeDefined()
+    // The roster lists it, as completed: the slot is free.
+    w.lag.delete(w.agents[0]!.teammateId as string)
+    expect((await $.agent.spawn(spawnInput(4))).deny).toBeUndefined()
+    expect((await $.agent.spawn(spawnInput(5))).deny).toBeDefined()
+  })
+
+  test('never listed within 10 s: the slot is released', async ($, on) => {
+    const w = fresh()
+    const clock = engine(on, w, undefined, { rosterLag: Number.POSITIVE_INFINITY })
+    await seq($, 0, 3)
+    expect((await $.agent.spawn(spawnInput(3))).deny).toBeDefined()
+    await clock.advance(9_000)
+    expect((await $.agent.spawn(spawnInput(3))).deny).toBeDefined()
+    await clock.advance(1_000)
+    expect((await $.agent.spawn(spawnInput(4))).deny).toBeUndefined()
+  })
+
+  for (const [label, delay] of [
+    ['instant', () => 0],
+    ['slow first', (n: number) => (n === 1 ? 40 : 1)],
+    ['pseudo-random', (n: number) => (n * 7919) % 31],
+  ] as const) {
+    test(`6 concurrent with a lagging roster, ${label}: exactly 3 start`, async ($, on) => {
+      const w = fresh()
+      engine(on, w, delay, { rosterLag: 12 })
+      await spawnSix($)
+      expect(w.started).toBe(3)
+      expect(w.peak).toBeLessThanOrEqual(3)
+    })
+  }
+
+  test('a spawn that is refused leaves nothing pending', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { rosterLag: 50 })
+    await seq($, 0, 3)
+    await seq($, 3, 3)
+    w.agents.forEach(a => (a.status = 'completed'))
+    w.lag.clear()
+    expect((await seq($, 6, 3)).every(r => r.deny === undefined)).toBe(true)
+  })
+})

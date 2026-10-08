@@ -27,7 +27,6 @@ test('layer order: defaults < user < device', () => {
   const eff = resolveEffective(user, device)
   assert.equal(eff.team.maxWorkers, 2)
   assert.equal(eff.routing.reviewer.model, 'haiku')
-  assert.equal(eff.routing.reviewer.effort, 'medium')
   assert.equal(eff.routing.implementer.model, 'sonnet')
 })
 
@@ -35,4 +34,6 @@ test('unknown and non-whitelisted keys are rejected', () => {
   assert.throws(() => parseLayer({ portable: { settings: { env: { A: '1' } } } }, 'x'))
   assert.throws(() => parseLayer({ credentials: {} }, 'x'))
   assert.throws(() => parseLayer({ team: { maxWorkers: 0 } }, 'x'))
+  // effort is not a profile field: it would be accepted and silently ignored
+  assert.throws(() => parseLayer({ routing: { reviewer: { effort: 'high' } } }, 'x'))
 })

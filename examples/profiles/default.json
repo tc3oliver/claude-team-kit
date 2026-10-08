@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "team": { "maxWorkers": 3 },
   "routing": {
-    "explorer": { "model": "haiku", "effort": "medium" },
-    "implementer": { "model": "sonnet", "effort": "medium" },
-    "reviewer": { "model": "sonnet", "effort": "medium" },
-    "highRisk": { "model": "opus", "effort": "high" }
+    "explorer": { "model": "haiku" },
+    "implementer": { "model": "sonnet" },
+    "reviewer": { "model": "sonnet" },
+    "highRisk": { "model": "opus" }
   },
   "hud": { "band": true, "statusLine": "auto" },
   "stats": { "record": true },

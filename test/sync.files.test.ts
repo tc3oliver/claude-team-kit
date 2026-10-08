@@ -9,7 +9,7 @@ import { registerCleanup, tmp } from './sync.helpers.ts'
 registerCleanup()
 
 test('whitelist: unsafe relative paths are rejected', () => {
-  for (const bad of ['', '/etc/passwd', '../x', 'a/../b', 'a/./b', 'a//b', 'C:/x', 'c:\\x', 'a\\b', '.git/config', 'a/.GIT/x', 'a\0b']) {
+  for (const bad of ['', '/etc/passwd', '../x', 'a/../b', 'a/./b', 'a//b', 'C:/x', 'c:\\x', 'a\\b', '.git/config', 'a/.GIT/x', 'a\0b', 'a:b.md', 'a/\x1b]0;x\x07.md', 'a\x85b.md', 'a\nb.md']) {
     assert.equal(isSafeRelPath(bad), false, JSON.stringify(bad))
   }
   for (const ok of ['SKILL.md', 'references/a.md', '.hidden/x.md', 'a/b/c.json']) assert.equal(isSafeRelPath(ok), true, ok)

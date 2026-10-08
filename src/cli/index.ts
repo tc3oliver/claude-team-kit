@@ -151,7 +151,8 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
         }
         default: {
           const r = await uninstall(ctx)
-          const lines = [`${ctx.dryRun ? 'would uninstall' : 'uninstalled'} ctk${r.removedDir ? ' (backups kept in ' + ctx.paths.backupsDir + ')' : ''}`, ...undoLines(r.report)]
+          const head = ctx.dryRun ? 'would uninstall ctk' : r.removedDir ? `uninstalled ctk (backups kept in ${ctx.paths.backupsDir})` : 'uninstall incomplete'
+          const lines = [head, ...undoLines(r.report)]
           return { code: r.code, data: { ...r.report, removedDir: r.removedDir }, lines }
         }
       }

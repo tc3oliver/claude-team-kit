@@ -51,7 +51,7 @@ jobs:
       - run: claude plugin validate . --strict
       - run: claude plugin test plugin/ctk
       - name: Always-on context budget
-        run: node scripts/measure-context.mjs --max 500
+        run: node scripts/measure-context.mjs 500
 
   pack:
     name: pack

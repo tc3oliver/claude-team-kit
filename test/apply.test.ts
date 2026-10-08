@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { loadLedger } from '../src/core/ledger.ts'
+import { loadLedger, saveLedger } from '../src/core/ledger.ts'
 import { DEFAULT_PROFILE, type Profile } from '../src/core/schema.ts'
-import { applyProfile, materializeSkills } from '../src/install/apply.ts'
+import { applyProfile } from '../src/install/apply.ts'
 import { isCtkStatusLine, statuslineCommand } from '../src/install/statusline.ts'
 import { makeEnv, readJson, snapshot, writeJson } from './helpers.ts'
 
@@ -92,57 +92,63 @@ test('the indentation and trailing newline of settings.json are kept', async t =
   assert.ok(!text.endsWith('\n'))
 })
 
-test('statusline command: forward slashes and quoting for win32-style paths', () => {
+test('statusline command, win32: forward slashes, double quotes, hostile characters refused', () => {
   assert.equal(
-    statuslineCommand('C:\\Program Files\\nodejs\\node.exe', 'C:\\Users\\Me Too\\.claude\\ctk\\bin\\ctk-statusline.mjs'),
+    statuslineCommand('C:\\Program Files\\nodejs\\node.exe', 'C:\\Users\\Me Too\\.claude\\ctk\\bin\\ctk-statusline.mjs', 'win32'),
     '"C:/Program Files/nodejs/node.exe" "C:/Users/Me Too/.claude/ctk/bin/ctk-statusline.mjs"',
   )
-  assert.equal(statuslineCommand('/usr/bin/node', '/home/a/.claude/ctk/bin/ctk-statusline.mjs'), '"/usr/bin/node" "/home/a/.claude/ctk/bin/ctk-statusline.mjs"')
-  assert.ok(isCtkStatusLine({ type: 'command', command: statuslineCommand('C:\\n\\node.exe', 'D:\\cfg\\ctk\\bin\\ctk-statusline.mjs') }))
+  for (const bad of ['C:\\a"b\\x.mjs', 'C:\\a$b\\x.mjs', 'C:\\a`b\\x.mjs', 'C:\\a%PATH%\\x.mjs']) {
+    assert.throws(() => statuslineCommand('C:\\n\\node.exe', bad, 'win32'), /cannot build a safe status line command/, bad)
+    assert.throws(() => statuslineCommand(bad, 'C:\\x.mjs', 'win32'), /cannot build/, bad)
+  }
+  assert.ok(isCtkStatusLine({ type: 'command', command: statuslineCommand('C:\\n\\node.exe', 'D:\\cfg\\ctk\\bin\\ctk-statusline.mjs', 'win32') }))
+})
+
+test('statusline command, POSIX: single-quoted, so spaces, $ and quotes in paths are inert', () => {
+  assert.equal(statuslineCommand('/usr/bin/node', '/home/a/.claude/ctk/bin/ctk-statusline.mjs', 'linux'), "'/usr/bin/node' '/home/a/.claude/ctk/bin/ctk-statusline.mjs'")
+  const script = "/home/it's $HOME/my dir/`id`/ctk/bin/ctk-statusline.mjs"
+  const cmd = statuslineCommand('/opt/n o/node', script, 'darwin')
+  assert.equal(cmd, "'/opt/n o/node' '/home/it'\\''s $HOME/my dir/`id`/ctk/bin/ctk-statusline.mjs'")
+  // a real shell must hand both paths back verbatim
+  const out = spawnSync('sh', ['-c', `printf '%s\\n' ${cmd}`], { encoding: 'utf8' }).stdout.split('\n')
+  assert.deepEqual(out.slice(0, 2), ['/opt/n o/node', script])
+  assert.ok(isCtkStatusLine({ type: 'command', command: cmd }))
+  assert.ok(isCtkStatusLine({ type: 'command', command: '"/n/node" "/x/ctk/bin/ctk-statusline.mjs"' }), 'older double-quoted form is still recognised')
   assert.ok(!isCtkStatusLine({ type: 'command', command: 'my-script' }))
   assert.ok(!isCtkStatusLine(undefined))
 })
 
-const skillRepo = (dir: string, files: Record<string, string>): string => {
-  const repo = join(dir, 'repo-skills')
-  for (const [rel, text] of Object.entries(files)) {
-    mkdirSync(join(repo, rel, '..'), { recursive: true })
-    writeFileSync(join(repo, rel), text)
-  }
-  return repo
-}
-
-test('materializeSkills copies with a marker, is idempotent, updates, and removes dropped skills', async t => {
+test('a key the user deleted after CTK wrote it stays deleted, is noted, and exits without conflict', async t => {
   const e = makeEnv(t)
-  const repo = skillRepo(e.dir, { 'a/SKILL.md': 'A1', 'a/references/x.md': 'X', 'b/SKILL.md': 'B' })
-  const r1 = await materializeSkills(e.ctx, ['a', 'b'], repo)
-  assert.deepEqual(r1.written, ['a', 'b'])
-  assert.ok(existsSync(join(e.ctx.paths.skillsDir, 'a', '.ctk-managed')))
-  assert.equal(readFileSync(join(e.ctx.paths.skillsDir, 'a', 'references', 'x.md'), 'utf8'), 'X')
-  const before = snapshot(e.ctx.configDir)
-  const r2 = await materializeSkills(e.ctx, ['a', 'b'], repo)
-  assert.deepEqual(r2.unchanged, ['a', 'b'])
-  assert.deepEqual(snapshot(e.ctx.configDir), before)
-  writeFileSync(join(repo, 'a', 'SKILL.md'), 'A2')
-  assert.deepEqual((await materializeSkills(e.ctx, ['a', 'b'], repo)).written, ['a'])
-  assert.equal(readFileSync(join(e.ctx.paths.skillsDir, 'a', 'SKILL.md'), 'utf8'), 'A2')
-  const r4 = await materializeSkills(e.ctx, ['a'], repo)
-  assert.equal(r4.removed.length, 1)
-  assert.ok(!existsSync(join(e.ctx.paths.skillsDir, 'b')))
+  await applyProfile(e.ctx, withModel('opus'))
+  const s = readJson(e.ctx.paths.settings)
+  delete s.model
+  writeJson(e.ctx.paths.settings, s)
+  const r = await applyProfile(e.ctx, withModel('opus'))
+  assert.deepEqual(r.conflicts, [])
+  assert.match(r.skipped.join('\n'), /\/model: removed by you since CTK wrote it; not re-added/)
+  assert.equal(readJson(e.ctx.paths.settings).model, undefined)
+  const entry = loadLedger(e.ctx)?.entries.find(x => x.kind === 'settings-key' && x.pointer === '/model')
+  assert.equal(entry?.kind === 'settings-key' && entry.owned, false)
+  const again = await applyProfile(e.ctx, withModel('opus'))
+  assert.equal(readJson(e.ctx.paths.settings).model, undefined)
+  assert.deepEqual(again.conflicts, [])
 })
 
-test('materializeSkills never touches a directory without the marker or a locally edited managed skill', async t => {
+test('a crash between the ledger save and the settings write is finished by the next run', async t => {
   const e = makeEnv(t)
-  const repo = skillRepo(e.dir, { 'mine/SKILL.md': 'repo', 'a/SKILL.md': 'A' })
-  mkdirSync(join(e.ctx.paths.skillsDir, 'mine'), { recursive: true })
-  writeFileSync(join(e.ctx.paths.skillsDir, 'mine', 'SKILL.md'), 'user')
-  const r = await materializeSkills(e.ctx, ['mine'], repo)
-  assert.equal(r.conflicts.length, 1)
-  assert.equal(readFileSync(join(e.ctx.paths.skillsDir, 'mine', 'SKILL.md'), 'utf8'), 'user')
-  await materializeSkills(e.ctx, ['a'], repo)
-  writeFileSync(join(e.ctx.paths.skillsDir, 'a', 'SKILL.md'), 'edited')
-  const r2 = await materializeSkills(e.ctx, [], repo)
-  assert.deepEqual(r2.removed, [], 'edited managed skill is not deleted')
-  assert.equal(readFileSync(join(e.ctx.paths.skillsDir, 'a', 'SKILL.md'), 'utf8'), 'edited')
-  assert.equal((await materializeSkills(e.ctx, ['../x'], repo)).conflicts.length, 1)
+  await applyProfile(e.ctx, profile())
+  // what a crash leaves: ledger says maxWorkers=5 (pending, settings still 3); settings.json untouched
+  const ledger = loadLedger(e.ctx)
+  assert.ok(ledger)
+  const ptr = '/pluginConfigs/ctk@ctk-kit/options/maxWorkers'
+  ledger.entries = ledger.entries.map(x => (x.kind === 'settings-key' && x.pointer === ptr ? { ...x, written: 5, pending: { value: 3 } } : x))
+  saveLedger(e.ctx, ledger)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  const r = await applyProfile(e.ctx, profile({ team: { maxWorkers: 5 } }))
+  assert.deepEqual(r.conflicts, [])
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
+  const entry = loadLedger(e.ctx)?.entries.find(x => x.kind === 'settings-key' && x.pointer === ptr)
+  assert.ok(entry?.kind === 'settings-key' && entry.owned && entry.pending === undefined && entry.written === 5)
+  assert.equal(loadLedger(e.ctx)?.entries.some(x => x.kind === 'settings-key' && x.pending !== undefined), false)
 })

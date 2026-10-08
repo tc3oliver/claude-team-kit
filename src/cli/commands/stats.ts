@@ -2,21 +2,18 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { readJsonIfExists } from '../../core/fsx.ts'
+import { DASH, fmtModels, pct, usd } from '../../../plugin/ctk/shared/format.ts'
 import { parseStats, type StatsRecord } from '../../../plugin/ctk/shared/stats.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 
-const dash = (v: number | null | undefined, f: (n: number) => string): string => (v === null || v === undefined ? '–' : f(v))
-const models = (m: Record<string, number>): string =>
-  Object.entries(m).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, n]) => `${k}×${n}`).join(' ') || '–'
-
 const countedLine = (r: Pick<StatsRecord, 'spawnsAccepted' | 'spawnsRejected' | 'spawnsFailedClosed' | 'peakLive' | 'workerModels' | 'tasks'>): string =>
   `spawns accepted ${r.spawnsAccepted}, rejected ${r.spawnsRejected}, guard-failed ${r.spawnsFailedClosed ?? 0}, peak live ${r.peakLive}; ` +
-  `tasks ${r.tasks ? `${r.tasks.created} created, ${r.tasks.completed} completed` : '–'}; models ${models(r.workerModels ?? {})}`
+  `tasks ${r.tasks ? `${r.tasks.created} created, ${r.tasks.completed} completed` : DASH}; models ${fmtModels(r.workerModels ?? {}) || DASH}`
 
 const measuredLine = (m: StatsRecord['measured'] | undefined): string =>
-  `cost ${dash(m?.costUsd, n => `$${n.toFixed(2)}`)}, context ${dash(m?.contextPct, n => `${Math.round(n)}%`)}, ` +
-  `5h limit ${dash(m?.fiveHourPct, n => `${Math.round(n)}%`)}, 7d limit ${dash(m?.sevenDayPct, n => `${Math.round(n)}%`)}`
+  `cost ${usd(m?.costUsd)}, context ${pct(m?.contextPct)}, ` +
+  `5h limit ${pct(m?.fiveHourPct)}, 7d limit ${pct(m?.sevenDayPct)}`
 
 /** Per-session and total figures from <config>/ctk/stats. Never shows a per-worker cost: Claude Code reports none. */
 export const runStats = (ctx: Ctx): Report => {

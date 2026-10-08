@@ -1,10 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto'
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -18,12 +20,28 @@ export const ensureDir = (dir: string): void => {
   mkdirSync(dir, { recursive: true })
 }
 
-/** Write via temp file + rename so a crash never leaves a half-written file. */
-export const writeFileAtomic = (path: string, data: string | Uint8Array, mode?: number): void => {
+/** Owner-only: settings can hold env values, and CTK state is nobody else's business. */
+const PRIVATE_FILE = 0o600
+const PRIVATE_DIR = 0o700
+
+/**
+ * Write via temp file + rename so a crash never leaves a half-written file.
+ * An existing file keeps its permission bits (a user's chmod 600 survives); a new file is 0600.
+ */
+export const writeFileAtomic = (requested: string, data: string | Uint8Array, mode?: number): void => {
+  // A symlinked file (e.g. settings.json kept in a dotfiles repo) is written through: the link stays a link.
+  let path = requested
+  try {
+    path = realpathSync(requested)
+  } catch {
+    // does not exist yet
+  }
   ensureDir(dirname(path))
   const tmp = `${path}.ctk-${randomBytes(4).toString('hex')}.tmp`
+  const keep = mode ?? (existsSync(path) ? statSync(path).mode & 0o777 : PRIVATE_FILE)
   try {
-    writeFileSync(tmp, data, mode === undefined ? undefined : { mode })
+    writeFileSync(tmp, data, { mode: keep })
+    chmodSync(tmp, keep) // writeFileSync's mode is masked by the umask
     renameSync(tmp, path)
   } catch (e) {
     rmSync(tmp, { force: true })
@@ -80,13 +98,17 @@ export type BackupManifest = { id: string; op: string; createdAt: string; entrie
  * Backups are never deleted by CTK.
  */
 export const createBackup = (backupsDir: string, op: string, files: string[], now = new Date()): BackupManifest => {
-  const id = `${now.toISOString().replace(/[:.]/g, '-')}-${op}`
+  // The random suffix keeps two backups taken in the same millisecond from overwriting each other.
+  const id = `${now.toISOString().replace(/[:.]/g, '-')}-${op}-${randomBytes(3).toString('hex')}`
   const root = join(backupsDir, id)
-  ensureDir(join(root, 'files'))
+  mkdirSync(join(root, 'files'), { recursive: true, mode: PRIVATE_DIR })
+  chmodSync(root, PRIVATE_DIR)
+  chmodSync(join(root, 'files'), PRIVATE_DIR)
   const entries: BackupEntry[] = files.map((path, i) => {
     if (!existsSync(path)) return { path, existed: false, backup: null, sha256: null }
     const dest = join(root, 'files', String(i))
     cpSync(path, dest)
+    chmodSync(dest, PRIVATE_FILE)
     return { path, existed: true, backup: dest, sha256: sha256(readFileSync(path)) }
   })
   const manifest: BackupManifest = { id, op, createdAt: now.toISOString(), entries }

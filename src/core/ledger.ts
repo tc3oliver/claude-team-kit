@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 
@@ -22,10 +22,15 @@ const settingsKeyEntry = z.strictObject({
   written: json,
   /** false = the key already held the desired value (or the user took it over): never removed by CTK. */
   owned: z.boolean(),
+  /**
+   * Set while a write is in flight (ledger saved before settings.json): the state settings.json may
+   * still be in if the process died in between. Cleared once the write succeeded.
+   */
+  pending: prior.optional(),
 })
 const fileEntry = z.strictObject({
   kind: z.literal('file'),
-  /** A file, or a managed skill directory (sha256 is then a hash of the whole tree). */
+  /** A file CTK wrote, with the hash of what it wrote. */
   path: z.string(),
   sha256: z.string(),
   priorSha256: z.string().nullable(),
@@ -108,8 +113,6 @@ export const loadLedger = (ctx: Ctx): Ledger | null => {
 export const saveLedger = (ctx: Ctx, ledger: Ledger): void => {
   writeJsonAtomic(ctx.paths.ledger, { ...ledger, ctkVersion: ctkVersion(), configDir: ctx.configDir })
 }
-
-export const ledgerExists = (ctx: Ctx): boolean => existsSync(ctx.paths.ledger)
 
 export const findEntry = <K extends LedgerEntry['kind']>(
   entries: LedgerEntry[],

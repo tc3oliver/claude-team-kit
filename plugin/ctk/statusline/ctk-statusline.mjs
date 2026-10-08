@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // ctk status line fallback: reads the status line JSON Claude Code writes to
-// stdin and prints one line. Reads only .git/HEAD and runs one `git status` for
-// the dirty marker. No network, no credentials, no transcript.
+// stdin and prints one line. Reads only .git/HEAD and the repo's git config
+// files, and runs one `git status` for the dirty marker. No network, no
+// credentials, no transcript.
 // Works where Mods do not render (WSL, `-p`, older builds).
 
 import { execFileSync } from 'node:child_process'
@@ -11,9 +12,19 @@ import { pathToFileURL } from 'node:url'
 
 const SEP = ' · '
 const BOLD = ['\x1b[1m', '\x1b[22m']
+const CONTROL = /[\x00-\x1f\x7f-\x9f]/g
+const CONFIG_LIMIT = 64 * 1024
+// A repo's own config can make git run commands (fsmonitor, filters, hooks, pagers, ...).
+// If any of these appear, skip the dirty marker; the branch is still shown.
+const UNSAFE_CONFIG =
+  /fsmonitor|\[\s*filter|\bfilter\.|hookspath|textconv|\[\s*include|\bpager\b|sshcommand|askpass|\[\s*alias|\beditor\s*=|\bexternal\s*=|\[\s*gpg|\bprogram\s*=|credential/i
 
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const pct = v => (v === null ? '–' : `${Math.round(v)}%`)
+const str = v => {
+  if (typeof v !== 'string') return null
+  return v.replace(CONTROL, '') || null
+}
 
 const elapsed = ms => {
   if (ms === null || ms < 0) return '–'
@@ -38,24 +49,53 @@ const headDir = dotGit => {
   return m ? resolve(dirname(dotGit), m[1].trim()) : null
 }
 
-const branchOf = dir => {
-  const dotGit = findDotGit(dir)
-  const gd = dotGit && headDir(dotGit)
+const branchOf = dotGit => {
+  const gd = headDir(dotGit)
   if (!gd) return null
   const head = readFileSync(join(gd, 'HEAD'), 'utf8').trim()
   const ref = /^ref:\s*(.+)$/.exec(head)
-  if (ref) return ref[1].replace(/^refs\/heads\//, '')
+  if (ref) return str(ref[1].replace(/^refs\/heads\//, ''))
   return /^[0-9a-f]{7,64}$/.test(head) ? head.slice(0, 7) : null
+}
+
+// Repo-local config that git would read for this worktree: the gitdir's own
+// config, config.worktree, and for a linked worktree the common dir's config.
+const repoConfigFiles = gd => {
+  const files = [join(gd, 'config'), join(gd, 'config.worktree')]
+  const common = join(gd, 'commondir')
+  if (existsSync(common)) files.push(join(resolve(gd, readFileSync(common, 'utf8').trim()), 'config'))
+  return files.filter(f => existsSync(f))
+}
+
+const repoConfigSafe = dotGit => {
+  const gd = headDir(dotGit)
+  if (!gd) return false
+  return repoConfigFiles(gd).every(f => statSync(f).size <= CONFIG_LIMIT && !UNSAFE_CONFIG.test(readFileSync(f, 'utf8')))
+}
+
+const gitEnv = () => {
+  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', GIT_TERMINAL_PROMPT: '0' }
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_EXTERNAL_DIFF']) delete env[k]
+  return env
 }
 
 const isDirty = dir => {
   try {
-    const out = execFileSync('git', ['--no-optional-locks', 'status', '--porcelain', '-uno'], {
-      cwd: dir,
-      timeout: 250,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf8',
-    })
+    const out = execFileSync(
+      'git',
+      [
+        '-c',
+        'core.fsmonitor=false',
+        '-c',
+        'core.hooksPath=',
+        '--no-optional-locks',
+        'status',
+        '--porcelain',
+        '-uno',
+        '--ignore-submodules=all',
+      ],
+      { cwd: dir, env: gitEnv(), timeout: 250, stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' },
+    )
     return out.trim() !== ''
   } catch {
     return false
@@ -64,9 +104,10 @@ const isDirty = dir => {
 
 const gitSegment = dir => {
   try {
-    const branch = branchOf(dir)
-    if (branch === null) return null
-    return branch + (isDirty(dir) ? '*' : '')
+    const dotGit = findDotGit(dir)
+    const branch = dotGit && branchOf(dotGit)
+    if (!branch) return null
+    return branch + (repoConfigSafe(dotGit) && isDirty(dir) ? '*' : '')
   } catch {
     return null
   }
@@ -96,9 +137,9 @@ export const render = (input, env = {}) => {
   const seven = num(rl.seven_day?.used_percentage)
   const cost = num(input?.cost?.total_cost_usd)
   const ms = num(input?.cost?.total_duration_ms)
-  const model = input?.model?.display_name ?? input?.model?.id ?? '?'
-  const effort = typeof input?.effort?.level === 'string' ? input.effort.level : ''
-  const dir = input?.workspace?.current_dir ?? input?.cwd
+  const model = str(input?.model?.display_name) ?? str(input?.model?.id) ?? '–'
+  const effort = str(input?.effort?.level) ?? ''
+  const dir = str(input?.workspace?.current_dir) ?? str(input?.cwd)
   const color = env.CTK_COLOR === '1'
   const cols = Number.parseInt(env.COLUMNS, 10)
 
@@ -110,7 +151,7 @@ export const render = (input, env = {}) => {
     { text: cost === null ? '–' : `$${cost.toFixed(2)}` },
     { text: elapsed(ms) },
   ]
-  const git = typeof dir === 'string' ? gitSegment(dir) : null
+  const git = dir === null ? null : gitSegment(dir)
   if (git !== null) segments.push({ text: git })
 
   const pieces = segments.flatMap((s, i) => (i ? [{ text: SEP }, s] : [s])).map(s => ({

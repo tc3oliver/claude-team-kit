@@ -13,13 +13,21 @@ export class SyncError extends Error {
   }
 }
 
+/** Variables that would redirect git away from the clone CTK passes as cwd. */
+const REDIRECTS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR', 'GIT_NAMESPACE', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT']
+
 /** `ext::` and friends run commands; only plain transports are allowed. */
-const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({
-  ...env,
-  GIT_TERMINAL_PROMPT: '0',
-  GIT_ALLOW_PROTOCOL: env.GIT_ALLOW_PROTOCOL ?? 'file:git:http:https:ssh',
-  LC_ALL: 'C',
-})
+const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
+  const out: NodeJS.ProcessEnv = { ...env }
+  for (const k of REDIRECTS) delete out[k]
+  return {
+    ...out,
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_LITERAL_PATHSPECS: '1',
+    GIT_ALLOW_PROTOCOL: env.GIT_ALLOW_PROTOCOL ?? 'file:git:http:https:ssh',
+    LC_ALL: 'C',
+  }
+}
 
 export const git = (cwd: string, args: string[], env: NodeJS.ProcessEnv): Promise<GitResult> =>
   new Promise(resolve => {
@@ -41,3 +49,9 @@ export const gitOk = async (cwd: string, args: string[], env: NodeJS.ProcessEnv)
   }
   return r.stdout
 }
+
+/** Hide `user:password@` and `token@` userinfo in any URL inside printed text. */
+export const redactUrls = (text: string): string =>
+  text
+    .replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@]*:[^\s/@]*@/gi, '$1***@')
+    .replace(/\b(https?:\/\/)[^\s/@]+@/gi, '$1***@')

@@ -15,6 +15,8 @@ const args = process.argv.slice(2)
 fs.appendFileSync(process.env.STUB_LOG, JSON.stringify(args) + '\\n')
 if (args[0] === '--version') { console.log((process.env.STUB_VERSION || '2.1.294') + ' (Claude Code)'); process.exit(0) }
 const cfg = process.env.CLAUDE_CONFIG_DIR
+// like the real binary, any plugin command creates <config>/.claude.json
+if (!fs.existsSync(path.join(cfg, '.claude.json'))) fs.writeFileSync(path.join(cfg, '.claude.json'), '{}')
 const dir = path.join(cfg, 'plugins')
 fs.mkdirSync(dir, { recursive: true })
 const stateFile = path.join(dir, 'stub-state.json')
@@ -41,7 +43,11 @@ if (sub === 'marketplace') {
     save(s); console.log(JSON.stringify({ outcome: 'ok' }))
   } else if (verb === 'remove') {
     state.marketplaces = state.marketplaces.filter((m) => m.name !== arg)
+    // like the real binary: removing a marketplace uninstalls its plugins and their saved options
+    const gone = state.plugins.filter((p) => p.id.endsWith('@' + arg)).map((p) => p.id)
+    state.plugins = state.plugins.filter((p) => !gone.includes(p.id))
     const s = readSettings(); if (s.extraKnownMarketplaces) delete s.extraKnownMarketplaces[arg]
+    for (const id of gone) { if (s.enabledPlugins) delete s.enabledPlugins[id]; if (s.pluginConfigs) delete s.pluginConfigs[id] }
     save(s); console.log(JSON.stringify({ outcome: 'ok' }))
   } else if (verb === 'update') console.log(JSON.stringify({ outcome: 'ok' }))
   else fail('stub: unsupported marketplace ' + verb)
@@ -56,7 +62,8 @@ else if (['install', 'uninstall', 'enable', 'update'].includes(sub)) {
     const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: true }; save(s)
   } else if (sub === 'uninstall') {
     state.plugins = state.plugins.filter((p) => p.id !== id)
-    const s = readSettings(); if (s.enabledPlugins) delete s.enabledPlugins[id]; save(s)
+    // like the real binary: the plugin's whole pluginConfigs entry goes with it
+    const s = readSettings(); if (s.enabledPlugins) delete s.enabledPlugins[id]; if (s.pluginConfigs) delete s.pluginConfigs[id]; save(s)
   } else if (sub === 'enable') {
     state.plugins = state.plugins.map((p) => (p.id === id ? { ...p, enabled: true } : p))
     const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: true }; save(s)
@@ -118,7 +125,7 @@ export const snapshot = (dir: string): Record<string, string> => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name)
       if (e.isDirectory()) walk(p)
-      else out[p.slice(dir.length)] = `${createHash('sha256').update(read(p)).digest('hex')}@${statSync(p).mtimeMs}`
+      else if (e.name !== '.claude.json') out[p.slice(dir.length)] = `${createHash('sha256').update(read(p)).digest('hex')}@${statSync(p).mtimeMs}`
     }
   }
   walk(dir)

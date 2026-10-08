@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { runClaude } from '../src/core/claude.ts'
 import { loadLedger } from '../src/core/ledger.ts'
+import { runUpdate } from '../src/install/update.ts'
 import { loadDeviceLayer, saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
 import { makeEnv, mutating, readJson, snapshot, writeJson } from './helpers.ts'
@@ -30,7 +32,7 @@ test('install writes plugin, statusline, owned keys and a ledger; keeps other se
   assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
   assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
   assert.equal(s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, '1')
-  assert.match(s.statusLine.command, /^".*node[^"]*" ".*\/ctk\/bin\/ctk-statusline\.mjs"$/)
+  assert.match(s.statusLine.command, /^'.*node[^']*' '.*\/ctk\/bin\/ctk-statusline\.mjs'$/)
   assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// statusline v1\n')
   const ledger = loadLedger(e.ctx)
   assert.ok(ledger)
@@ -129,11 +131,13 @@ test('--no-statusline and --no-enable-teams are honoured and remembered in the d
   assert.deepEqual(snapshot(e.ctx.configDir), again)
 })
 
-test('a marketplace registered from another path is a conflict and nothing changes', async t => {
+test('a marketplace someone else registered at a path that still exists is a conflict with the manual command, and nothing changes', async t => {
   const e = makeEnv(t)
+  mkdirSync(join(e.dir, 'elsewhere'))
   writeJson(join(e.ctx.configDir, 'plugins', 'stub-state.json'), { marketplaces: [{ name: 'ctk-kit', source: 'directory', path: join(e.dir, 'elsewhere'), installLocation: '' }], plugins: [] })
   const r = await runInstall(e.ctx, flags, e.root)
   assert.equal(r.code, 2)
+  assert.match(r.lines.join('\n'), /claude plugin marketplace remove ctk-kit.*and then "ctk install"/)
   assert.deepEqual(mutating(e.log()), [])
   assert.ok(!existsSync(e.ctx.paths.ledger))
 })
@@ -154,4 +158,126 @@ test('a claude failure mid-install is reported and the partial work is ledgered'
   assert.ok(ledger)
   assert.deepEqual(ledger.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: true, pluginInstalledByCtk: false })
   assert.equal(ledger.transactions.length, 1)
+})
+
+const bump = (root: string, script: string) => writeFileSync(join(root, 'plugin', 'ctk', 'statusline', 'ctk-statusline.mjs'), script)
+
+test('a status line script the user edited is never overwritten by install or update (exit 2)', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  writeFileSync(e.ctx.paths.statusline, '// mine\n')
+  bump(e.root, '// statusline v2\n')
+  const i = await runInstall(e.ctx, flags, e.root)
+  assert.equal(i.code, 2, i.lines.join('\n'))
+  assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// mine\n')
+  assert.deepEqual((i.data.conflicts as { pointer: string }[]).map(c => c.pointer), [e.ctx.paths.statusline])
+  const u = await runUpdate(e.ctx, e.root)
+  assert.equal(u.code, 2, u.lines.join('\n'))
+  assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// mine\n')
+  // an unedited script is still refreshed
+  writeFileSync(e.ctx.paths.statusline, '// statusline v1\n')
+  assert.equal((await runUpdate(e.ctx, e.root)).code, 0)
+  assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// statusline v2\n')
+})
+
+test('a plugin the user disabled stays disabled: install warns and does not enable it', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const stateFile = join(e.ctx.configDir, 'plugins', 'stub-state.json')
+  const state = readJson(stateFile)
+  state.plugins[0].enabled = false
+  writeJson(stateFile, state)
+  const calls = e.log().length
+  const r = await runInstall(e.ctx, flags, e.root)
+  assert.equal(r.code, 0)
+  assert.deepEqual(mutating(e.log().slice(calls)), [])
+  assert.equal(readJson(stateFile).plugins[0].enabled, false)
+  assert.match(r.lines.join('\n'), /installed but disabled; left disabled/)
+})
+
+test('options Claude deleted with an uninstalled plugin are re-added when install reinstalls it', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  await runClaude(e.ctx, ['plugin', 'uninstall', 'ctk@ctk-kit', '--scope', 'user', '--json'])
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'], undefined)
+  const r = await runInstall(e.ctx, flags, e.root)
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+})
+
+/** A second package location with the same content, as after moving the checkout. */
+const moved = (e: ReturnType<typeof makeEnv>, remove: boolean): string => {
+  const to = join(e.dir, 'pkg-moved')
+  cpSync(e.root, to, { recursive: true })
+  if (remove) rmSync(e.root, { recursive: true })
+  return to
+}
+const stubState = (e: ReturnType<typeof makeEnv>) => readJson(join(e.ctx.configDir, 'plugins', 'stub-state.json'))
+
+test('moved checkout, marketplace added by CTK: install re-points it in one transaction and keeps the ledger consistent', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const to = moved(e, false) // the old path still exists: CTK added the registration, so it may move it
+  const calls = e.log().length
+  const dry = await runInstall({ ...e.ctx, dryRun: true }, flags, to)
+  assert.match(dry.lines.join('\n'), /re-point from .*pkg to .*pkg-moved/)
+  assert.deepEqual(mutating(e.log().slice(calls)), [])
+  assert.equal(stubState(e).marketplaces[0].path, e.root)
+  const r = await runInstall(e.ctx, flags, to)
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.deepEqual(mutating(e.log().slice(calls)).map(c => c.slice(0, 4).join(' ')), ['plugin marketplace remove ctk-kit', 'plugin marketplace add ' + to, 'plugin install ctk@ctk-kit --scope'])
+  assert.equal(stubState(e).marketplaces[0].path, to)
+  assert.equal(stubState(e).plugins.length, 1)
+  const s = readJson(e.ctx.paths.settings)
+  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3, 'options Claude dropped with the plugin are written again')
+  assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
+  assert.deepEqual(loadLedger(e.ctx)?.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: true, pluginInstalledByCtk: true })
+  assert.equal(loadLedger(e.ctx)?.transactions.length, 2)
+  const before = snapshot(e.ctx.configDir)
+  assert.equal((await runInstall(e.ctx, flags, to)).code, 0)
+  assert.deepEqual(snapshot(e.ctx.configDir), before)
+})
+
+test('moved checkout, old path gone: install re-points even without a ledger', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  rmSync(e.ctx.paths.ctk, { recursive: true, force: true }) // no ledger: nothing says CTK added it
+  const to = moved(e, true)
+  const r = await runInstall(e.ctx, flags, to)
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.equal(stubState(e).marketplaces[0].path, to)
+  assert.equal(stubState(e).plugins.length, 1)
+})
+
+test('moved checkout, registration not added by CTK and old path still there: conflict, exit 2, nothing changes', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  rmSync(e.ctx.paths.ctk, { recursive: true, force: true })
+  const to = moved(e, false)
+  const calls = e.log().length
+  const r = await runInstall(e.ctx, flags, to)
+  assert.equal(r.code, 2)
+  assert.match(r.lines.join('\n'), /claude plugin marketplace remove ctk-kit/)
+  assert.deepEqual(mutating(e.log().slice(calls)), [])
+  assert.equal(stubState(e).marketplaces[0].path, e.root)
+})
+
+test('update from a moved checkout re-points too; a foreign registration stays a conflict', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const to = moved(e, true)
+  const u = await runUpdate(e.ctx, to)
+  assert.equal(u.code, 0, u.lines.join('\n'))
+  assert.equal(stubState(e).marketplaces[0].path, to)
+  assert.equal(stubState(e).plugins.length, 1)
+  assert.doesNotMatch(u.lines.join('\n'), /already up to date/)
+  assert.equal((await runUpdate(e.ctx, to)).code, 0)
+
+  const f = makeEnv(t)
+  await runInstall(f.ctx, flags, f.root)
+  rmSync(f.ctx.paths.ctk, { recursive: true, force: true })
+  const there = moved(f, false)
+  const r = await runUpdate(f.ctx, there)
+  assert.equal(r.code, 2)
+  assert.equal(stubState(f).marketplaces[0].path, f.root)
 })

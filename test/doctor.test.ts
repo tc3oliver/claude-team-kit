@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { runDoctor } from '../src/cli/commands/doctor.ts'
+import { saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
 import { makeEnv, readJson, writeJson } from './helpers.ts'
 
@@ -67,4 +68,54 @@ test('doctor fails when claude is missing', async t => {
   const r = await runDoctor(e.ctx)
   assert.equal(status(r, 'claude'), 'fail')
   assert.equal(r.code, 1)
+})
+
+test('doctor judges onboarding before any claude subprocess creates .claude.json', async t => {
+  const e = makeEnv(t)
+  const r = await runDoctor(e.ctx)
+  assert.equal(status(r, 'onboarding'), 'warn')
+  assert.match(r.lines.join('\n'), /not started yet/)
+  assert.ok(existsSync(join(e.ctx.configDir, '.claude.json')), 'the claude subprocess did create it meanwhile')
+  assert.equal(status(await runDoctor(e.ctx), 'onboarding'), 'pass')
+})
+
+test('doctor compares sync-marked skill directories with the profile skill list', async t => {
+  const e = makeEnv(t)
+  saveUserLayer(e.ctx.paths, { skills: ['alpha'] })
+  assert.equal(status(await runDoctor(e.ctx), 'skills'), 'warn', 'listed but not installed')
+  mkdirSync(join(e.ctx.paths.skillsDir, 'alpha'), { recursive: true })
+  writeFileSync(join(e.ctx.paths.skillsDir, 'alpha', '.ctk-managed'), 'x')
+  assert.equal(status(await runDoctor(e.ctx), 'skills'), 'pass')
+  mkdirSync(join(e.ctx.paths.skillsDir, 'stale'), { recursive: true })
+  writeFileSync(join(e.ctx.paths.skillsDir, 'stale', '.ctk-managed'), 'x')
+  mkdirSync(join(e.ctx.paths.skillsDir, 'mine'), { recursive: true })
+  const r = await runDoctor(e.ctx)
+  assert.equal(status(r, 'skills'), 'warn')
+  assert.match(r.lines.join('\n'), /not in the profile: stale/)
+  assert.ok(!r.lines.join('\n').includes('mine'))
+})
+
+test('doctor fails on Claude load errors and on a marketplace whose directory is gone', async t => {
+  const e = makeEnv(t)
+  writeFileSync(join(e.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(e.ctx, flags, e.root)
+  const stateFile = join(e.ctx.configDir, 'plugins', 'stub-state.json')
+  const state = readJson(stateFile)
+  state.plugins[0].errors = ['Marketplace ctk-kit failed to load: cache-miss']
+  writeJson(stateFile, state)
+  const r = await runDoctor(e.ctx)
+  assert.equal(r.code, 1)
+  assert.equal(status(r, 'plugin'), 'fail')
+  assert.equal(status(r, 'marketplace'), 'fail')
+  const text = r.lines.join('\n')
+  assert.match(text, /cache-miss/)
+  assert.match(text, /fix: run "ctk install" from the checkout you want to keep/)
+
+  const gone = makeEnv(t)
+  writeFileSync(join(gone.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(gone.ctx, flags, gone.root)
+  rmSync(gone.root, { recursive: true })
+  const g = await runDoctor(gone.ctx)
+  assert.equal(status(g, 'marketplace'), 'fail')
+  assert.match(g.lines.join('\n'), /which does not exist/)
 })

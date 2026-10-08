@@ -12,7 +12,7 @@ import { deepEqual, flatten, isObject, unflatten, type Json } from '../core/json
 import { isValidProfileName } from '../core/paths.ts'
 import { loadEffective, loadUserLayer, saveUserLayer } from '../core/profilestore.ts'
 import { parseLayer, PROFILE_SCHEMA_VERSION, type Profile, type ProfileLayer } from '../core/schema.ts'
-import { collectSkill, isPlainPath, isSafeRelPath, MANAGED_MARKER } from './files.ts'
+import { collectSkill, isPlainPath, isSafeRelPath, MANAGED_MARKER, stripControl, symlinkOnPath } from './files.ts'
 import { git, gitOk, SyncError } from './git.ts'
 import { merge3, type Conflict, type Flat } from './merge3.ts'
 import { formatFinding, scanFiles, scanText, type Finding } from './secrets.ts'
@@ -74,6 +74,7 @@ const loadConfig = (ctx: Ctx): SyncConfig | null => {
 const requireReady = (ctx: Ctx): SyncConfig => {
   const cfg = loadConfig(ctx)
   if (!cfg || !existsSync(join(repoOf(ctx), '.git'))) throw new SyncError('sync is not set up: run `ctk sync init --remote <url|path>`')
+  assertNoCredentials(cfg.remote)
   if (!isValidProfileName(ctx.profile)) throw new SyncError(`invalid profile name "${ctx.profile}"`)
   return cfg
 }
@@ -81,6 +82,12 @@ const requireReady = (ctx: Ctx): SyncConfig => {
 const requireClean = async (ctx: Ctx) => {
   const r = await runOk(ctx, ['status', '--porcelain'])
   if (r.trim() !== '') throw new SyncError(`the profile clone ${repoOf(ctx)} has uncommitted changes; CTK does not touch it until it is clean`)
+}
+
+/** Refuse a repo path that reaches through a symlink: reads and writes must stay inside the clone. */
+const requirePlain = (root: string, rel: string) => {
+  const seg = symlinkOnPath(root, rel)
+  if (seg !== null) throw new SyncError(`refusing ${stripControl(rel)}: "${stripControl(seg)}" is a symlink in the profile repo`)
 }
 
 const hasCommits = async (ctx: Ctx) => (await run(ctx, ['rev-parse', '-q', '--verify', 'HEAD'])).code === 0
@@ -111,8 +118,25 @@ const loadOurs = (ctx: Ctx): ProfileLayer | null => loadUserLayer(ctx.paths)
 const URLISH = /^[a-z][a-z0-9+.-]*:\/\//i
 const SCPISH = /^[\w.-]+@[\w.-]+:/
 
+const NO_CREDENTIALS = 'use a git credential helper or SSH keys instead'
+
+/** A remote URL is stored and printed as typed, so it must not carry a password or token. */
+const assertNoCredentials = (remote: string) => {
+  const m = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)@/i.exec(remote)
+  if (m) {
+    const userinfo = m[2] ?? ''
+    const web = /^https?$/i.test(m[1] ?? '')
+    if (userinfo.includes(':') || scanText('remote', userinfo).length > 0 || (web && /^[A-Za-z0-9_-]{20,}$/.test(userinfo) && /\d/.test(userinfo))) {
+      throw new SyncError(`the remote URL contains credentials; ${NO_CREDENTIALS}`)
+    }
+  } else if (!SCPISH.test(remote) && /^[^/\\]*:[^/\\]*@/.test(remote)) {
+    throw new SyncError(`the remote looks like it contains credentials; ${NO_CREDENTIALS}`)
+  }
+}
+
 const normalizeRemote = (remote: string, cwd: string): string => {
-  if (remote.startsWith('-') || /^[a-z0-9]+::/i.test(remote)) throw new SyncError(`unsupported remote "${remote}"`)
+  if (remote.startsWith('-') || /^[a-z0-9]+::/i.test(remote)) throw new SyncError('unsupported remote')
+  assertNoCredentials(remote)
   return URLISH.test(remote) || SCPISH.test(remote) ? remote : resolve(cwd, remote)
 }
 
@@ -170,10 +194,11 @@ type Incoming = { text: string; layer: ProfileLayer }
 const readIncoming = async (ctx: Ctx): Promise<Incoming | null> => {
   const repo = repoOf(ctx)
   if (!(await hasCommits(ctx))) return null
-  const marker = isPlainPath(repo, 'ctk-profile.json') ? readJsonIfExists<{ schemaVersion?: unknown }>(join(repo, 'ctk-profile.json')) : null
+  requirePlain(repo, 'ctk-profile.json')
+  const marker = readJsonIfExists<{ schemaVersion?: unknown }>(join(repo, 'ctk-profile.json'))
   if (!marker || marker.schemaVersion !== PROFILE_SCHEMA_VERSION) throw new SyncError('the profile repo has no valid ctk-profile.json')
   const rel = `profiles/${ctx.profile}.json`
-  if (!isPlainPath(repo, rel)) return null
+  requirePlain(repo, rel)
   const text = readTextIfExists(join(repo, rel))
   if (text === null) return null
   let raw: unknown
@@ -211,7 +236,6 @@ const buildPlan = (ctx: Ctx, incoming: Incoming): Plan => {
   const baseM: Flat = filterKeys(base, isProfileKey)
   const names = new Set([...(layerOurs?.skills ?? []), ...(incoming.layer.skills ?? [])])
   for (const k of Object.keys(base)) if (!isProfileKey(k)) names.add(skillOfKey(k).name)
-  const skillsParentPlain = !existsSync(join(repo, 'skills')) || isPlainPath(repo, 'skills')
 
   for (const name of [...names].sort()) {
     const mine = collectSkill(join(ctx.paths.skillsDir, name), { ignoreMarker: true })
@@ -221,9 +245,10 @@ const buildPlan = (ctx: Ctx, incoming: Incoming): Plan => {
     }
     let theirSide = { files: new Map<string, string>(), hashes: {} as Record<string, string> }
     if (incoming.layer.skills?.includes(name)) {
-      const incomingSkill = skillsParentPlain ? collectSkill(join(repo, 'skills', name)) : null
-      if (!incomingSkill || incomingSkill.problems.length > 0) {
-        rejected.push({ skill: name, reason: incomingSkill ? incomingSkill.problems.slice(0, 3).join('; ') : 'skills/ is a symlink' })
+      requirePlain(repo, `skills/${name}`)
+      const incomingSkill = collectSkill(join(repo, 'skills', name))
+      if (incomingSkill.problems.length > 0) {
+        rejected.push({ skill: name, reason: incomingSkill.problems.slice(0, 3).join('; ') })
         continue
       }
       if (incomingSkill.files.size === 0) {
@@ -406,6 +431,7 @@ export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: st
   if (!layer) throw new SyncError('there is no local profile to publish; set values with `ctk config set` first')
   const repo = repoOf(ctx)
   const planned = new Map<string, string>()
+  requirePlain(repo, 'ctk-profile.json')
   const marker = join(repo, 'ctk-profile.json')
   const markerRaw = existsSync(marker) ? readJsonIfExists<{ schemaVersion?: unknown }>(marker) : null
   if (!markerRaw || markerRaw.schemaVersion !== PROFILE_SCHEMA_VERSION) {
@@ -413,13 +439,19 @@ export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: st
   }
   planned.set(`profiles/${ctx.profile}.json`, profileText(layer))
 
+  for (const rel of planned.keys()) requirePlain(repo, rel)
+  requirePlain(repo, 'profiles')
   const oursFlat = layerFlat(layer)
   const problems: string[] = []
   for (const name of layer.skills ?? []) {
+    requirePlain(repo, `skills/${name}`)
     const s = collectSkill(join(ctx.paths.skillsDir, name), { ignoreMarker: true })
     if (s.problems.length > 0) problems.push(...s.problems.map(p => `skill ${name}: ${p}`))
     else if (s.files.size === 0) problems.push(`skill ${name}: listed in the profile but not found in ${ctx.paths.skillsDir}`)
-    for (const [rel, content] of s.files) planned.set(`skills/${name}/${rel}`, content)
+    for (const [rel, content] of s.files) {
+      requirePlain(repo, `skills/${name}/${rel}`)
+      planned.set(`skills/${name}/${rel}`, content)
+    }
     for (const [rel, h] of Object.entries(s.hashes)) oursFlat[`skills/${name}/${rel}`] = h
   }
   if (problems.length > 0) return { exit: 1, data: { status: 'refused', problems }, lines: [...problems.map(p => `refused: ${p}`), 'nothing was published'] }
@@ -449,10 +481,15 @@ export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: st
     const name = f.split('/')[1] ?? ''
     return f.startsWith('skills/') && !planned.has(f) && (ownSkills.has(name) || !otherRefs.has(name))
   })
+  for (const f of stale) requirePlain(repo, f)
   const changed = [...planned].filter(([p, c]) => readTextIfExists(join(repo, p)) !== c).map(([p]) => p)
   const files = [...changed, ...stale]
 
   const ahead = (await hasCommits(ctx)) ? await commitsAhead(ctx, cfg) : 0
+  if (ahead > 0) {
+    const bad = await checkUnpushed(ctx, cfg, p => p === 'ctk-profile.json' || p === `profiles/${ctx.profile}.json` || (p.startsWith('skills/') && ownSkills.has(p.split('/')[1] ?? '')))
+    if (bad.length > 0) return { exit: 1, data: { status: 'refused', unpushed: bad }, lines: [...bad.map(b => `refused: unpushed commit ${b}`), 'nothing was pushed'] }
+  }
   const data: Record<string, unknown> = { files, scan: 'clean', dryRun: ctx.dryRun, unpushedCommits: ahead }
   if (files.length === 0 && ahead === 0) {
     if (!ctx.dryRun) saveBase(ctx, oursFlat)
@@ -477,7 +514,11 @@ export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: st
     const push = await run(ctx, ['push', '-q', 'origin', `HEAD:refs/heads/${cfg.branch}`])
     if (push.code !== 0) throw new SyncError(`push was rejected: ${push.stderr.trim()}\nrun \`ctk sync pull\` and publish again`, 2)
   } catch (e) {
-    await rollbackClone(ctx, prev, files)
+    const failed = await rollbackClone(ctx, prev, files)
+    if (failed.length > 0) {
+      const why = e instanceof Error ? e.message : String(e)
+      throw new SyncError(`${why}\nand the clone could not be restored (${failed.join('; ')}); fix or remove ${repoOf(ctx)} before the next sync`)
+    }
     throw e
   }
   saveBase(ctx, oursFlat)
@@ -492,14 +533,51 @@ const commitsAhead = async (ctx: Ctx, cfg: SyncConfig): Promise<number> => {
   return Number(r.stdout.trim()) || 0
 }
 
-/** Put the managed clone back as it was before a failed publish, so the next pull can fast-forward. */
-const rollbackClone = async (ctx: Ctx, prev: string | null, files: string[]) => {
-  if (prev) await run(ctx, ['reset', '-q', '--hard', prev])
-  else {
-    await run(ctx, ['update-ref', '-d', 'HEAD'])
-    await run(ctx, ['reset', '-q'])
-    for (const f of files) rmSync(join(repoOf(ctx), ...f.split('/')), { force: true })
+/**
+ * Commits the clone holds that the remote does not. Each must touch only whitelisted paths and carry
+ * no secret-like content in any version of a file, because a push sends every one of them.
+ * Returns one line per problem.
+ */
+const checkUnpushed = async (ctx: Ctx, cfg: SyncConfig, allowed: (path: string) => boolean): Promise<string[]> => {
+  const hasRef = (await run(ctx, ['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.branch}`])).code === 0
+  const commits = (await runOk(ctx, ['rev-list', '--reverse', hasRef ? `origin/${cfg.branch}..HEAD` : 'HEAD'])).split('\n').filter(Boolean)
+  const out: string[] = []
+  for (const c of commits) {
+    const paths = (await runOk(ctx, ['diff-tree', '-r', '-m', '--root', '--no-commit-id', '--name-only', '-z', c])).split('\0').filter(Boolean)
+    for (const path of paths) {
+      const label = `${c.slice(0, 8)} ${path}`
+      if (!allowed(path) || !isSafeRelPath(path)) {
+        out.push(`${label}: path is outside the whitelist`)
+        continue
+      }
+      const blob = await run(ctx, ['show', `${c}:${path}`])
+      if (blob.code !== 0) continue // deleted in that commit
+      for (const f of scanText(path, blob.stdout)) out.push(`${c.slice(0, 8)} ${formatFinding(f)}`)
+    }
   }
+  return out
+}
+
+/** Put the managed clone back as it was before a failed publish, so the next pull can fast-forward. Returns what failed. */
+const rollbackClone = async (ctx: Ctx, prev: string | null, files: string[]): Promise<string[]> => {
+  const failed: string[] = []
+  const step = async (args: string[]) => {
+    const r = await run(ctx, args)
+    if (r.code !== 0) failed.push(`git ${args[0]}: ${r.stderr.trim()}`)
+  }
+  if (prev) await step(['reset', '-q', '--hard', prev])
+  else {
+    await step(['update-ref', '-d', 'HEAD'])
+    await step(['reset', '-q'])
+    for (const f of files) {
+      try {
+        rmSync(join(repoOf(ctx), ...f.split('/')), { force: true })
+      } catch (e) {
+        failed.push(`remove ${f}: ${(e as Error).message}`)
+      }
+    }
+  }
+  return failed
 }
 
 // ---------- status ----------

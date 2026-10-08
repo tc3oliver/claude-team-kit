@@ -15,6 +15,10 @@ export type World = {
   registeredTools: string[]
   registeredCommands: string[]
   usage: Record<string, unknown>
+  /** While true, $.fs.write rejects. */
+  failWrites: boolean
+  /** Teammates the roster does not list yet: id -> list calls left before it appears. */
+  lag: Map<string, number>
 }
 
 const ENGINE = { plugin: 'engine', tier: 'core' } as const
@@ -46,6 +50,8 @@ export const fresh = (): World => ({
   registeredTools: [],
   registeredCommands: [],
   usage: { startedAt: 0, context: { window: 200000 }, rateLimits: [] },
+  failWrites: false,
+  lag: new Map(),
 })
 
 export type EngineOptions = {
@@ -56,6 +62,8 @@ export type EngineOptions = {
   /** Model the engine reports for each started worker. */
   modelOf?: (e: AgentSpawnInput) => string
   writeFails?: boolean
+  /** Roster list calls before a new teammate shows up in agent.list (Infinity: never). */
+  rosterLag?: number
 }
 
 // agent.list answers the roster; agent.spawn yields `delay` microtasks (simulating
@@ -72,13 +80,25 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
   on('session.id', () => ({ value: 'sess/1' }) as never)
   on('agent.list', () => {
     if (opts.listFails) throw new Error('roster unavailable')
-    return { value: w.agents.map(a => ({ ...a })) } as never
+    const seen = w.agents.filter(a => {
+      const left = a.teammateId === undefined ? undefined : w.lag.get(a.teammateId)
+      if (left === undefined) return true
+      if (left <= 0) return true
+      w.lag.set(a.teammateId as string, left - 1)
+      return false
+    })
+    return { value: seen.map(a => ({ ...a })) } as never
   })
   on('session.usage', () => ({ value: w.usage }) as never)
   on('tool.register', (_$, e) => (w.registeredTools.push(e.name), { value: { tool: `mcp__ctk__${e.name}` } }) as never)
   on('command.register', (_$, e) => (w.registeredCommands.push(e.name), { value: { command: e.name } }) as never)
+  on('fs.read', (_$, e) => {
+    const text = w.files.get(e.path)
+    if (text === undefined) throw new Error('ENOENT')
+    return { value: text } as never
+  })
   on('fs.write', (_$, e) => {
-    if (opts.writeFails) throw new Error('disk full')
+    if (opts.writeFails || w.failWrites) throw new Error('disk full')
     w.files.set(e.path, e.text)
     return { value: undefined } as never
   })
@@ -90,6 +110,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     const id = `a${n}`
     const teammateId = e.isTeammate ? `${e.name}@session-test` : undefined
     w.agents.push({ id, teammateId, description: e.description, type: e.subagentType, status: 'running' })
+    if (teammateId !== undefined && opts.rosterLag !== undefined) w.lag.set(teammateId, opts.rosterLag)
     if (e.isTeammate) {
       w.started += 1
       w.peak = Math.max(w.peak, live(w))

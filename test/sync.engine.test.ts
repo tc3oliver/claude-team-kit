@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { EXIT } from '../src/cli/context.ts'
-import { bareRemote, device, git, readProfile, registerCleanup, remoteRefs, snapshot, workClone, writeProfile, writeSkill, type Device } from './sync.helpers.ts'
+import { bareRemote, tmp, device, git, readProfile, registerCleanup, remoteRefs, snapshot, workClone, writeProfile, writeSkill, type Device } from './sync.helpers.ts'
 
 registerCleanup()
 
@@ -455,4 +455,187 @@ test('publish needs a local profile and a profile repo marker is written once', 
   assert.equal(await a.sync('publish', '-m', 'custom message'), 0)
   assert.equal(headMessage(remote), 'custom message')
   assert.deepEqual(JSON.parse(git(remote, 'show', 'main:ctk-profile.json')), { schemaVersion: 1, name: 'default' })
+})
+
+// ---------- round 2 ----------
+
+const treeOf = (dir: string) => Object.keys(snapshot(dir)).sort()
+
+test('a symlinked profiles/ in the remote is a refusal on pull, and nothing is written outside the clone', async () => {
+  const { remote, a } = fixture()
+  const outside = tmp('ctk-outside-')
+  writeFileSync(join(outside, 'default.json'), `${JSON.stringify({ schemaVersion: 1, team: { maxWorkers: 9 } })}\n`)
+  tamper(remote, w => {
+    writeFileSync(join(w, 'ctk-profile.json'), `${JSON.stringify({ schemaVersion: 1, name: 'x' })}\n`)
+    symlinkSync(outside, join(w, 'profiles'))
+  })
+  await a.sync('init', '--remote', remote)
+  const before = treeOf(outside)
+  assert.equal(await a.sync('pull'), EXIT.error)
+  assert.match(a.out.join('\n'), /"profiles" is a symlink/)
+  writeProfile(a, { team: { maxWorkers: 2 } })
+  assert.equal(await a.sync('publish'), EXIT.error)
+  assert.deepEqual(treeOf(outside), before)
+  assert.equal(existsSync(a.ctx.paths.profile), true)
+  assert.deepEqual(a.applied, [])
+})
+
+test('a symlinked skills/ in the remote cannot redirect publish writes outside the clone', async () => {
+  const { remote, a } = fixture()
+  const outside = tmp('ctk-outside-')
+  tamper(remote, w => {
+    writeFileSync(join(w, 'ctk-profile.json'), `${JSON.stringify({ schemaVersion: 1, name: 'x' })}\n`)
+    mkdirSync(join(w, 'profiles'))
+    writeFileSync(join(w, 'profiles', 'default.json'), `${JSON.stringify({ schemaVersion: 1 })}\n`)
+    symlinkSync(outside, join(w, 'skills'))
+  })
+  await a.sync('init', '--remote', remote)
+  writeProfile(a, { skills: ['alpha'] })
+  writeSkill(a, 'alpha', { 'SKILL.md': SKILL_MD })
+  const refs = remoteRefs(remote)
+  assert.equal(await a.sync('publish'), EXIT.error)
+  assert.match(a.out.join('\n') + a.err.join('\n'), /"skills" is a symlink/)
+  assert.deepEqual(treeOf(outside), [])
+  assert.equal(remoteRefs(remote), refs)
+})
+
+test('a symlinked skills/<name> in the remote is refused on pull', async () => {
+  const { remote, b } = await seeded()
+  const outside = tmp('ctk-outside-')
+  tamper(remote, w => {
+    rmSync(join(w, 'skills', 'alpha'), { recursive: true })
+    symlinkSync(outside, join(w, 'skills', 'alpha'))
+  })
+  await b.sync('init', '--remote', remote)
+  assert.equal(await b.sync('pull'), EXIT.error)
+  assert.match(b.out.join('\n') + b.err.join('\n'), /is a symlink/)
+  assert.equal(existsSync(b.ctx.paths.profile), false)
+})
+
+test('git calls ignore GIT_DIR and friends from the environment', async () => {
+  const other = tmp('ctk-other-')
+  git(other, 'init', '-q')
+  const otherHead = git(other, 'rev-parse', '--git-dir').trim()
+  const remote = bareRemote()
+  const env = { GIT_DIR: join(other, '.git'), GIT_WORK_TREE: other, GIT_INDEX_FILE: join(other, 'idx'), GIT_NAMESPACE: 'x', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.bare', GIT_CONFIG_VALUE_0: 'true' }
+  const a = device('laptop', { env: { ...device('x').ctx.env, ...env } })
+  assert.equal(await a.sync('init', '--remote', remote), 0, a.out.join('\n') + a.err.join('\n'))
+  writeProfile(a, { team: { maxWorkers: 2 } })
+  assert.equal(await a.sync('publish'), 0, a.out.join('\n'))
+  assert.equal(git(remote, 'rev-list', '--count', 'main').trim(), '1')
+  assert.equal(git(other, 'rev-parse', '--git-dir').trim(), otherHead)
+  assert.equal(git(other, 'for-each-ref').trim(), '', 'the other repo has no refs')
+  assert.equal(git(other, 'remote').trim(), '', 'no remote was added to it')
+  assert.deepEqual(readdirSync(other).filter(f => f !== '.git'), [], 'nothing was checked out into it')
+})
+
+test('publish refuses unpushed commits that touch non-whitelisted paths and pushes nothing', async () => {
+  const { remote, a } = await seeded()
+  writeFileSync(join(a.repo, 'evil.sh'), 'echo hi\n')
+  git(a.repo, 'add', 'evil.sh')
+  git(a.repo, 'commit', '-qm', 'hand made')
+  const refs = remoteRefs(remote)
+  writeProfile(a, { ...readProfile(a), hud: { band: false } })
+  assert.equal(await a.sync('publish'), EXIT.error)
+  assert.match(a.out.join('\n'), /evil\.sh: path is outside the whitelist/)
+  assert.equal(remoteRefs(remote), refs)
+  assert.equal(await a.sync('publish', '--dry-run'), EXIT.error, 'dry-run reports it too')
+})
+
+test('publish refuses an unpushed commit whose intermediate version holds a secret', async () => {
+  const { remote, a } = await seeded()
+  const file = join(a.repo, 'skills', 'alpha', 'SKILL.md')
+  writeFileSync(file, `${SKILL_MD}\nAKIA${'IOSFODNN7EXAMPLE'}\n`)
+  git(a.repo, 'commit', '-qam', 'oops')
+  writeFileSync(file, SKILL_MD)
+  git(a.repo, 'commit', '-qam', 'fixed')
+  const refs = remoteRefs(remote)
+  assert.equal(await a.sync('publish'), EXIT.error)
+  assert.match(a.out.join('\n'), /aws-access-key/)
+  assert.equal(remoteRefs(remote), refs)
+})
+
+test('publish pushes a clean unpushed commit when the profile is otherwise current', async () => {
+  const { remote, a } = await seeded()
+  writeSkill(a, 'alpha', { 'SKILL.md': `${SKILL_MD}edit\n` })
+  await a.sync('publish')
+  // simulate a push that failed after the commit: make the remote forget it, keep the commit locally
+  const w = workClone(remote)
+  git(w, 'reset', '-q', '--hard', 'HEAD~1')
+  git(w, 'push', '-q', '--force', 'origin', 'HEAD:refs/heads/main')
+  git(a.repo, 'fetch', '-q', 'origin')
+  assert.equal(await a.sync('publish'), 0, a.out.join('\n'))
+  assert.match(git(remote, 'show', 'main:skills/alpha/SKILL.md'), /edit/)
+})
+
+test('terminal escape sequences in remote file names are neither accepted nor printed', async () => {
+  const { remote, b } = await seeded()
+  await b.sync('init', '--remote', remote)
+  const evil = 'x\x1b]0;pwned\x07.md'
+  tamper(remote, w => writeFileSync(join(w, 'skills', 'alpha', evil), 'x'))
+  assert.equal(await b.sync('pull'), EXIT.error)
+  const text = b.out.join('\n') + b.err.join('\n')
+  assert.match(text, /unsafe path/)
+  assert.ok(!/[\x00-\x08\x0b-\x1f\x7f-\x9f]/.test(text), JSON.stringify(text))
+  const j = await b.json('pull')
+  assert.ok(!JSON.stringify(j.doc).includes('\\u001b'), 'the JSON document is sanitized too')
+  // git's own error text can echo attacker-chosen names too
+  const c = device('tablet')
+  assert.equal(await c.sync('init', '--remote', join(c.ctx.cwd, 'no\x1b[31mpe.git')), EXIT.error)
+  assert.match(c.out.join('\n'), /cannot reach/)
+  assert.ok(!/[\x00-\x08\x0b-\x1f\x7f-\x9f]/.test(c.out.join('\n') + c.err.join('\n')))
+})
+
+test('a failed rollback is reported, not swallowed', async () => {
+  const { a } = await seeded()
+  writeProfile(a, { ...readProfile(a), hud: { band: false } })
+  // a stale index lock makes `git add` fail, and then the rollback's `git reset` fails as well
+  writeFileSync(join(a.repo, '.git', 'index.lock'), '')
+  assert.equal(await a.sync('publish'), EXIT.error)
+  assert.match(a.out.join('\n') + a.err.join('\n'), /could not be restored/)
+  rmSync(join(a.repo, '.git', 'index.lock'))
+})
+
+test('init rejects remote URLs that carry credentials and stores nothing', async () => {
+  const a = device('laptop')
+  const tok = 'ghp_' + 'aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF3hJ6'
+  for (const remote of [
+    'https://user:hunter2@example.com/org/repo.git',
+    'https://oauth2:abc@example.com/org/repo.git',
+    `https://${tok}@github.com/org/repo.git`,
+    `https://${'Zk3Vn9Xb2LmP4wR8tY1c'}@example.com/org/repo.git`,
+    `ssh://git:secretpw@example.com/org/repo.git`,
+    'user:pass@example.com:org/repo.git',
+  ]) {
+    a.out.length = 0
+    a.err.length = 0
+    assert.equal(await a.sync('init', '--remote', remote), EXIT.error, remote)
+    const text = a.out.join('\n') + a.err.join('\n')
+    assert.match(text, /credential helper or SSH keys/, remote)
+    assert.ok(!text.includes('hunter2') && !text.includes(tok) && !text.includes('secretpw'), 'the secret is not echoed')
+  }
+  assert.equal(existsSync(a.ctx.paths.syncConfig), false)
+  assert.equal(existsSync(a.repo), false)
+})
+
+test('init accepts remotes without secrets in the userinfo (git@host:path, ssh://git@host, https://host, plain user)', async () => {
+  const a = device('laptop')
+  // unreachable on purpose: the point is that the URL passes validation and fails only on connect
+  for (const remote of ['git@127.0.0.1:org/repo.git', 'ssh://git@127.0.0.1:1/org/repo.git', 'https://someone@127.0.0.1:1/org/repo.git']) {
+    a.out.length = 0
+    a.err.length = 0
+    assert.equal(await a.sync('init', '--remote', remote), EXIT.error)
+    assert.match(a.out.join('\n') + a.err.join('\n'), /cannot reach/, remote)
+  }
+})
+
+test('credentials in an already stored remote are refused and never printed', async () => {
+  const { remote, a } = fixture()
+  await a.sync('init', '--remote', remote)
+  writeFileSync(a.ctx.paths.syncConfig, `${JSON.stringify({ remote: 'https://user:hunter2@example.com/r.git', branch: 'main' })}\n`)
+  assert.equal(await a.sync('pull'), EXIT.error)
+  assert.equal(await a.sync('publish'), EXIT.error)
+  const status = await a.json('status')
+  assert.ok(!JSON.stringify(status.doc).includes('hunter2'))
+  assert.ok(!a.out.join('\n').includes('hunter2'))
 })

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,8 +9,8 @@ import { loadLedger } from '../../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../../core/paths.ts'
 import { loadEffective } from '../../core/profilestore.ts'
 import { readSettings, type SettingsFile } from '../../core/settings.ts'
-import { SKILL_MARKER, treeHash } from '../../install/skills.ts'
 import { isCtkStatusLine } from '../../install/statusline.ts'
+import { MANAGED_MARKER } from '../../sync/files.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 
@@ -22,6 +22,10 @@ const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(
 
 export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   const checks: Check[] = []
+  // Existence only (the file holds credentials and is never read), and checked first: any `claude`
+  // subprocess below creates <config>/.claude.json itself.
+  const home = homedir()
+  const onboarded = [join(ctx.configDir, '.claude.json'), ...(ctx.configDir === join(home, '.claude') ? [join(home, '.claude.json')] : [])].some(existsSync)
   const add = (id: string, status: Check['status'], message: string, fix?: string) => void checks.push({ id, status, message, ...(fix ? { fix } : {}) })
 
   const nodeMajor = Number(process.versions.node.split('.')[0])
@@ -51,20 +55,27 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
 
   try {
     const plugin = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
-    !plugin
-      ? add('plugin', 'fail', `${PLUGIN_ID} is not installed`, 'run "ctk install"')
-      : plugin.enabled
-        ? add('plugin', 'pass', `${PLUGIN_ID} ${plugin.version ?? ''} installed and enabled`.replace('  ', ' '))
-        : add('plugin', 'warn', `${PLUGIN_ID} is installed but disabled`, `run "claude plugin enable ${PLUGIN_ID}"`)
+    const loadFix = 'run "ctk install" from the checkout you want to keep'
+    if (!plugin) add('plugin', 'fail', `${PLUGIN_ID} is not installed`, 'run "ctk install"')
+    else if (plugin.errors.length > 0) add('plugin', 'fail', `${PLUGIN_ID} failed to load: ${plugin.errors.join('; ')}`, loadFix)
+    else if (!plugin.enabled) add('plugin', 'warn', `${PLUGIN_ID} is installed but disabled`, `run "claude plugin enable ${PLUGIN_ID}"`)
+    else add('plugin', 'pass', `${PLUGIN_ID} ${plugin.version ?? ''} installed and enabled`.replace('  ', ' '))
     const mk = (await listMarketplaces(ctx)).find(m => m.name === MARKETPLACE_NAME)
-    mk ? add('marketplace', 'pass', `marketplace ${MARKETPLACE_NAME} registered`) : add('marketplace', 'fail', `marketplace ${MARKETPLACE_NAME} is not registered`, 'run "ctk install"')
+    const loadError = plugin?.errors.find(e => e.includes(`Marketplace ${MARKETPLACE_NAME}`))
+    if (!mk) add('marketplace', 'fail', `marketplace ${MARKETPLACE_NAME} is not registered`, 'run "ctk install"')
+    else if (mk.path !== null && !existsSync(mk.path)) add('marketplace', 'fail', `marketplace ${MARKETPLACE_NAME} is registered at ${mk.path}, which does not exist`, loadFix)
+    else if (loadError) add('marketplace', 'fail', loadError, loadFix)
+    else add('marketplace', 'pass', `marketplace ${MARKETPLACE_NAME} registered`)
   } catch (e) {
     add('plugin', 'warn', `could not query Claude Code: ${errMsg(e).slice(0, 160)}`)
   }
 
   let teamsWanted = true
+  let wantedSkills: string[] | null = null
   try {
-    teamsWanted = loadEffective(ctx.paths, ctx.device).claude.enableAgentTeams
+    const effective = loadEffective(ctx.paths, ctx.device)
+    teamsWanted = effective.claude.enableAgentTeams
+    wantedSkills = effective.skills
     add('profile', 'pass', 'profile layers valid')
   } catch (e) {
     add('profile', 'fail', errMsg(e), 'fix the profile with "ctk config"')
@@ -84,9 +95,8 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
     else add('statusline', 'fail', 'CTK status line configured but the script is missing', 'run "ctk update"')
   }
 
-  // Existence only: the file holds credentials and is never read.
-  const claudeJson = ctx.configDir === join(homedir(), '.claude') ? join(homedir(), '.claude.json') : join(ctx.configDir, '.claude.json')
-  existsSync(claudeJson) ? add('onboarding', 'pass', 'Claude Code has been started once') : add('onboarding', 'warn', 'Claude Code onboarding not completed', 'run "claude" once and log in')
+  if (onboarded) add('onboarding', 'pass', 'Claude Code has been started once')
+  else add('onboarding', 'warn', 'Claude Code not started yet (no .claude.json)', 'run "claude" once and log in')
 
   try {
     const ledger = loadLedger(ctx)
@@ -99,14 +109,29 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
       drift.length + missing.length === 0
         ? add('ledger', 'pass', `ledger matches settings.json (${ledger.entries.length} entries, ${ledger.transactions.length} transactions)`)
         : add('ledger', 'warn', `${drift.length} key(s) edited and ${missing.length} removed since ctk wrote them`, 'run "ctk install" to see the conflicts, or "ctk rollback"')
-      const skills = ledger.entries.filter(e => e.kind === 'file' && e.path.startsWith(ctx.paths.skillsDir))
-      if (skills.length > 0) {
-        const bad = skills.filter(e => e.kind === 'file' && (!existsSync(join(e.path, SKILL_MARKER)) || treeHash(e.path) !== e.sha256))
-        bad.length === 0 ? add('skills', 'pass', `${skills.length} managed skill(s) intact`) : add('skills', 'warn', `${bad.length} managed skill(s) changed or missing`, 'run "ctk sync"')
-      }
     }
   } catch (e) {
     add('ledger', 'fail', errMsg(e), 'move ctk/ledger.json aside and run "ctk install"')
+  }
+
+  if (wantedSkills !== null) {
+    // Skills that "ctk sync" writes carry the sync marker; compare them with the profile's skill list.
+    const managed = existsSync(ctx.paths.skillsDir)
+      ? readdirSync(ctx.paths.skillsDir).filter(n => {
+          try {
+            return statSync(join(ctx.paths.skillsDir, n)).isDirectory() && existsSync(join(ctx.paths.skillsDir, n, MANAGED_MARKER))
+          } catch {
+            return false
+          }
+        })
+      : []
+    const missing = wantedSkills.filter(n => !managed.includes(n))
+    const extra = managed.filter(n => !wantedSkills.includes(n))
+    if (missing.length + extra.length === 0) add('skills', 'pass', managed.length === 0 ? 'no synced skills' : `${managed.length} synced skill(s) match the profile`)
+    else {
+      const parts = [...(missing.length ? [`not installed: ${missing.join(', ')}`] : []), ...(extra.length ? [`not in the profile: ${extra.join(', ')}`] : [])]
+      add('skills', 'warn', `synced skills differ from the profile (${parts.join('; ')})`, 'run "ctk sync" to reconcile')
+    }
   }
 
   const problems: string[] = []
