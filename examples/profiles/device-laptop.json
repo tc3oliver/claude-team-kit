@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "team": { "maxWorkers": 2 },
+  "hud": { "statusLine": "off" }
+}

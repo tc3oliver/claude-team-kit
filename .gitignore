@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tgz
+.omc/
+.DS_Store
+plugin/ctk/.claude-plugin/types/
+plugin/ctk/tsconfig.json

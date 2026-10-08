@@ -1,0 +1,53 @@
+{
+  "name": "ctk",
+  "version": "0.1.0",
+  "description": "Token-light team companion: capped agent teams, risk-based review, disciplined debugging.",
+  "author": { "name": "oliver" },
+  "license": "MIT",
+  "userConfig": {
+    "maxWorkers": {
+      "type": "number",
+      "title": "Max live teammates",
+      "description": "Hard cap on teammates alive at once. Further spawns are refused.",
+      "default": 3,
+      "min": 1,
+      "max": 12
+    },
+    "explorerModel": {
+      "type": "string",
+      "title": "Explorer model",
+      "description": "Model for ctk:explorer: an alias, a full model id, or inherit.",
+      "default": "haiku"
+    },
+    "implementerModel": {
+      "type": "string",
+      "title": "Implementer model",
+      "description": "Model for ctk:implementer: an alias, a full model id, or inherit.",
+      "default": "sonnet"
+    },
+    "reviewerModel": {
+      "type": "string",
+      "title": "Reviewer model",
+      "description": "Model for ctk:reviewer: an alias, a full model id, or inherit.",
+      "default": "sonnet"
+    },
+    "highRiskModel": {
+      "type": "string",
+      "title": "High-risk reviewer model",
+      "description": "Model for ctk:high-risk-reviewer: an alias, a full model id, or inherit.",
+      "default": "opus"
+    },
+    "hudBand": {
+      "type": "boolean",
+      "title": "Team band",
+      "description": "Show the one-line team status band above the prompt.",
+      "default": true
+    },
+    "recordStats": {
+      "type": "boolean",
+      "title": "Record stats",
+      "description": "Write small per-session counters for the ctk stats command.",
+      "default": true
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "team": { "maxWorkers": 2 },
+  "routing": {
+    "implementer": { "model": "sonnet" },
+    "reviewer": { "model": "haiku" }
+  },
+  "hud": { "band": false }
+}

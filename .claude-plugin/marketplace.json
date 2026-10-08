@@ -1,0 +1,12 @@
+{
+  "name": "ctk-kit",
+  "owner": { "name": "oliver" },
+  "description": "Claude Team Kit marketplace.",
+  "plugins": [
+    {
+      "name": "ctk",
+      "source": "./plugin/ctk",
+      "description": "Token-light team companion: capped agent teams, risk-based review, disciplined debugging."
+    }
+  ]
+}

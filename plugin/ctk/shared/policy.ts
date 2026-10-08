@@ -1,0 +1,82 @@
+// Single source of truth for the plugin's runtime options (the flat `userConfig`
+// values Claude Code hands to `register(on, options)`).
+//
+// Plain TypeScript with no imports: the plugin loads this file directly (mods may
+// only import their own files) and the CLI imports it too, so defaults can never
+// drift. `test/contract.test.ts` checks plugin.json `userConfig` against this file.
+
+export const ROLES = ['explorer', 'implementer', 'reviewer', 'highRisk'] as const
+export type Role = (typeof ROLES)[number]
+
+export type PolicyOptions = {
+  /** Most teammates alive at once. Further spawns are refused with TEAM_CAPACITY_REACHED. */
+  maxWorkers: number
+  /** Model for each CTK agent role: an alias (`haiku`), a full id, or `inherit`. */
+  explorerModel: string
+  implementerModel: string
+  reviewerModel: string
+  highRiskModel: string
+  /** Draw the team band above the prompt. */
+  hudBand: boolean
+  /** Write small per-session counters to <config>/ctk/stats/ for `ctk stats`. */
+  recordStats: boolean
+}
+
+export const DEFAULT_OPTIONS: PolicyOptions = {
+  maxWorkers: 3,
+  explorerModel: 'haiku',
+  implementerModel: 'sonnet',
+  reviewerModel: 'sonnet',
+  highRiskModel: 'opus',
+  hudBand: true,
+  recordStats: true,
+}
+
+/** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugin/ctk/agents/. */
+export const DEFAULT_EFFORT: Record<Role, string> = {
+  explorer: 'medium',
+  implementer: 'medium',
+  reviewer: 'medium',
+  highRisk: 'high',
+}
+
+/** Agent type names as Claude Code reports them for plugin agents (`<plugin>:<name>`). */
+export const AGENT_TYPES: Record<Role, string> = {
+  explorer: 'ctk:explorer',
+  implementer: 'ctk:implementer',
+  reviewer: 'ctk:reviewer',
+  highRisk: 'ctk:high-risk-reviewer',
+}
+
+/** Error code carried in every capacity refusal. The team skill keys off this exact token. */
+export const CAPACITY_CODE = 'TEAM_CAPACITY_REACHED'
+
+const str = (v: unknown, d: string) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : d)
+const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d)
+
+export const clampMax = (v: unknown): number => {
+  const n = Number(v ?? DEFAULT_OPTIONS.maxWorkers)
+  return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), 12) : DEFAULT_OPTIONS.maxWorkers
+}
+
+/** Normalize whatever `register` received into a complete, valid PolicyOptions. */
+export const readOptions = (raw: unknown): PolicyOptions => {
+  const o = (raw ?? {}) as Record<string, unknown>
+  return {
+    maxWorkers: clampMax(o.maxWorkers),
+    explorerModel: str(o.explorerModel, DEFAULT_OPTIONS.explorerModel),
+    implementerModel: str(o.implementerModel, DEFAULT_OPTIONS.implementerModel),
+    reviewerModel: str(o.reviewerModel, DEFAULT_OPTIONS.reviewerModel),
+    highRiskModel: str(o.highRiskModel, DEFAULT_OPTIONS.highRiskModel),
+    hudBand: bool(o.hudBand, DEFAULT_OPTIONS.hudBand),
+    recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
+  }
+}
+
+export const modelFor = (opts: PolicyOptions, role: Role): string =>
+  ({
+    explorer: opts.explorerModel,
+    implementer: opts.implementerModel,
+    reviewer: opts.reviewerModel,
+    highRisk: opts.highRiskModel,
+  })[role]

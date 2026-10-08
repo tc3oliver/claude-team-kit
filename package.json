@@ -1,0 +1,20 @@
+{
+  "name": "claude-team-kit",
+  "version": "0.1.0",
+  "description": "A lightweight, token-efficient, portable team companion for Claude Code.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "ctk": "dist/src/cli/bin.js" },
+  "files": ["dist/src", "dist/plugin", "plugin", ".claude-plugin", "examples", "docs", "LICENSE", "README.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.ts\" \"plugin/ctk/statusline/test/*.test.mjs\"",
+    "test:plugin": "claude plugin test plugin/ctk",
+    "validate:plugin": "claude plugin validate plugin/ctk --strict && claude plugin validate . --strict",
+    "check": "npm run typecheck && npm test && npm run test:plugin && npm run validate:plugin"
+  },
+  "dependencies": { "zod": "^4.0.0" },
+  "devDependencies": { "@types/node": "^24.0.0", "typescript": "^5.9.0" }
+}
