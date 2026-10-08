@@ -42,7 +42,9 @@ with idle gaps capped at 2 s, so the playback is about 40 s.
   "w-caesar did caesar and slugify, w-roman did roman and wordcount, and w-rle did rle".
 - **Task states.** The status line shows teammates as busy or idle; its `done` count stayed 0 for the whole
   run, and `/ctk-stats` printed `tasks created/completed: – (no task event seen)`. The lead coordinated the
-  workers by messages, so this recording does not show task states changing.
+  workers by messages, so this recording does not show task states changing. A probe in the same setup (a Haiku
+  session, interactive and `-p`, asked to list tools with `Task`, `Team` or `SendMessage` in the name) found only
+  `TaskStop`, `SendMessage` and `mcp__ctk__ctk_team_status`: no `TaskCreate`, `TaskUpdate` or `TaskList`.
 - **Permission prompt.** One worker (`w-roman`) asked to run a shell command that the allow rules did not
   cover (`node --test …; node -e "…"`). The recorder pressed Enter twice, at 41.2 s and 43.2 s (the first press
   did not clear the prompt in the sampled screen, so the second is probably redundant); the choice was "1. Yes",
@@ -60,11 +62,8 @@ with idle gaps capped at 2 s, so the playback is about 40 s.
 
 ## Oddities and honesty notes
 
-- **Two attempts.** The first attempt was stopped by the operator after 80 s because `npm` was missing from the
-  recorded `PATH`, so the lead could not run `npm test` as asked and fell back to `node --test`. That was a flaw
-  in the recording setup, not in CTK. The first attempt cost about $0.7 and is not published. For the record, its
-  status line reached `rejected 2` after the lead tried to start more workers than the cap allows, which the
-  published attempt did not do. The second attempt is the one shown, unedited.
+- **Two attempts.** Attempt 1 is not the published run; see the next section. The second attempt is the one
+  shown, unedited.
 - **Input box suggestions.** The grey text in the input box (`fix the rle digit bug`, `/ctk:review`, `run npm test`)
   is Claude Code's own prompt suggestion. The recorder typed only the three inputs listed above, plus `/exit`.
 - **Masks.** Account name, email, organisation id, login name and plan name were replaced at capture time
@@ -74,6 +73,37 @@ with idle gaps capped at 2 s, so the playback is about 40 s.
 - **After the result.** The recorder waited 3 s after the lead's report (once the status line had shown no busy
   teammates for 12 s), typed `/ctk-stats`, waited 3 s, and typed `/exit`. The last held frame is the
   "Resume this session" line Claude Code prints on exit.
+
+## Attempt 1: the cap refusing live (not the published run)
+
+Attempt 1 was stopped early by the operator for an environment reason (`npm` missing from the recorded
+`PATH`), so it was not published as the demo. It is kept because it shows what the published run does not:
+the cap refusing a spawn in a live session. Its frames are in
+[`team-demo-attempt1.frames.jsonl`](assets/team-demo-attempt1.frames.jsonl) (masked the same way; only the
+metadata line was extended to say it is not the published run), and
+[`team-demo-refusal.svg`](assets/team-demo-refusal.svg) is the frame where the refusal is on screen.
+
+- The lead started `w-caesar`, `w-rle` and `w-roman`, said "slugify and wordcount are waiting for a free slot",
+  and when two workers had finished said "Two slots are free, so I'm starting the last two workers."
+- Both new spawns were refused. The text on screen was: `Subagent spawn denied by a plugin: TEAM_CAPACITY_REACHED:
+  live=3 starting=0 max=3. Do not treat this worker as started; leave its task pending; reuse an idle teammate via
+  SendMessage or wait for one to finish.` The status line went to `rejected 1`, then `rejected 2`.
+- The refusal came from the cap counting idle teammates as live: `w-caesar` and `w-rle` had finished and were
+  idle, but still occupied two of the three slots. Claude Code's own list afterwards showed the two refused
+  spawns as "2 ctk:implementer agents finished … 0 tool uses … Done", which reads as success; the lead did not
+  take it that way and said "Both spawns were refused because idle workers still count toward the cap."
+- The lead recovered as the message advised: it gave slugify to `w-caesar` and wordcount to `w-rle` through
+  `SendMessage`, then waited for all three reports.
+- At 57 s the lead tried `npm test`, found that `npm` was not on the session's `PATH`, and ran `node --test`
+  instead. That is the environment fault that led to the second attempt. The lead's final report came at about
+  80 s: 51 tests, 47 passing, 4 failing (the workers had left failing tests for the `rle`, `wordcount` and `roman`
+  bugs instead of marking them `todo`), and it asked whether to fix the bugs or relax the tests. The recorder was
+  stopped at that point, so attempt 1 had in practice run to its end.
+- Cost: `$0.73` on the status line, 3 workers on `claude-sonnet-5-5`, no permission prompt approved by hand
+  (one was auto-approved, as in the published run).
+
+The two attempts therefore differ in more than the cap: the same prompt gave 44 tests with one `todo` in one run
+and 51 tests with four failing in the other. The model's choices vary from run to run.
 
 ## Reproduce
 

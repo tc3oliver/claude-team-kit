@@ -25,7 +25,7 @@ export const profileSchema = z.strictObject({
   routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema }),
   hud: z.strictObject({ band: z.boolean(), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
-  claude: z.strictObject({ enableAgentTeams: z.boolean() }),
+  claude: z.strictObject({ enableAgentTeams: z.boolean(), enableTaskTools: z.boolean() }),
   portable: z.strictObject({
     settings: z.strictObject({
       model: z.string().optional(),
@@ -55,7 +55,7 @@ export const profileLayerSchema = z.strictObject({
     .optional(),
   hud: z.strictObject({ band: z.boolean().optional(), statusLine: z.enum(['auto', 'off']).optional() }).optional(),
   stats: z.strictObject({ record: z.boolean().optional() }).optional(),
-  claude: z.strictObject({ enableAgentTeams: z.boolean().optional() }).optional(),
+  claude: z.strictObject({ enableAgentTeams: z.boolean().optional(), enableTaskTools: z.boolean().optional() }).optional(),
   portable: z.strictObject({ settings: profileSchema.shape.portable.shape.settings.optional() }).optional(),
   skills: profileSchema.shape.skills.optional(),
 })
@@ -72,7 +72,10 @@ export const DEFAULT_PROFILE: Profile = {
   },
   hud: { band: DEFAULT_OPTIONS.hudBand, statusLine: 'auto' },
   stats: { record: DEFAULT_OPTIONS.recordStats },
-  claude: { enableAgentTeams: true },
+  // Task tools (TaskCreate/TaskUpdate/TaskList) are left out by Claude Code on current default models
+  // unless CLAUDE_CODE_ENABLE_TODO_TOOLS=1. Enabling them adds tool definitions to every session, so
+  // this is opt-in; without them /ctk:team coordinates through messages.
+  claude: { enableAgentTeams: true, enableTaskTools: false },
   portable: { settings: {} },
   skills: [],
 }

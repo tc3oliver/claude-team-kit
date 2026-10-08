@@ -152,3 +152,45 @@ test('a crash between the ledger save and the settings write is finished by the 
   assert.ok(entry?.kind === 'settings-key' && entry.owned && entry.pending === undefined && entry.written === 5)
   assert.equal(loadLedger(e.ctx)?.entries.some(x => x.kind === 'settings-key' && x.pending !== undefined), false)
 })
+
+const TASK = 'CLAUDE_CODE_ENABLE_TODO_TOOLS'
+const withTaskTools = (on: boolean): Profile => profile({ claude: { enableAgentTeams: false, enableTaskTools: on } })
+
+test('enableTaskTools owns env.CLAUDE_CODE_ENABLE_TODO_TOOLS=1 like the agent-teams key: written once, idempotent, removed when switched off', async t => {
+  const e = makeEnv(t)
+  const dry = await applyProfile({ ...e.ctx, dryRun: true }, withTaskTools(true))
+  assert.equal(dry.changed, true)
+  assert.deepEqual(readdirSync(e.ctx.configDir), [], 'dry-run writes nothing')
+  const r = await applyProfile(e.ctx, withTaskTools(true))
+  assert.deepEqual(r.conflicts, [])
+  assert.equal(readJson(e.ctx.paths.settings).env[TASK], '1')
+  const before = snapshot(e.ctx.configDir)
+  assert.equal((await applyProfile(e.ctx, withTaskTools(true))).changed, false)
+  assert.deepEqual(snapshot(e.ctx.configDir), before)
+  await applyProfile(e.ctx, withTaskTools(false))
+  assert.equal(readJson(e.ctx.paths.settings).env?.[TASK], undefined)
+})
+
+test('enableTaskTools: a value of the user is kept with a note; an equal one is adopted and never removed', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, { env: { [TASK]: '0' } })
+  const r = await applyProfile(e.ctx, withTaskTools(true))
+  assert.deepEqual(r.conflicts, [])
+  assert.match(r.skipped.join('\n'), /CLAUDE_CODE_ENABLE_TODO_TOOLS: already set to a different value; left unchanged/)
+  assert.equal(readJson(e.ctx.paths.settings).env[TASK], '0')
+
+  const f = makeEnv(t)
+  writeJson(f.ctx.paths.settings, { env: { [TASK]: '1' } })
+  await applyProfile(f.ctx, withTaskTools(true))
+  await applyProfile(f.ctx, withTaskTools(false))
+  assert.equal(readJson(f.ctx.paths.settings).env[TASK], '1', 'not ours, never removed')
+})
+
+test('enableTaskTools off never writes the key and never touches a user\'s own', async t => {
+  const e = makeEnv(t)
+  await applyProfile(e.ctx, withTaskTools(false))
+  assert.equal(readJson(e.ctx.paths.settings).env?.[TASK], undefined)
+  writeJson(e.ctx.paths.settings, { ...readJson(e.ctx.paths.settings), env: { [TASK]: '1', OTHER: 'x' } })
+  assert.equal((await applyProfile(e.ctx, withTaskTools(false))).changed, false)
+  assert.deepEqual(readJson(e.ctx.paths.settings).env, { [TASK]: '1', OTHER: 'x' })
+})

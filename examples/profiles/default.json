@@ -9,7 +9,7 @@
   },
   "hud": { "band": true, "statusLine": "auto" },
   "stats": { "record": true },
-  "claude": { "enableAgentTeams": true },
+  "claude": { "enableAgentTeams": true, "enableTaskTools": false },
   "portable": { "settings": { "teammateMode": "auto" } },
   "skills": []
 }

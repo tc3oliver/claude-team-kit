@@ -35,6 +35,8 @@ export type ApplyOpts = {
 export type Desired = { pointer: string; value: Json; soft: boolean }
 
 const TEAMS_ENV = toPointer(['env', 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'])
+/** Claude Code leaves the Task tools out on current models unless this is set. */
+const TASK_TOOLS_ENV = toPointer(['env', 'CLAUDE_CODE_ENABLE_TODO_TOOLS'])
 const STATUSLINE = toPointer(['statusLine'])
 
 const OPTION_PROFILE_PATHS: Record<string, string> = {
@@ -50,6 +52,7 @@ const OPTION_PROFILE_PATHS: Record<string, string> = {
 /** The dotted profile path that produces a settings.json pointer, or null when the pointer is not profile-driven. */
 export const profilePathFor = (pointer: string): string | null => {
   if (pointer === TEAMS_ENV) return 'claude.enableAgentTeams'
+  if (pointer === TASK_TOOLS_ENV) return 'claude.enableTaskTools'
   if (pointer === STATUSLINE) return 'hud.statusLine'
   const opt = fromPointer(pointer)
   if (opt.length === 4 && opt[0] === 'pluginConfigs' && opt[1] === PLUGIN_ID && opt[2] === 'options') return OPTION_PROFILE_PATHS[opt[3] as string] ?? null
@@ -68,6 +71,7 @@ export const desiredEntries = (ctx: Ctx, p: Profile, opts: ApplyOpts = {}): { de
     if (v !== undefined) desired.push({ pointer: toPointer([key]), value: v, soft: false })
   }
   if (p.claude.enableAgentTeams) desired.push({ pointer: TEAMS_ENV, value: '1', soft: true })
+  if (p.claude.enableTaskTools) desired.push({ pointer: TASK_TOOLS_ENV, value: '1', soft: true })
   if (p.hud.statusLine === 'auto') {
     if (existsSync(ctx.paths.statusline) || opts.assumeStatuslineFile) {
       try {

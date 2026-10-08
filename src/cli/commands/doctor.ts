@@ -17,6 +17,7 @@ import type { Report } from '../report.ts'
 export type Check = { id: string; status: 'pass' | 'info' | 'warn' | 'fail'; message: string; fix?: string }
 
 const TEAMS_ENV = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
+const TASK_TOOLS_ENV = 'CLAUDE_CODE_ENABLE_TODO_TOOLS'
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
@@ -73,10 +74,12 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
 
   let teamsWanted = true
   let wantedSkills: string[] | null = null
+  let taskToolsWanted: boolean | null = null
   try {
     const effective = loadEffective(ctx.paths, ctx.device)
     teamsWanted = effective.claude.enableAgentTeams
     wantedSkills = effective.skills
+    taskToolsWanted = effective.claude.enableTaskTools
     add('profile', 'pass', 'profile layers valid')
   } catch (e) {
     add('profile', 'fail', errMsg(e), 'fix the profile with "ctk config"')
@@ -89,6 +92,14 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
       : teamsWanted
         ? add('agent-teams', 'warn', 'agent teams flag not set', 'run "ctk install" (sets env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS in settings.json)')
         : add('agent-teams', 'pass', 'agent teams flag off (profile)')
+    if (taskToolsWanted === false) {
+      add('task-tools', 'info', 'Task tools are off. On Claude 5.x models Claude Code omits them, so /ctk:team coordinates by messages and the HUD shows no task counts. Enable: ctk config set claude.enableTaskTools true')
+    } else if (taskToolsWanted === true) {
+      const set = (isObject(env) ? env[TASK_TOOLS_ENV] : undefined) ?? ctx.env[TASK_TOOLS_ENV]
+      set === '1' || set === 'true'
+        ? add('task-tools', 'pass', `Task tools are on (${TASK_TOOLS_ENV} is set)`)
+        : add('task-tools', 'warn', `Task tools are requested by the profile but ${TASK_TOOLS_ENV} is ${set === undefined ? 'not set' : `"${String(set)}"`} in settings.json`, 'run "ctk update" (a different value of your own is kept: remove it to let ctk set it)')
+    }
     const sl = pointerGet(settings.data, '/statusLine')
     if (sl === undefined) add('statusline', 'warn', 'no status line configured', 'run "ctk install"')
     else if (!isCtkStatusLine(sl)) add('statusline', 'pass', 'your own status line is kept; the HUD runs via the mod band only')

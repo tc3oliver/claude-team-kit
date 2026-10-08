@@ -40,7 +40,10 @@
     "THIRD_PARTY_NOTICES.md",
     "!plugin/ctk/tsconfig.json",
     "!plugin/ctk/tests",
-    "!plugin/ctk/statusline/test"
+    "!plugin/ctk/statusline/test",
+    "!docs/assets/*.gif",
+    "!docs/assets/*.mp4",
+    "!docs/assets/*.frames.jsonl"
   ],
   "engines": {
     "node": ">=22"

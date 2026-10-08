@@ -135,3 +135,28 @@ test('after ctk has run claude commands the onboarding check is info, which neve
   writeFileSync(join(plain.ctx.configDir, '.claude.json'), '{}')
   assert.equal(status(await runDoctor(plain.ctx), 'onboarding'), 'pass')
 })
+
+test('doctor task-tools: info when off, ok when on and applied, warn when requested but not applied; info never changes the exit code', async t => {
+  const off = makeEnv(t)
+  writeFileSync(join(off.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(off.ctx, flags, off.root)
+  const r0 = await runDoctor(off.ctx)
+  assert.equal(status(r0, 'task-tools'), 'info')
+  assert.equal(r0.code, 0, r0.lines.join('\n'))
+  assert.match(r0.lines.join('\n'), /Task tools are off\. On Claude 5\.x models Claude Code omits them, so \/ctk:team coordinates by messages and the HUD shows no task counts\. Enable: ctk config set claude\.enableTaskTools true/)
+
+  const on = makeEnv(t)
+  writeFileSync(join(on.ctx.configDir, '.claude.json'), '{}')
+  saveUserLayer(on.ctx.paths, { claude: { enableTaskTools: true } })
+  await runInstall(on.ctx, flags, on.root)
+  const r1 = await runDoctor(on.ctx)
+  assert.equal(status(r1, 'task-tools'), 'pass')
+  assert.equal(r1.code, 0, r1.lines.join('\n'))
+
+  const s = readJson(on.ctx.paths.settings)
+  s.env.CLAUDE_CODE_ENABLE_TODO_TOOLS = '0'
+  writeJson(on.ctx.paths.settings, s)
+  const r2 = await runDoctor(on.ctx)
+  assert.equal(status(r2, 'task-tools'), 'warn')
+  assert.equal(r2.code, 2)
+})

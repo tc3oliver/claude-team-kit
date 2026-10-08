@@ -8,11 +8,14 @@ Read this when a spawn is refused, unclear, or a worker misbehaves.
 |---|---|---|
 | Result has `teammate_id` / agent id | Started | Record name and id; set task owner |
 | `ctk_team_status` lists the worker | Confirmed live | Count it against the cap |
-| Text contains `TEAM_CAPACITY_REACHED` | Refused, at cap | Not started. Keep task `pending`. `SendMessage` an idle teammate, else wait |
+| Text contains `TEAM_CAPACITY_REACHED` | Refused, at cap | Not started. Keep task/slice pending. `SendMessage` an idle teammate, else wait |
 | Text contains `TEAM_GUARD_FAILED` | Refused, guard error | Not started. Retry once after a live-worker check; else work the task yourself |
 | Row shows only "Done", no id | Never started | Treat as refused |
 
-The refusal text reads `live=N starting=M max=K`. Trust it over your own count.
+The refusal text reads `Subagent spawn denied by a plugin: TEAM_CAPACITY_REACHED: live=N starting=M max=K ...`.
+That text is the authority. Claude Code's own panel can show a refused spawn as "finished ... Done";
+do not read that as a started worker. Trust the refusal text over the panel and over your own count.
+Idle teammates count as live; reuse them with `SendMessage` rather than spawning.
 
 ## Reusing capacity
 

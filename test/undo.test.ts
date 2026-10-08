@@ -336,3 +336,17 @@ test('--json keeps `reverted` as everything put back and adds `removed` as its d
   assert.ok(doc.reverted.includes('/statusLine'))
   assert.ok(doc.removed.length > 0 && doc.removed.every((k: string) => doc.reverted.includes(k)))
 })
+
+test('uninstall and rollback remove the task-tools key and the env container ctk created; rollback names the profile key', async t => {
+  for (const how of ['uninstall', 'rollback'] as const) {
+    const e = makeEnv(t)
+    saveUserLayer(e.ctx.paths, { claude: { enableAgentTeams: false, enableTaskTools: true } })
+    writeJson(e.ctx.paths.settings, UNRELATED)
+    await runInstall(e.ctx, flags, e.root)
+    assert.equal(readJson(e.ctx.paths.settings).env.CLAUDE_CODE_ENABLE_TODO_TOOLS, '1')
+    const r = how === 'uninstall' ? await uninstall(e.ctx) : await rollback(e.ctx)
+    assert.equal(r.code, 0, JSON.stringify(r.report))
+    assert.equal(JSON.stringify(readJson(e.ctx.paths.settings)), JSON.stringify(UNRELATED), how)
+    if (how === 'rollback') assert.ok(r.report.notes.some(n => n.startsWith('profile layer still sets claude.enableTaskTools')))
+  }
+})

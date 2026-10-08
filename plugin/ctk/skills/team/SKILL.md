@@ -14,9 +14,13 @@ If neither holds, say so in one line and do the work directly.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior.
-- Create one task per slice with `TaskCreate`; add real dependencies with `addBlockedBy` only.
-- Each task states: spec/context pointers, file scope, verify command. Pointers, never pasted contents.
-- Ready frontier = pending tasks with no open blockers.
+- If `TaskCreate` is in your tool list, create one task per slice and add real dependencies with
+  `addBlockedBy` only. If it is not (current default on Claude 5.x), say so in one line, keep a numbered
+  plan in your reply with explicit "blocked by" notes, and coordinate with `SendMessage`.
+  The user can get the shared task list with `ctk config set claude.enableTaskTools true`
+  or by starting Claude Code with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`.
+- Each slice states: spec/context pointers, file scope, verify command. Pointers, never pasted contents.
+- Ready frontier = pending slices with no open blockers.
 
 ## 3. Spawn
 - Spawn at most the cap (`maxWorkers`, default 3) with `Agent`, giving each a `name`.
@@ -28,12 +32,12 @@ If neither holds, say so in one line and do the work directly.
 A spawn counts only when the `Agent` result carries a `teammate_id` or agent id, and
 `ctk_team_status` (if available) lists the worker. Otherwise it did NOT start.
 `TEAM_CAPACITY_REACHED`, `TEAM_GUARD_FAILED`, or a row that only shows "Done" means not started:
-set no owner, keep the task `pending`, re-offer it when a slot frees.
-Details: `references/protocol.md`.
+set no owner, keep the slice pending, re-offer it when a slot frees. Idle teammates count as live:
+reuse them with `SendMessage`. Details: `references/protocol.md`.
 
 ## 5. Run
 - Wait for teammate messages; reassign idle teammates with `SendMessage` to the next ready task.
-- Do not do a worker's task yourself while it is assigned.
+- Do not do a worker's slice yourself while it is assigned.
 - A worker that reports done is unverified until you run its verify command.
 
 ## 6. Close
