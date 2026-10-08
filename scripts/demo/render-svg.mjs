@@ -15,6 +15,7 @@ const USAGE = `usage: render-svg.mjs <in.frames.jsonl> [--out anim.svg] [--stati
   --at-regex RE    first frame whose plain text matches RE, for --static-out (default: the last frame)
   --title TEXT     window title (default "Terminal")
   --cols N / --rows N   override the grid size (default: from the recording)
+  --target-seconds N   choose --speed so that the playback lasts about N seconds (with the gap cap and end pause)
   --max-bytes N    size budget per SVG (default 400000); frames are coalesced to fit`
 
 const BG = '#0d1117'
@@ -315,23 +316,48 @@ function fit(label, make, maxBytes) {
   throw new Error(`${label}: cannot fit ${maxBytes} bytes even with frames coalesced to ${STEPS.at(-1)} ms`)
 }
 
-/** Animated SVG: every frame shown for its real duration / speed, gaps capped at maxGap s, a pause on the last frame, then loop. */
-export function renderAnimatedSvg(frames, opts = {}, meta = {}) {
+/** Playback timeline [{text, start, end}] in seconds (speed, gap cap and end pause applied) and the loop length. */
+export function buildTimeline(frames, opts = {}, minStep = 0) {
   const speed = opts.speed ?? 1
   const maxGap = opts.maxGap ?? 2
   const endPause = opts.endPause ?? 3
   if (!(speed > 0)) throw new Error('speed must be > 0')
+  const fs = coalesce(frames, minStep)
+  let at = 0
+  const timeline = fs.map((f, i) => {
+    const real = i + 1 < fs.length ? (fs[i + 1].t - f.t) / 1000 / speed : endPause
+    const d = i + 1 < fs.length ? Math.min(real, maxGap) : real
+    const start = at
+    at += d
+    return { text: f.text, start, end: at }
+  })
+  return { timeline, total: at }
+}
+
+/** The speed factor (>= 1 / 4) at which the capped timeline lasts about `target` seconds. */
+export function fitSpeed(frames, opts, target) {
+  let lo = 0.25
+  let hi = 500
+  for (let i = 0; i < 40; i++) {
+    const mid = Math.sqrt(lo * hi)
+    // a larger speed gives a shorter timeline
+    if (buildTimeline(frames, { ...opts, speed: mid }).total > target) lo = mid
+    else hi = mid
+  }
+  return Math.round(hi * 100) / 100
+}
+
+/** Grid size (columns, rows) that fits every frame, so separately rendered frames share one size. */
+export function measureGrid(frames, opts = {}, meta = {}) {
+  const wrapAt = opts.cols ?? meta.cols
+  return gridSize(frames.map(f => f.text.split('\n').flatMap(l => wrapCells(parseAnsiLine(l), wrapAt))), opts, meta)
+}
+
+/** Animated SVG: every frame shown for its real duration / speed, gaps capped at maxGap s, a pause on the last frame, then loop. */
+export function renderAnimatedSvg(frames, opts = {}, meta = {}) {
   return fit('animated svg', step => {
-    const fs = coalesce(frames, step)
-    let at = 0
-    const timeline = fs.map((f, i) => {
-      const real = i + 1 < fs.length ? (fs[i + 1].t - f.t) / 1000 / speed : endPause
-      const d = i + 1 < fs.length ? Math.min(real, maxGap) : real
-      const start = at
-      at += d
-      return { text: f.text, start, end: at }
-    })
-    return build(timeline, at, true, opts, meta)
+    const { timeline, total } = buildTimeline(frames, opts, step)
+    return build(timeline, total, true, opts, meta)
   }, opts.maxBytes ?? MAX_BYTES)
 }
 
@@ -357,7 +383,7 @@ export function findFrame(frames, regex) {
 function main(argv) {
   const o = {}
   const files = []
-  const num = new Set(['speed', 'max-gap', 'end-pause', 'frame', 'cols', 'rows', 'max-bytes'])
+  const num = new Set(['speed', 'max-gap', 'end-pause', 'frame', 'cols', 'rows', 'max-bytes', 'target-seconds'])
   const str = new Set(['out', 'static-out', 'at-regex', 'title'])
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -375,6 +401,10 @@ function main(argv) {
   if (files.length !== 1 || (!o.out && !o['static-out'])) { console.error(USAGE); return 1 }
   const { meta, frames } = parseFrames(readFileSync(files[0], 'utf8'))
   const opts = { speed: o.speed, maxGap: o['max-gap'], endPause: o['end-pause'], cols: o.cols, rows: o.rows, title: o.title, maxBytes: o['max-bytes'] }
+  if (o['target-seconds'] !== undefined) {
+    opts.speed = fitSpeed(frames, opts, o['target-seconds'])
+    console.error(`render-svg: speed ${opts.speed} for about ${o['target-seconds']} s`)
+  }
   if (o.out) {
     const svg = renderAnimatedSvg(frames, opts, meta)
     writeFileSync(o.out, svg)

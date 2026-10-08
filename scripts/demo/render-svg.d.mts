@@ -11,3 +11,6 @@ export function renderAnimatedSvg(frames: Frame[], opts?: RenderOptions, meta?: 
 export function renderStaticSvg(frames: Frame[], index: number, opts?: RenderOptions, meta?: Record<string, unknown>): string
 export function findFrame(frames: Frame[], regex: string): number
 export function wrapCells(cells: Cell[], cols: number | undefined): Cell[][]
+export function buildTimeline(frames: Frame[], opts?: RenderOptions, minStep?: number): { timeline: { text: string; start: number; end: number }[]; total: number }
+export function fitSpeed(frames: Frame[], opts: RenderOptions, target: number): number
+export function measureGrid(frames: Frame[], opts?: RenderOptions, meta?: Record<string, unknown>): { cols: number; rows: number }

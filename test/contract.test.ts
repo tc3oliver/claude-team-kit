@@ -33,7 +33,7 @@ test('plugin.json userConfig keys and defaults equal DEFAULT_OPTIONS', () => {
   const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'))
   assert.equal(manifest.repository, pkg.repository.url.replace(/^git\+/, '').replace(/\.git$/, ''))
   assert.match(manifest.homepage, /^https:\/\/github\.com\/[^/]+\/claude-team-kit/)
-  assert.ok(manifest.author?.name && manifest.author.name !== 'oliver', 'author is a real handle, not a placeholder')
+  assert.match(manifest.author?.name ?? '', /^[A-Za-z0-9][A-Za-z0-9-]*$/, 'author is a GitHub-style handle, not a placeholder')
   assert.deepEqual(Object.keys(manifest.userConfig).sort(), Object.keys(DEFAULT_OPTIONS).sort())
   for (const [key, def] of Object.entries(DEFAULT_OPTIONS)) {
     assert.equal(manifest.userConfig[key].default, def, key)

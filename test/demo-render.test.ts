@@ -240,3 +240,31 @@ test('record captures a real tmux session, types scripted keys and stops on a ma
   assert.match(plainText(frames.at(-1)?.text ?? ''), /^\S*\$ echo typed-ok\ntyped-ok$/m)
   assert.ok(frames.every((f, i) => i === 0 || f.text !== frames[i - 1]?.text), 'only changed frames are stored')
 })
+
+test('record masks text at capture time, lists labels not patterns, and aborts on a guard match', { skip: !hasTmux && 'tmux (or /bin/sh) not available' }, t => {
+  const dir = tmp(t)
+  const maskFile = join(dir, 'masks.json')
+  writeFileSync(maskFile, JSON.stringify([{ match: 'hunter2', replace: '*******', label: 'password' }]))
+  const run = (extra: string[], command: string) => {
+    const out = join(dir, `${extra.length}.frames.jsonl`)
+    const r = spawnSync(process.execPath, [RECORD, '--out', out, '--idle', '600', '--limit', '30000', '--interval', '100', '--cols', '60', '--rows', '10', '--home', dir, '--path', '/usr/bin:/bin', '--claude-bin', 'false', ...extra, '--', command], {
+      encoding: 'utf8',
+      timeout: 90_000,
+      env: { PATH: process.env.PATH ?? '', CLAUDE_CONFIG_DIR: join(dir, 'cfg') },
+    })
+    return { r, out }
+  }
+  const masked = run(['--mask-file', maskFile, '--mask', 'abc=XYZ'], 'echo "pw hunter2 abc"')
+  assert.equal(masked.r.status, 0, masked.r.stderr)
+  const text = readFileSync(masked.out, 'utf8')
+  assert.doesNotMatch(text, /hunter2/)
+  assert.match(text, /pw \*{7} XYZ/)
+  const { meta } = parseFrames(text)
+  assert.deepEqual(meta.masked, ['masked text', 'password'])
+  assert.equal(meta.maskedReplacements, 2)
+  assert.doesNotMatch(JSON.stringify(meta), /hunter2/)
+
+  const aborted = run(['--abort-on', 'STOP-NOW'], 'echo STOP-NOW; sleep 20')
+  assert.equal(aborted.r.status, 4, aborted.r.stderr)
+  assert.equal(parseFrames(readFileSync(aborted.out, 'utf8')).meta.stopReason, 'abort')
+})

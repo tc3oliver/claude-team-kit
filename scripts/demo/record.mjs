@@ -9,7 +9,7 @@
 //
 // Refuses to run unless CLAUDE_CONFIG_DIR is set to a path outside ~/.claude*.
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const USAGE = `usage: CLAUDE_CONFIG_DIR=<scratch dir> record.mjs --out <file.frames.jsonl> [options] -- <command> [args...]
   --cols N / --rows N   terminal size (default 110x32)
   --cwd DIR             working directory of the session
-  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, delay:ms, keys:text, typed:msPerChar, key:name|[names]}
+  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, stable:ms, timeout:ms, delay:ms, keys:text, typed:msPerChar, key:name|[names]}
   --until REGEX         stop once the script is done and the screen matches
   --idle MS             stop after MS without change once the script is done (default 5000)
   --limit MS            hard time limit (default 120000)
@@ -28,6 +28,12 @@ const USAGE = `usage: CLAUDE_CONFIG_DIR=<scratch dir> record.mjs --out <file.fra
   --claude-bin PATH     claude binary used to record its version (default: claude on PATH)
   --model TEXT          model shown in the metadata (default: "none (no model call)")
   --meta K=V            extra metadata (repeatable)
+  --mask REGEX=REPLACEMENT   rewrite matches in every captured frame (repeatable; split at the last '=')
+  --mask-file FILE      JSON array of {"match": regex, "replace": text, "label": "what it hides"}; keeps personal
+                        strings out of the command line and the repo. The meta line records labels and a count, never the patterns.
+  --abort-on REGEX      kill the session at once if the screen matches (exit code 4)
+  --approve REGEX       when the screen matches (a permission prompt), press Enter; each approval is listed in the meta line
+  --slow-interval MS    sample this slowly once the first 15 s are over and no keys were sent for 3 s (keeps long recordings small)
 The session runs with a clean environment (env -i): HOME, PATH, TERM=xterm-256color, LANG, CLAUDE_CONFIG_DIR and --env only.`
 
 const die = (msg, code = 1) => {
@@ -60,9 +66,9 @@ export function assertScratchConfigDir(dir, home = homedir()) {
 }
 
 function parseArgs(argv) {
-  const o = { cols: 110, rows: 32, idle: 5000, limit: 120000, interval: 250, env: [], meta: [], model: 'none (no model call)', claudeBin: 'claude' }
-  const num = new Set(['cols', 'rows', 'idle', 'limit', 'interval'])
-  const str = new Set(['out', 'cwd', 'script', 'until', 'home', 'path', 'model', 'claude-bin'])
+  const o = { cols: 110, rows: 32, idle: 5000, limit: 120000, interval: 250, env: [], meta: [], mask: [], model: 'none (no model call)', claudeBin: 'claude' }
+  const num = new Set(['cols', 'rows', 'idle', 'limit', 'interval', 'slow-interval'])
+  const str = new Set(['out', 'cwd', 'script', 'until', 'home', 'path', 'model', 'claude-bin', 'mask-file', 'abort-on', 'approve'])
   let i = 0
   for (; i < argv.length; i++) {
     const a = argv[i]
@@ -75,10 +81,11 @@ function parseArgs(argv) {
       return v
     }
     if (num.has(name)) {
-      o[name] = Number(val())
-      if (!Number.isFinite(o[name]) || o[name] <= 0) die(`${a} must be a positive number`)
-    } else if (str.has(name)) o[name === 'claude-bin' ? 'claudeBin' : name] = val()
-    else if (name === 'env' || name === 'meta') o[name].push(val())
+      const key = name.replace(/-(\w)/g, (_, c) => c.toUpperCase())
+      o[key] = Number(val())
+      if (!Number.isFinite(o[key]) || o[key] <= 0) die(`${a} must be a positive number`)
+    } else if (str.has(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = val()
+    else if (name === 'env' || name === 'meta' || name === 'mask') o[name].push(val())
     else die(`unknown option ${a}\n${USAGE}`)
   }
   o.cmd = argv.slice(i)
@@ -103,9 +110,24 @@ function validateScript(steps) {
     if (s.at !== undefined && !(Number.isFinite(s.at) && s.at >= 0)) throw new Error(`${where}: "at" must be ms >= 0`)
     for (const k of ['waitFor', 'waitForLine']) if (s[k] !== undefined) new RegExp(s[k])
     if (['at', 'waitFor', 'waitForLine', 'delay', 'keys', 'key'].every(k => s[k] === undefined)) throw new Error(`${where}: empty step`)
+    if (s.stable !== undefined && !(Number.isFinite(s.stable) && s.stable > 0)) throw new Error(`${where}: "stable" must be ms > 0`)
     if (s.keys !== undefined && typeof s.keys !== 'string') throw new Error(`${where}: "keys" must be a string`)
   })
   return steps
+}
+
+/** Builds the capture-time masks from --mask and --mask-file. */
+function loadMasks(o) {
+  const specs = o.mask.map(m => {
+    const at = m.lastIndexOf('=')
+    if (at < 1) die(`--mask expects REGEX=REPLACEMENT, got ${m.length > 40 ? 'a long value' : m}`)
+    return { match: m.slice(0, at), replace: m.slice(at + 1), label: 'masked text' }
+  })
+  if (o.maskFile) specs.push(...JSON.parse(readFileSync(o.maskFile, 'utf8')))
+  return specs.map(s => {
+    if (typeof s.match !== 'string' || typeof s.replace !== 'string') throw new Error('mask needs string "match" and "replace"')
+    return { one: new RegExp(s.match), all: new RegExp(s.match, 'g'), replace: s.replace, label: s.label ?? 'masked text' }
+  })
 }
 
 function gitInfo(root) {
@@ -126,6 +148,14 @@ async function main() {
   if (!o.out) die(`--out is required\n${USAGE}`)
   if (o.cmd.length === 0) die(`no command given after --\n${USAGE}`)
   const until = o.until ? new RegExp(o.until) : null
+  const abortOn = o.abortOn ? new RegExp(o.abortOn) : null
+  const approve = o.approve ? new RegExp(o.approve) : null
+  let masks = []
+  try {
+    masks = loadMasks(o)
+  } catch (e) {
+    die(`bad mask: ${e.message}`)
+  }
   let steps = []
   try {
     if (o.script) steps = validateScript(JSON.parse(readFileSync(o.script, 'utf8')))
@@ -152,6 +182,12 @@ async function main() {
     command: o.cmd.join(' '),
   }
   for (const m of o.meta) { const [k, v] = kv(m); meta[k] = v }
+  if (masks.length > 0) meta.masked = [...new Set(masks.map(m => m.label))]
+  let maskedCount = 0
+  const applyMasks = text => masks.reduce((t, m) => t.replace(m.all, found => { maskedCount++; return found.replace(m.one, m.replace) }), text)
+  const maskQuietly = text => masks.reduce((t, m) => t.replace(m.all, found => found.replace(m.one, m.replace)), text)
+  const partial = `${o.out}.partial`
+  rmSync(partial, { force: true })
 
   const sock = `ctk-demo-${process.pid}`
   const sess = 'rec'
@@ -183,9 +219,15 @@ async function main() {
     if (r.status !== 0) return null
     const lines = r.stdout.split('\n').map(l => l.replace(/ +$/, ''))
     while (lines.length > 0 && lines.at(-1) === '') lines.pop()
-    return { text: lines.join('\n'), dead }
+    return { text: applyMasks(lines.join('\n')), dead }
   }
-  const send = (...a) => tmux('send-keys', '-t', target, ...a)
+  let lastKeyAt = -Infinity
+  const send = (...a) => {
+    lastKeyAt = now()
+    return tmux('send-keys', '-t', target, ...a)
+  }
+  const approvals = []
+  let lastApprovalAt = -Infinity
   const typeText = async (text, perChar) => {
     const parts = text.split('\n')
     for (let n = 0; n < parts.length; n++) {
@@ -205,7 +247,14 @@ async function main() {
         if (re === undefined) continue
         const rx = new RegExp(re)
         const deadline = now() + (s.timeout ?? 30000)
-        while (!rx.test(src()) && !stop) {
+        // with "stable" the condition must hold without a break for that long
+        let since = null
+        for (;;) {
+          if (stop) break
+          if (rx.test(src())) {
+            since ??= now()
+            if (now() - since >= (s.stable ?? 0)) break
+          } else since = null
           if (now() > deadline) throw new Error(`script step ${n}: ${k} /${re}/ not seen within ${s.timeout ?? 30000} ms`)
           await sleep(50)
         }
@@ -227,18 +276,27 @@ async function main() {
       if (snap === null) { stop ??= 'session-gone'; break }
       if (snap.text !== lastText) {
         frames.push({ t, text: snap.text })
+        appendFileSync(partial, JSON.stringify({ t, text: snap.text }) + '\n')
         lastText = snap.text
         lastChange = t
         plain = stripAnsi(snap.text)
       }
-      if (snap.dead) { stop ??= 'exit'; meta.exitStatus = Number(tmux('display-message', '-p', '-t', target, '#{pane_dead_status}').stdout.trim()) }
+      if (abortOn?.test(plain)) { stop ??= 'abort'; meta.abortedOn = (plain.split('\n').find(l => abortOn.test(l)) ?? '').trim().slice(0, 160) }
+      else if (approve && !snap.dead && t - lastApprovalAt > 2000 && approve.test(plain)) {
+        lastApprovalAt = t
+        approvals.push({ t, line: (plain.split('\n').find(l => approve.test(l)) ?? '').trim().slice(0, 160) })
+        send('Enter')
+      }
+      if (stop) { /* already stopping: abort or signal */ }
+      else if (snap.dead) { stop ??= 'exit'; meta.exitStatus = Number(tmux('display-message', '-p', '-t', target, '#{pane_dead_status}').stdout.trim()) }
       else if (t >= o.limit) stop ??= 'limit'
       else if (scriptDone && until?.test(plain)) stop ??= 'until'
       // idle counts from the later of the last change and the end of the script, so a script
       // that finishes long after the last change still gets a full idle window to see its effect
       else if (scriptDone && t - Math.max(lastChange, scriptDoneAt) >= o.idle) stop ??= 'idle'
       if (stop) break
-      await sleep(Math.max(0, o.interval - (now() - t)))
+      const slow = o.slowInterval && now() > 15000 && now() - lastKeyAt > 3000
+      await sleep(Math.max(0, (slow ? o.slowInterval : o.interval) - (now() - t)))
     }
     await Promise.race([scriptRun, sleep(100)])
   } finally {
@@ -246,13 +304,18 @@ async function main() {
     tmux('kill-server')
     if (socket.endsWith(sock)) rmSync(socket, { force: true })
   }
+  for (const k of ['command', 'model']) meta[k] = maskQuietly(meta[k])
   meta.stopReason = stop
+  if (masks.length > 0) meta.maskedReplacements = maskedCount
+  if (approve) meta.permissionApprovals = approvals
   meta.durationMs = now()
   meta.frames = frames.length
   writeFileSync(o.out, [JSON.stringify({ meta }), ...frames.map(f => JSON.stringify(f))].join('\n') + '\n')
+  rmSync(partial, { force: true })
   console.error(`record: ${frames.length} frame(s), ${meta.durationMs} ms, stopped on ${stop} -> ${o.out}`)
   if (scriptError) die(scriptError.message)
   if (stop === 'limit') process.exitCode = 3
+  if (stop === 'abort') process.exitCode = 4
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {

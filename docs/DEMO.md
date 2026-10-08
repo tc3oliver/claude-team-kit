@@ -1,0 +1,99 @@
+# The team demo: one real session
+
+[`assets/team-demo.svg`](assets/team-demo.svg) (animated), [`team-demo.gif`](assets/team-demo.gif) and
+[`team-demo.mp4`](assets/team-demo.mp4) show one live `/ctk:team` session on a small fixture project.
+Nothing in them is staged: they are rendered from [`team-demo.frames.jsonl`](assets/team-demo.frames.jsonl),
+a frame-by-frame capture of the real terminal. Four still frames come from the same file:
+[workers running](assets/team-demo-workers.svg), [a permission prompt](assets/team-demo-approval.svg),
+[the lead's report](assets/team-demo-summary.svg) and [`/ctk-stats`](assets/team-demo-stats.svg).
+
+## What was run
+
+| | |
+|---|---|
+| Prompt, typed at 30 ms per character | `/ctk:team Add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.` |
+| Project | `wordkit`, the fixture in `scripts/demo/fixture`: five small, independent text modules in `src/` (`caesar`, `rle`, `roman`, `slugify`, `wordcount`), no tests, one git commit |
+| Lead | `claude --model sonnet`, which is Sonnet 5.5 |
+| Workers | chosen by CTK's roles; the status line reported `claude-sonnet-5-5` ×3 (`implementer` runs on Sonnet by default) |
+| Claude Code | 2.1.294 on macOS, agent teams enabled by `ctk install` |
+| CTK | 0.1.0, commit `88e658f` plus uncommitted changes (the frames file says `-dirty`), default settings, cap of 3 workers |
+| Config | a dedicated Claude Code config dir with CTK installed, separate from any personal one |
+| Permissions | `acceptEdits` mode and allow rules for `Read`, `Write`, `Edit`, `Bash(npm test:*)`, `Bash(node --test:*)`, `Bash(ls:*)`, `Bash(cat:*)` |
+| Session environment | a clean environment (`env -i`), a throwaway `HOME`, short paths under `/tmp/ctk-demo`, terminal 120 by 34 |
+
+The recorder was told to watch and not to intervene, with two exceptions: it presses Enter on a
+permission prompt (and lists each press in the metadata line), and it kills the session if more than
+three workers are busy or the status line shows a cost of $10 or more. Neither guard triggered.
+
+## What the recording shows
+
+The session lasted 75 s of wall clock. The animated versions play it at about 1.8 times real speed,
+with idle gaps capped at 2 s, so the playback is about 40 s.
+
+- **Plan.** After the prompt the lead says there are five modules and the default cap is 3, so it will
+  start three workers and hand the other two modules to whichever worker finishes first.
+- **Spawns.** Three workers (`w-caesar`, `w-rle`, `w-roman`, all `ctk:implementer`) start within about
+  three seconds, at 16 s to 18 s. The status line goes from `team 0 busy` to `team 3 busy · 0 idle · 0 done / cap 3`.
+- **Counts.** `/ctk-stats` at the end reports `teammate spawns: 3 accepted, 0 refused at capacity, 0 failed
+  closed` and `peak live teammates: 3 (cap 3); now 0`. **The cap was reached but never exceeded, and no spawn was
+  refused in this recording.** The status line never showed a `rejected` counter.
+- **Hand-over.** The other two modules were not given new workers. As `w-caesar` and `w-roman` finished,
+  the lead gave `slugify` to `w-caesar` and `wordcount` to `w-roman`. The final report says
+  "w-caesar did caesar and slugify, w-roman did roman and wordcount, and w-rle did rle".
+- **Task states.** The status line shows teammates as busy or idle; its `done` count stayed 0 for the whole
+  run, and `/ctk-stats` printed `tasks created/completed: – (no task event seen)`. The lead coordinated the
+  workers by messages, so this recording does not show task states changing.
+- **Permission prompt.** One worker (`w-roman`) asked to run a shell command that the allow rules did not
+  cover (`node --test …; node -e "…"`). The recorder pressed Enter twice, at 41.2 s and 43.2 s (the first press
+  did not clear the prompt in the sampled screen, so the second is probably redundant); the choice was "1. Yes",
+  once. This is recorded as `permissionApprovals` in the metadata line.
+- **Result.** The lead ran `npm test` itself and reported: caesar 10, rle 11 (10 pass, 1 todo), roman 8,
+  slugify 8, wordcount 7. Running `npm test` on the resulting project afterwards gave the same totals: 44 tests,
+  43 pass, 0 fail, 1 todo. Nothing was committed; `test/` was left untracked.
+- **What the workers found.** The tests turned up four things in `src/`, none of which was fixed: `rle.encode`
+  does not escape digits (`decode(encode('1'))` returns `'11'`); `roman.fromRoman` accepts `'IIII'` and `'IC'`;
+  `wordcount` counts `'hi'` and `hi` as different words; the diacritic regex in `slugify` holds literal combining
+  characters. The `rle` worker wrote a test for its bug and marked it `todo`, so the suite stays green while the
+  bug is still there. The lead said so in its report and left the decision to the reader.
+- **Cost.** `/ctk-stats` and the status line both showed `$0.64` for the whole session, context 5 %. The
+  per-worker split is not available from Claude Code, and CTK does not claim one.
+
+## Oddities and honesty notes
+
+- **Two attempts.** The first attempt was stopped by the operator after 80 s because `npm` was missing from the
+  recorded `PATH`, so the lead could not run `npm test` as asked and fell back to `node --test`. That was a flaw
+  in the recording setup, not in CTK. The first attempt cost about $0.7 and is not published. For the record, its
+  status line reached `rejected 2` after the lead tried to start more workers than the cap allows, which the
+  published attempt did not do. The second attempt is the one shown, unedited.
+- **Input box suggestions.** The grey text in the input box (`fix the rle digit bug`, `/ctk:review`, `run npm test`)
+  is Claude Code's own prompt suggestion. The recorder typed only the three inputs listed above, plus `/exit`.
+- **Masks.** Account name, email, organisation id, login name and plan name were replaced at capture time
+  (68 replacements); the metadata line lists these categories, not the strings. The plan name appears as `Claude plan`.
+- **Frames.** The frames file keeps only screens that changed. Playback caps idle gaps (and the GIF and MP4 merge
+  frames closer than 100 ms); no frame is invented or edited.
+- **After the result.** The recorder waited 3 s after the lead's report (once the status line had shown no busy
+  teammates for 12 s), typed `/ctk-stats`, waited 3 s, and typed `/exit`. The last held frame is the
+  "Resume this session" line Claude Code prints on exit.
+
+## Reproduce
+
+`scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config
+dir, the permission rules, the recording and all renderings. It needs `tmux`, `ffmpeg`, Chrome, a logged-in
+dedicated config dir and a masks file, and it spends real money (this run cost under a dollar). See
+[`scripts/demo/README.md`](../scripts/demo/README.md) for the tools and the exact commands.
+
+```sh
+CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all
+```
+
+The model is not deterministic: another run will split the work differently, may spawn more or fewer workers,
+and may hit the cap.
+
+## What this does not prove
+
+It is one run on one small project with one model family. It shows that CTK installs, that the lead can start
+workers through it, that the status line and `/ctk-stats` count them, and that the cap held at 3. It does not
+show that the cap refuses spawns (this run never asked for a fourth), how CTK behaves when workers fail or
+run for a long time, or anything about cost or speed compared with a single agent or with another tool: there
+is no baseline run. It does not judge the quality of the generated tests beyond the fact that they pass, and
+the allow rules and the automatic Enter on one prompt made the session smoother than a default configuration would.

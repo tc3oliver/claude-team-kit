@@ -55,6 +55,26 @@ A script is a JSON array of steps, run in order. Each step first waits, then sen
 
 A failed wait aborts the recording with an error. The frames captured so far are still written.
 
+### Live sessions: masks, approvals, abort
+
+For a real, paid session (`team-demo.sh`) the recorder has a few more options:
+
+- `--mask-file FILE` (or `--mask 'REGEX=REPLACEMENT'`): every captured frame is rewritten before it is
+  stored or matched, so account name, email, organisation id and plan never reach the frames file. The
+  file is JSON, `[{"match": "<regex>", "replace": "<text>", "label": "email"}]`, and lives outside the
+  repo. The meta line records the labels (`masked`) and how many replacements happened
+  (`maskedReplacements`), never the patterns. Masks match the raw ANSI text, so a string split by a
+  colour change is not caught: grep the result.
+- `--approve REGEX`: when the screen matches (for example `❯ 1\. Yes`, a permission prompt) the recorder
+  presses Enter, at most once every 2 s. Every approval is listed in the meta line as
+  `permissionApprovals` with its time, so the recording discloses that a human-equivalent approval was needed.
+- `--abort-on REGEX`: kills the session at once if the screen matches, exit code 4 (a spend or
+  spawn-count guard, for example `(?:[4-9]|\d{2,}) busy|· \$\d{2,}\.\d\d`).
+- `--slow-interval MS`: after the first 15 s, and whenever no key was sent for 3 s, sample at this
+  slower rate. A ten-minute Claude Code session at 250 ms is tens of megabytes of frames.
+- Script steps accept `stable: ms` next to `waitFor`: the condition must hold without a break for that long.
+- While recording, frames are also appended to `<out>.partial`, so a killed run still leaves evidence.
+
 ### Keeping paths private
 
 Anything printed on screen ends up in the asset. Record from short scratch paths, never under a home
@@ -87,6 +107,38 @@ node scripts/demo/render-svg.mjs docs/assets/install.frames.jsonl \
   render fails.
 - The SVG has no scripts and no external references, so GitHub keeps it intact. The metadata line is
   kept in its `<desc>`.
+
+## GIF and MP4: `render-video.mjs`
+
+```sh
+node scripts/demo/render-video.mjs docs/assets/team-demo.frames.jsonl --work-dir /tmp/ctk-demo/video \
+  --gif docs/assets/team-demo.gif --mp4 docs/assets/team-demo.mp4 --target-seconds 40
+```
+
+It uses the same timing as the animated SVG (`--speed` or `--target-seconds`, `--max-gap`,
+`--end-pause`). Each distinct frame is rendered as a static SVG; headless Chrome screenshots them
+(`--tile` frames stacked per page, so one Chrome run covers eight frames); ffmpeg crops the tiles
+apart and stitches them with the concat demuxer. The underlying commands, for reference:
+
+```sh
+chrome --headless=new --hide-scrollbars --user-data-dir=$WORK/profile \
+  --screenshot=$WORK/page0.png --window-size=$W,$((H*8+150)) file://$WORK/page0.html
+ffmpeg -i page0.png -vf crop=$W:$H:0:$((i*H)) -frames:v 1 f0000.png            # per tile
+ffmpeg -f concat -safe 0 -i frames.txt -t $TOTAL \
+  -vf "fps=8,scale=1040:-2:flags=lanczos,format=yuv420p" -c:v libx264 -crf 30 -preset slow -movflags +faststart out.mp4
+ffmpeg -f concat -safe 0 -i frames.txt -t $TOTAL \
+  -vf "fps=8,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=48:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" -loop 0 out.gif
+```
+
+Headless Chrome does not always exit after writing the screenshot, so the script waits for the file
+to stop growing and then kills the process. `render-svg.mjs --target-seconds N` picks the `--speed`
+that makes the capped timeline last about N seconds.
+
+## The team demo
+
+`team-demo.sh` rebuilds the whole `docs/assets/team-demo.*` set from scratch; the prose is in
+`docs/DEMO.md`. It needs a dedicated, logged-in config dir, a masks file, tmux, ffmpeg and Chrome, and it
+spends real money.
 
 ## Assets
 
