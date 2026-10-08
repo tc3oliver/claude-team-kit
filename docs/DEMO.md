@@ -221,7 +221,7 @@ with the CTK band as a line above the input box; no CTK status line was configur
 - **Preflight failed.** At about 13 s the lead called `ctk_team_status`, as the skill's step 0 says. The call
   failed: `Error: tool.call step resolved mcp__ctk__ctk_team_status with a result that does not match its output
   shape`, with a schema error (`invalid_union … expected string, received object`). The lead said the check came back malformed, assumed the default cap of 3 and verified each
-  spawn through its Agent result. This is a defect in the plugin's MCP tool output, visible in the recording.
+  spawn through its Agent result. This is a defect in the plugin's MCP tool output, visible in the recording; it was fixed in `70fc90a` (see Run D).
 - **Tasks were created, before any worker.** The status line showed `tasks 0/4` at 18 s, `tasks 0/6` at 19 s, and
   the first worker started at about 22 s. The task list had six tasks: one per module (`Test src/caesar.js`,
   `rle`, `roman`, `slugify`, `wordcount`) and a final `Run npm test and report`, shown as `blocked by #3, #4, #5`
@@ -262,6 +262,67 @@ that is the visible difference: those runs coordinated by messages alone. One ru
 lead follows the rule, and the failing preflight call means the cap check in this run rested on the lead's
 assumption, not on the tool.
 
+## Run D: the same recipe after the plugin fixes
+
+Run C was recorded before commit `70fc90a`, which fixed the output shape of `ctk_team_status` (it now returns a
+string), the cap label in `/ctk-doctor` and the uninstall headline. Run D repeats Run C's recipe on the fixed
+plugin; Run C stays as evidence of the failing preflight. Files: [`team-demo-d.svg`](assets/team-demo-d.svg),
+[`team-demo-d.gif`](assets/team-demo-d.gif), [`team-demo-d.mp4`](assets/team-demo-d.mp4),
+[`team-demo-d.frames.jsonl`](assets/team-demo-d.frames.jsonl) and the stills
+[preflight and first tasks](assets/team-demo-d-preflight.svg), [task list and HUD](assets/team-demo-d-tasks.svg),
+[workers](assets/team-demo-d-workers.svg), [the lead's report](assets/team-demo-d-summary.svg),
+[`/ctk-stats`](assets/team-demo-d-stats.svg) and [`/ctk-doctor`](assets/team-demo-d-doctor.svg).
+
+**Setup.** As in Run C: ctk and its marketplace uninstalled from the demo config, the leftover `ctk` directory deleted,
+login kept, then `claude plugin marketplace add tc3oliver/claude-team-kit` and `claude plugin install ctk@ctk-kit`.
+The installed plugin directory was identical to the checkout's (`skills/`, `hooks/` and `agents/` compared; the cache
+recorded commit `4297975`, and `hooks/register.tsx` returns the status as a JSON string). The two environment flags
+went into `settings.json` by a plain JSON edit. `claude -p "/ctk-doctor"` printed the same readiness list as in Run C,
+with the cap row reading `cap: 3 live teammates (default)`; no `--config maxWorkers=3` was needed. The recording was
+made from a pristine checkout of commit `4297975` (a clean worktree, because other documents in the main working tree
+were being edited), so the metadata has no `-dirty`. One attempt.
+
+**What the frames show.**
+
+- **The preflight succeeded.** At about 15 s the lead called `ctk_team_status` and the result is a JSON object whose
+  first fields read `"live": 0` and `"max": 3` (the rest of the result is collapsed on screen, "+7 lines"). The lead
+  then said "Teams are enabled and the cap is 3", so it used `teamsEnabled` and the cap; the recording does not show
+  that it read the task-tools field, though it went on to create tasks. At the end, once the workers had shut down, the
+  lead called the tool again to confirm no slot was in use (`"live": 0`, `"max": 3`).
+- **Tasks and blocked-by.** The status line showed `tasks 0/1`, `0/3`, `0/4` and `0/6` between 16 s and 19 s, before
+  the first worker started (22 s). Six tasks: one per module plus `Run npm test and report`, shown as `blocked by
+  #2, #3, #4, #5` at 34 s, `#4, #5` at 35 s and `#5` at 46 s (done blockers are hidden); it was closed after the
+  integration run. The literal tool arguments are collapsed on screen.
+- **HUD tasks segment.** `0/6`, then `1/6` (34 s), `3/6`, `4/6` (46 s), `5/6` (55 s) and `6/6` (59 s). The end state
+  agrees with `/ctk-stats` (`tasks created/completed: 6/6`) and with the lead's report ("the six tasks are closed").
+- **Workers and cap.** Three workers (`w-caesar`, `w-rle`, `w-roman`) started at 22 s to 24 s. The lead gave slugify to
+  `w-caesar` and wordcount to `w-rle` as they finished. `/ctk-stats`: `teammate spawns: 3 accepted, 0 refused at
+  capacity, 0 failed closed`, `peak live teammates: 3 (cap 3); now 0`. **No refusal occurred in Run D.**
+- **Permission prompts.** None.
+- **Results.** The lead reported "npm test passes with 43 tests and 0 failures". `npm test` on the result afterwards
+  gave the same: 43 tests, 43 pass, 0 fail, 0 todo. Nothing was committed.
+- **Cost and time.** 117 s of wall clock (the longest of the recorded runs); `$0.94`; context 6 %.
+
+**Oddities and fit with the skill.**
+
+- Messages crossed. Around 41 s to 52 s the lead acted on notices that predated its own reassignments (one worker's
+  idle notice said it had taken no action, though it was already running slugify), checked the real state, and found
+  it consistent. This cost time but no correctness.
+- After the lead's first full run, `w-rle` removed one test from `test/wordcount.test.js` (11 down to 10: the cases for
+  non-string input and hyphen splitting). The lead noticed the file had changed, re-ran the suite (44 tests became 43)
+  and reported it, adding that it should have said earlier that the counts could still shift. The lead also flagged
+  that the wordcount tests assert behaviors that could be called incidental. A worker editing a test after being
+  verified is the kind of thing the skill's "unverified until you run its verify command" rule is meant to catch,
+  and here it did.
+- The lead's closing report ends by asking whether to commit the files; as in Run C it is short and does not list
+  the files changed in the skill's format.
+- The `done` count in the status line stayed 0, as in every run.
+
+**Reading.** On the fixed plugin the preflight call now works on screen, the task list and its blocked-by markers
+appear before any worker starts, and the HUD tasks count follows the list to 6/6 and matches `/ctk-stats`. Run D is
+slower and messier than Run C (message crossing, a worker trimming a test) but those are lead and worker behaviors,
+not plugin faults; one run each cannot say which is typical.
+
 ## Reproduce
 
 `scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config
@@ -273,6 +334,7 @@ dedicated config dir and a masks file, and it spends real money (this run cost u
 CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all
 CTK_DEMO_RUN=b CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run B
 CTK_DEMO_RUN=c CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run C, native install
+CTK_DEMO_RUN=d CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run D, Run C's recipe after the fixes
 ```
 
 The model is not deterministic: another run will split the work differently, may spawn more or fewer workers,

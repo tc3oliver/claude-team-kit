@@ -15,6 +15,8 @@
 # one-time settings in settings.json, and a recording that ends with /ctk-stats and /ctk-doctor. Its files are
 # docs/assets/team-demo-c.*. `prepare` for run c needs the real HOME for git over ssh while it adds the marketplace.
 #
+# CTK_DEMO_RUN=d is Run C's recipe again after the plugin fixes (the preflight tool's output shape); files team-demo-d.*.
+#
 # The recorder kills the session if more than 3 teammates are busy or the status line shows a cost of
 # $2.00 or more (test/demo-render.test.ts checks the pattern).
 #
@@ -31,7 +33,8 @@ CLAUDE_REAL=${CTK_DEMO_CLAUDE:-$HOME/.local/bin/claude}   # the binary, never a 
 ASSETS=$ROOT/docs/assets
 STAGE=${1:-all}
 RUN=${CTK_DEMO_RUN:-a}
-case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; *) PREFIX=team-demo ;; esac
+case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; d) PREFIX=team-demo-d ;; *) PREFIX=team-demo ;; esac
+NATIVE=0; case $RUN in c|d) NATIVE=1 ;; esac
 CFG=$DEMO/config
 SESSION_PATH=$DEMO/bin:/usr/bin:/bin
 
@@ -93,7 +96,7 @@ prepare_native() {
 
 prepare() {
   require_inputs
-  if [ "$RUN" = c ]; then prepare_native; return; fi
+  if [ "$NATIVE" = 1 ]; then prepare_native; return; fi
   mkdir -p "$DEMO"/{bin,home,out}
   ln -sfn "$CTK_DEMO_CONFIG_DIR" "$CFG"
   ln -sfn "$ROOT" "$DEMO/ctk-kit"
@@ -129,7 +132,7 @@ prepare() {
 record() {
   require_inputs
   local masks=() extra=() script=team-demo.script.json
-  if [ "$RUN" = c ]; then script=team-demo-c.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
+  if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
     --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows 34 \
@@ -147,11 +150,15 @@ render() {
   # the lead's closing words differ per run; pick the frame that shows them with the status line
   local summary='Crunched for[\s\S]*team 0 busy' workers='team 3 busy .*\n[\s\S]*◯ w-roman'
   [ "$RUN" = b ] && summary='Run /ctk:review if you want[\s\S]*team 0 busy'
+  [ "$RUN" = d ] && summary='Tell me if you want me to commit[\s\S]*team 0 busy'
   node "$svg" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 40 --max-gap 2 --title 'ctk team: one real session'
   # key frames, picked from the real recording by what is on screen
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex "$workers" --title 'ctk team: workers running'
-  if [ "$RUN" = c ]; then
-    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'blocked by #3, #4, #5[\s\S]*tasks 2/6' --title 'ctk team: the task list and the HUD tasks segment'
+  if [ "$NATIVE" = 1 ]; then
+    local tasks='blocked by #3, #4, #5[\s\S]*tasks 2/6' preflight='ctk_team_status \(MCP\)[\s\S]*(Teams are enabled|came back malformed)'
+    [ "$RUN" = d ] && tasks='blocked by #4, #5[\s\S]*tasks 3/6'
+    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-preflight.svg" --at-regex "$preflight" --title 'ctk team: the preflight and the first tasks'
+    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex "$tasks" --title 'ctk team: the task list and the HUD tasks segment'
     node "$svg" "$f" --static-out "$ASSETS/$PREFIX-doctor.svg" --at-regex 'stats recording: on[\s\S]*ready' --title 'ctk team: /ctk-doctor'
   else
     node "$svg" "$f" --static-out "$ASSETS/$PREFIX-approval.svg" --at-regex 'Do you want to proceed' --title 'ctk team: a worker asks to run a command'

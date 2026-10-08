@@ -142,7 +142,11 @@ claude plugin install ctk@ctk-kit --config maxWorkers=2
 That wrote `"pluginConfigs": { "ctk@ctk-kit": { "options": { "maxWorkers": 2 } } }` and the
 cap became 2 (Claude Code then reports `6 userConfig options not yet set`). Names, defaults and
 limits are in [CONFIGURATION](CONFIGURATION.md#how-fields-reach-the-plugin). `/ctk-doctor`
-labels the cap's source `default` or `set in plugin options`.
+labels the cap's source `default` or `set in plugin options`:
+
+```
+[ok]     cap: 2 live teammates (set in plugin options)
+```
 
 ## Update and remove (native)
 
@@ -197,9 +201,10 @@ uninstalled ctk (backups kept in <config>/ctk/backups)
   note: left plugin ctk@ctk-kit installed: ctk did not install it. Remove it in Claude Code with: /plugin uninstall ctk@ctk-kit (and /plugin marketplace remove ctk-kit)
 ```
 
-On a native install with no ledger at all, `ctk uninstall` changes nothing and prints how to remove the
-plugin by hand and the `rm -rf` line for `<config>/ctk/stats` (see Known issues in
-[REVIEW](REVIEW.md#8-unresolved-issues) for its head line). `ctk doctor` reports such an install as
+On a native install with no ledger at all, `ctk uninstall` prints `nothing to uninstall: ctk owns
+nothing here` (exit 0, `status: nothing` with `--json`), changes nothing, and prints how to remove the
+plugin by hand and the `rm -rf` line for `<config>/ctk/stats`. It prints `uninstall incomplete` (exit 2)
+only when a step failed or left a conflict. `ctk doctor` reports such an install as
 `installed natively (no ctk ledger)` and `ledger: info`, not as a failure.
 
 The rest of this page covers the CLI; Windows and WSL at the end apply to both paths.

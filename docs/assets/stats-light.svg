@@ -7,8 +7,8 @@
   <text x="28" y="64" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="46" font-weight="700" fill="#0F766E">3</text>
   <text x="28" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" fill="#4A5565">default worker cap</text>
   <text x="328" y="64" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="46" font-weight="700" fill="#0F766E">~187</text>
-  <text x="328" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" fill="#4A5565">fixed plugin context, tokens</text>
+  <text x="328" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" fill="#4A5565">always-on plugin tokens</text>
   <text x="628" y="64" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="46" font-weight="700" fill="#0F766E">0</text>
   <text x="628" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" fill="#4A5565">extra LLM calls from the HUD</text>
-  <text x="328" y="108" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#4A5565">fixed context, not whole-task tokens</text>
+  <text x="328" y="108" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#4A5565">fixed context only, not whole-task use</text>
 </svg>

@@ -336,11 +336,10 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   `UNVERIFIED`; the maintainers report one recorded run in which a lead skipped the task list while the
   wording allowed it, and the wording was made unconditional afterwards (Reported; not reproduced here).
 - **Live evidence:** `/ctk-doctor` and `/ctk-stats` through `claude -p` in scratch directories, with and
-  without the teams flag, on a native install from the GitHub repository.
+  without the teams flag, on a native install from the GitHub repository at commit 70fc90a, including
+  the cap row `cap: 2 live teammates (set in plugin options)` after `--config maxWorkers=2`.
 - **Not verified:** a native install by someone other than the owner from a *public* repository. The
   repository was private during testing and the add worked through the tester's own ssh credentials.
-  The `/ctk-doctor` cap-source label was verified from the working tree with `--plugin-dir`, not from a
-  GitHub install, because the GitHub copy installed during testing predates that fix.
 
 ### 5.7 Windows and WSL fallback
 

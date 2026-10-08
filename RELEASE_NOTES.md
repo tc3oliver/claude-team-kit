@@ -29,7 +29,8 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Not published
 
-The tarball is built locally; no git tag has been created. Nothing has been published to npm, GitHub
-Releases or a plugin marketplace. The release workflow builds and attaches a
+The tarball is built locally; no git tag has been created. Nothing has been published to npm, to GitHub
+Releases or to an official Claude Code plugin directory. The repository itself works as a plugin marketplace
+(`/plugin marketplace add tc3oliver/claude-team-kit`). The release workflow builds and attaches a
 tarball only when a `v*` tag is pushed; `npm publish` is a manual step after
 review.
