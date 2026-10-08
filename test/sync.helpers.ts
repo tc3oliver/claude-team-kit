@@ -1,7 +1,7 @@
 // Shared fixtures for the sync tests: temp config dirs, local bare repos as remotes, a stub applyProfile.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { devNull, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after } from 'node:test'
 
@@ -22,9 +22,19 @@ export const registerCleanup = () =>
     for (const d of dirs) rmSync(d, { recursive: true, force: true })
   })
 
+// An empty file, not /dev/null: Windows git rejects \\.\nul as a config path.
+let emptyConfig: string | null = null
+const emptyGitConfig = (): string => {
+  if (emptyConfig === null) {
+    emptyConfig = join(tmp('ctk-gitcfg-'), 'gitconfig')
+    writeFileSync(emptyConfig, '')
+  }
+  return emptyConfig
+}
+
 export const gitEnv = (): NodeJS.ProcessEnv => ({
   ...process.env,
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: emptyGitConfig(),
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'Test',
   GIT_AUTHOR_EMAIL: 'test@example.invalid',

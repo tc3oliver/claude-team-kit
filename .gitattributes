@@ -1,0 +1,7 @@
+# Keep line endings stable on every platform. Skill and agent frontmatter, JSON manifests and
+# shell-facing scripts must not turn into CRLF on a Windows checkout.
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.mp4 binary
+*.tgz binary

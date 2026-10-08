@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -244,9 +245,10 @@ test('uninstall removes the status line script only if it is still what CTK wrot
 })
 
 test('path-prefix checks compare whole segments: a sibling named like the ctk dir is not inside it', async t => {
-  assert.equal(isInside('/c/ctk', '/c/ctk/bin/x'), true)
-  assert.equal(isInside('/c/ctk', '/c/ctk-extra/x'), false)
-  assert.equal(isInside('/c/ctk', '/c/ctk'), false)
+  const ctk = join(tmpdir(), 'c', 'ctk')
+  assert.equal(isInside(ctk, join(ctk, 'bin', 'x')), true)
+  assert.equal(isInside(ctk, join(tmpdir(), 'c', 'ctk-extra', 'x')), false)
+  assert.equal(isInside(ctk, ctk), false)
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
   const sibling = join(e.ctx.configDir, 'ctk-extra', 'f.txt')
