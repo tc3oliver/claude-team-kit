@@ -182,7 +182,8 @@ More in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 | [Migration from OMC](docs/MIGRATION-FROM-OMC.md) | Moving from Oh My Claude Code |
 | [Configuration](docs/CONFIGURATION.md) | Profile schema, layers, every field and default, file locations |
 | [Architecture](docs/ARCHITECTURE.md) | Components, ownership rules, sync, contributor notes |
-| [Security](docs/SECURITY.md) | Threat model, what CTK reads and writes, secrets, reporting |
+| [Threat model](docs/THREAT-MODEL.md) | What CTK reads and writes, secrets handling, known limits |
+| [Security policy](SECURITY.md) | Supported versions and how to report a vulnerability |
 | [Rollback](docs/ROLLBACK.md) | Undoing changes |
 | [Limitations](docs/LIMITATIONS.md) | Known gaps |
 | [Release notes](RELEASE_NOTES.md), [Changelog](CHANGELOG.md), [Contributing](CONTRIBUTING.md), [Third-party notices](THIRD_PARTY_NOTICES.md) | |

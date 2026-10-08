@@ -66,13 +66,24 @@ const quoteWin = (a: string): string => {
   return `"${a}"`
 }
 
-/** `claude --version` -> "2.1.294", or null when claude is missing or prints no version. */
-export const claudeVersion = async (ctx: Ctx): Promise<string | null> => {
+export const CLAUDE_NOT_FOUND =
+  'Claude Code was not found. Install it from https://code.claude.com/docs/en/quickstart, then run ctk install again.'
+
+export type ClaudeProbe = { version: string | null; missing: boolean; detail: string }
+
+/** Run `claude --version`: the version, or why there is none. */
+export const probeClaude = async (ctx: Ctx): Promise<ClaudeProbe> => {
   const r = await runClaude(ctx, ['--version'])
-  if (r.code !== 0) return null
-  const v = parseVersion(r.stdout)
-  return v ? v.join('.') : null
+  const v = r.code === 0 ? parseVersion(r.stdout) : null
+  return { version: v ? v.join('.') : null, missing: r.missing, detail: (r.stderr || r.stdout).trim().slice(0, 200) }
 }
+
+/** `claude --version` -> "2.1.294", or null when claude is missing or prints no version. */
+export const claudeVersion = async (ctx: Ctx): Promise<string | null> => (await probeClaude(ctx)).version
+
+/** The user-facing reason a probe produced no version. */
+export const claudeProblem = (p: ClaudeProbe): string =>
+  p.missing ? CLAUDE_NOT_FOUND : `Claude Code did not report a version (claude --version: ${p.detail || 'no output'}). Check that "claude" starts, then run ctk again.`
 
 export type MarketplaceInfo = { name: string; path: string | null }
 /** `errors` are Claude's own load errors for the plugin, e.g. "Marketplace ctk-kit failed to load: cache-miss". */
@@ -106,9 +117,12 @@ export const listPlugins = async (ctx: Ctx): Promise<PluginInfo[]> =>
   }))
 
 /** Run a mutating `claude plugin ...` command; throws with claude's own message on failure. */
+/** A failed `claude plugin ...` command; the message carries Claude's own (trimmed) output. */
+export class ClaudeCommandError extends Error {}
+
 export const claudePlugin = async (ctx: Ctx, args: string[]): Promise<void> => {
   const r = await runClaude(ctx, ['plugin', ...args, '--json'])
-  if (r.code !== 0) throw new Error(`claude plugin ${args.join(' ')} failed (exit ${r.code}): ${(r.stderr || r.stdout).trim().slice(0, 400)}`)
+  if (r.code !== 0) throw new ClaudeCommandError(`claude plugin ${args.join(' ')} failed (exit ${r.code}): ${(r.stderr || r.stdout).trim().slice(0, 400)}`)
 }
 
 export const pluginCommands = {
@@ -118,6 +132,7 @@ export const pluginCommands = {
   install: (ctx: Ctx) => claudePlugin(ctx, ['install', PLUGIN_ID, '--scope', 'user']),
   uninstall: (ctx: Ctx) => claudePlugin(ctx, ['uninstall', PLUGIN_ID, '--scope', 'user']),
   enable: (ctx: Ctx) => claudePlugin(ctx, ['enable', PLUGIN_ID, '--scope', 'user']),
+  disable: (ctx: Ctx) => claudePlugin(ctx, ['disable', PLUGIN_ID, '--scope', 'user']),
   update: (ctx: Ctx) => claudePlugin(ctx, ['update', PLUGIN_ID, '--scope', 'user']),
 }
 

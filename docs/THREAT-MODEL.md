@@ -1,15 +1,10 @@
-# Security
+# Threat model
 
-This document says what CTK touches, what it deliberately does not, where it can still hurt
-you, and how to report a vulnerability. It describes version 0.1.0 and is based on the source
-code and on running the CLI against a scratch config directory; it is not an audit.
+This document says what CTK touches, what it deliberately does not, and where it can still hurt
+you. To report a vulnerability, follow the [security policy](../SECURITY.md).
 
-## Reporting a vulnerability
-
-Open a **private security advisory** on the repository. Do not file a public issue for a
-vulnerability. Please include the CTK version (`ctk --version`), your OS, the Claude Code
-version (`claude --version`), and steps to reproduce. Do not paste real credentials, tokens or
-the contents of your `settings.json`; redact them first.
+It describes version 0.1.0 and is based on the source code and on running the CLI against a
+scratch config directory; it is not an audit.
 
 ## Threat model
 

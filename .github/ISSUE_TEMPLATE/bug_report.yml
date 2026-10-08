@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in ctk, the plugin, the status line or sync does not behave as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste credentials, tokens, or the contents of your `settings.json`. Redact them first.
+        For a security problem, use the private advisory link on the issue chooser instead.
+  - type: input
+    id: ctk-version
+    attributes:
+      label: ctk version
+      description: Output of `ctk --version`, or the commit SHA if you run from a checkout.
+    validations:
+      required: true
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude Code version
+      description: Output of `claude --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows (native), WSL, Other]
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands. Prefer a scratch `--config-dir` so your real config is not involved.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`ctk doctor` output"
+      description: Paste it, with any personal paths or tokens redacted.
+      render: text

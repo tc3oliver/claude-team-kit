@@ -4,12 +4,12 @@ import { basename, dirname, join, sep } from 'node:path'
 import type { Ctx } from '../cli/context.ts'
 import { listMarketplaces, listPlugins, pluginCommands, registryFiles } from '../core/claude.ts'
 import { createBackup, readJsonIfExists, sha256, writeFileAtomic, type BackupManifest } from '../core/fsx.ts'
-import { deepEqual, pointerDelete, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
+import { deepEqual, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
 import { loadLedger, saveLedger, type EntryChange, type FileEntry, type Ledger, type LedgerEntry, type Prior } from '../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../core/paths.ts'
 import { loadDeviceLayer, loadUserLayer } from '../core/profilestore.ts'
 import { readSettings, writeSettings } from '../core/settings.ts'
-import { profilePathFor } from './apply.ts'
+import { deleteLeaf, profilePathFor, pruneContainers } from './apply.ts'
 
 export type UndoReport = { reverted: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }
 
@@ -62,7 +62,7 @@ export const undoChanges = async (
       if (priorEq(cur, c.valueBefore)) {
         if (live) setEntry(ledger, 'settings-key', c.pointer, c.before)
       } else if (priorEq(cur, c.valueAfter)) {
-        if ('absent' in c.valueBefore) pointerDelete(data, c.pointer)
+        if ('absent' in c.valueBefore) deleteLeaf(data, c.pointer)
         else pointerSet(data, c.pointer, structuredClone(c.valueBefore.value))
         modified = true
         rep.reverted.push(c.pointer)
@@ -134,6 +134,17 @@ export const undoChanges = async (
       if (remaining === null) rep.notes.push(`${d.pointer}: will be removed with the plugin by Claude Code (your value ${value} is kept in the backup taken first)`)
       else if (pointerGet(remaining, d.pointer) !== undefined) rep.conflicts.push({ key: d.pointer, reason: 'changed since CTK wrote it; left as is' })
       else rep.notes.push(`${d.pointer}: removed with the plugin by Claude Code (your value ${value} is kept in backup ${opBackupId ?? '?'})`)
+    }
+  }
+
+  // Containers that only exist because of CTK (recorded absent before its first write) go once they are empty.
+  if (live && ledger.containersAbsentBefore.length > 0) {
+    const file = readSettings(ctx.paths.settings)
+    const data = structuredClone(file.data)
+    const removed = pruneContainers(data, ledger.containersAbsentBefore)
+    if (removed.length > 0) {
+      writeSettings(ctx.paths.settings, file, data)
+      ledger.containersAbsentBefore = ledger.containersAbsentBefore.filter(p => !removed.includes(p))
     }
   }
   return rep

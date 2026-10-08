@@ -260,3 +260,44 @@ test('path-prefix checks compare whole segments: a sibling named like the ctk di
   assert.equal(r.code, 0, JSON.stringify(r.report))
   assert.ok(!existsSync(sibling), 'the sibling file was reverted like any other recorded file')
 })
+
+const UNRELATED = { theme: 'dark', permissions: { allow: ['Bash(ls)'] }, hooks: { Stop: [] }, model: 'sonnet' }
+
+test('install then uninstall leaves settings.json with exactly the original content and key order', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, UNRELATED)
+  await runInstall(e.ctx, flags, e.root)
+  assert.notDeepEqual(readJson(e.ctx.paths.settings), UNRELATED)
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.equal(JSON.stringify(readJson(e.ctx.paths.settings)), JSON.stringify(UNRELATED))
+  assert.deepEqual(readdirSync(e.ctx.paths.ctk), ['backups'])
+})
+
+test('install then rollback leaves settings.json with exactly the original content and key order', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, UNRELATED)
+  await runInstall(e.ctx, flags, e.root)
+  const r = await rollback(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.equal(JSON.stringify(readJson(e.ctx.paths.settings)), JSON.stringify(UNRELATED))
+})
+
+test('containers that existed before ctk are kept, even when ctk leaves them empty', async t => {
+  const e = makeEnv(t)
+  const original = { ...UNRELATED, env: {}, enabledPlugins: { 'x@y': true }, pluginConfigs: {} }
+  writeJson(e.ctx.paths.settings, original)
+  await runInstall(e.ctx, flags, e.root)
+  assert.equal((await uninstall(e.ctx)).code, 0)
+  assert.equal(JSON.stringify(readJson(e.ctx.paths.settings)), JSON.stringify(original))
+})
+
+test('a container ctk created is kept when it holds something of the user', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const s = readJson(e.ctx.paths.settings)
+  s.env.MY_VAR = '1'
+  writeJson(e.ctx.paths.settings, s)
+  assert.equal((await uninstall(e.ctx)).code, 0)
+  assert.deepEqual(readJson(e.ctx.paths.settings).env, { MY_VAR: '1' })
+})

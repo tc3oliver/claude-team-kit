@@ -1,0 +1,10 @@
+[
+  { "waitForLine": "\\$$", "delay": 800, "keys": "ctk install --dry-run\n", "typed": 45 },
+  { "waitForLine": "\\$$", "delay": 2500, "keys": "clear\n", "typed": 45 },
+  { "waitForLine": "\\$$", "delay": 400, "keys": "ctk install\n", "typed": 45 },
+  { "waitForLine": "\\$$", "timeout": 120000, "delay": 2500, "keys": "clear\n", "typed": 45 },
+  { "waitForLine": "\\$$", "delay": 400, "keys": "ctk doctor\n", "typed": 45 },
+  { "waitForLine": "\\$$", "timeout": 60000, "delay": 2500, "keys": "clear\n", "typed": 45 },
+  { "waitForLine": "\\$$", "delay": 400, "keys": "claude -p \"/ctk-stats\"\n", "typed": 45 },
+  { "waitForLine": "\\$$", "timeout": 120000 }
+]

@@ -31,7 +31,9 @@ node dist/src/cli/bin.js --version
 0.1.0
 ```
 
-Use `node /path/to/claude-team-kit/dist/src/cli/bin.js` wherever this page says `ctk`, or make
+From the checkout, `npm run ctk -- <args>` runs the built CLI (`npm run ctk -- doctor`,
+`npm run ctk -- install --dry-run`). Everywhere else, use
+`node /path/to/claude-team-kit/dist/src/cli/bin.js` wherever this page says `ctk`, or make
 yourself an alias or a wrapper script. (`npm link` should also expose `ctk`; it was not tested.)
 
 **Keep the checkout where it is.** `ctk install` registers the checkout directory with
@@ -57,7 +59,8 @@ plugin loaded from it. The same directory-must-stay-put rule applies, so install
 location you will keep.
 
 Once the package is published to npm, `npm install -g claude-team-kit` replaces the tarball
-step. It is not published yet.
+step. It is not published yet, which is why CTK's own hints say to clone the repository and
+build it.
 
 ## Install
 
@@ -92,10 +95,14 @@ install: darwin, Claude Code 2.1.294, config /Users/you/.claude
   plugin ctk@ctk-kit: install
   status line script: copy
   settings.json: 9 key(s): ...
-done. Restart Claude Code (or run /reload-plugins) to load the plugin.
+installed.
+Restart Claude Code (or run /reload-plugins).
+Try: /ctk:team <goal>   (status: /ctk-stats)
+Undo any time: ctk uninstall
 ```
 
-Running it again changes nothing:
+The last three lines are the next steps; they are also in the `nextSteps` field of `--json`
+output. Running it again changes nothing:
 
 ```
   marketplace ctk-kit: already registered
@@ -104,6 +111,33 @@ Running it again changes nothing:
   settings.json: no key changes
 already installed; nothing to change.
 ```
+
+### Help
+
+```sh
+ctk --help               # all commands and the global options
+ctk install --help       # one command
+ctk help install         # same thing
+ctk sync --help          # sync prints its own usage
+```
+
+Each command's help states what it changes and its options.
+
+### If install cannot start
+
+These are the messages for the failures a first run can hit. Each one stops before CTK
+changes anything (exit `1`):
+
+| Situation | Message |
+|---|---|
+| `claude` not on `PATH` | `error: Claude Code was not found. Install it from https://code.claude.com/docs/en/quickstart, then run ctk install again.` |
+| Config directory not writable | `error: the Claude config dir <dir> is not writable (EACCES); fix its permissions or pick another with --config-dir.` |
+| `settings.json` is not valid JSON | `error: <config>/settings.json is not valid JSON (...); refusing to modify it` then a second line saying that CTK will not modify `<config>/settings.json` and to fix it by hand (or move it aside) and run the command again |
+| The CTK package is incomplete (for example `dist/` copied without `plugin/`) | `error: the ctk package at <dir> is incomplete (missing .claude-plugin/marketplace.json, plugin/ctk/.claude-plugin/plugin.json); get a complete copy (clone the repository, then run "npm ci && npm run build") and run ctk from there.` |
+
+A failing `claude plugin ...` step prints Claude's own message and then says that nothing
+else was changed and that whatever CTK had added is in its ledger, so running the command
+again is safe.
 
 Options:
 
@@ -268,7 +302,8 @@ edited it: `install` and `update` report `edited since CTK wrote it; not overwri
 (exit `2`); restore or delete the file and run `ctk install` again. A key CTK wrote and you
 then **deleted** stays deleted: you get a note (`removed by you since CTK wrote it; not
 re-added`, exit `0`) until you `ctk uninstall` and `ctk install` again. A plugin you disabled
-with `claude plugin disable` is left disabled with a note, and `ctk doctor` warns. A `statusLine` of your own is kept without a conflict. Example
+with `claude plugin disable` stays disabled through `install`, `update` and a marketplace
+re-point (note: `installed but disabled, left disabled`), and `ctk doctor` warns. A `statusLine` of your own is kept without a conflict. Example
 from a settings file that already had `pluginConfigs["ctk@ctk-kit"].options.maxWorkers = 5`
 and an OMC-style `statusLine`:
 
@@ -306,9 +341,10 @@ ctk update
 ```
 
 `ctk update` refreshes the marketplace and plugin when the packaged plugin version differs,
-re-copies the status line script if it changed, and re-applies your profile. It never
-changes the `ctk` package itself: upgrade that with npm (or `git pull` and `npm run build` in
-a checkout), then run `ctk update`. Only the no-change path was exercised (the package and
+re-copies the status line script if it changed, and re-applies your profile. A plugin you
+disabled stays disabled. It never changes the `ctk` package itself. Its closing hint, because
+the package is not published to npm yet, is `To upgrade ctk itself, pull the latest checkout and
+rebuild (git pull && npm ci && npm run build), then run "ctk update" again.` Only the no-change path was exercised (the package and
 the installed plugin were both 0.1.0); a real version bump was not.
 
 ## Moving or deleting the install directory
@@ -331,16 +367,19 @@ location:
 ```
 $ ctk install
   marketplace ctk-kit: re-point from <old>/claude-team-kit to <new>/claude-team-kit (Claude removes the plugin with the marketplace, so it is reinstalled)
-  plugin ctk@ctk-kit: install
+  plugin ctk@ctk-kit: reinstall
   status line script: up to date
   settings.json: no key changes
-done. Restart Claude Code (or run /reload-plugins) to load the plugin.
+installed.
+Restart Claude Code (or run /reload-plugins).
+...
 ```
 
-`ctk update` does the same. After it, `doctor` passed and `claude -p "/ctk-stats"` worked.
-Claude Code removes a marketplace together with its plugin and the plugin's options, so
-CTK removes and re-adds both in one transaction and writes the options again. A plugin you had
-disabled comes back enabled.
+`ctk update` does the same (`plugin ctk@ctk-kit: reinstall`). After it, `doctor` passed and
+`claude -p "/ctk-stats"` worked. Claude Code removes a marketplace together with its plugin
+and the plugin's options, so CTK removes and re-adds both in one transaction and writes the
+options again. A plugin you had disabled is disabled again afterwards:
+`plugin ctk@ctk-kit: reinstall, then disable it again (it was disabled)`.
 
 If `ctk-kit` was registered by something other than CTK and the old directory still exists,
 CTK will not move it. It exits `2` and prints the manual command
@@ -371,4 +410,8 @@ What the code does for Windows, and what has and has not been tested:
 
 ## Uninstall
 
-See [ROLLBACK](ROLLBACK.md).
+`ctk uninstall` and `ctk rollback` remove only what CTK caused. `settings.json` returns to its
+original content, and a fresh config directory returns to `{}`: the `enabledPlugins` and
+`extraKnownMarketplaces` objects that `claude plugin` creates are removed again when they did not
+exist before and are empty. Claude Code may reorder keys when it rewrites the file. Details and
+the real output are in [ROLLBACK](ROLLBACK.md).

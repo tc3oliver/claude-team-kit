@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from 'node:fs'
 
 import type { Ctx } from '../cli/context.ts'
-import { listMarketplaces, pluginCommands } from '../core/claude.ts'
+import { listMarketplaces, listPlugins, pluginCommands } from '../core/claude.ts'
 import { findEntry, type Ledger, type PluginEntry } from '../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../core/paths.ts'
 import type { Txn } from './txn.ts'
@@ -61,4 +61,14 @@ export const recordPluginEntry = (t: Txn, added: boolean, installed: boolean): v
   if (prev && prev.marketplaceAddedByCtk === next.marketplaceAddedByCtk && prev.pluginInstalledByCtk === next.pluginInstalledByCtk) return
   t.ledger.entries = [...t.ledger.entries.filter(e => e !== prev), next]
   if (added || installed) t.changes.push({ kind: 'plugin', before: prev ?? null, after: next })
+}
+
+/**
+ * A plugin the user disabled must stay disabled. Reinstalling (a re-point) or updating can bring it
+ * back enabled, so after the claude commands ran it is switched off again if it was off before them.
+ */
+export const restoreDisabled = async (ctx: Ctx, wasDisabled: boolean): Promise<void> => {
+  if (!wasDisabled) return
+  const now = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
+  if (now?.enabled) await pluginCommands.disable(ctx)
 }

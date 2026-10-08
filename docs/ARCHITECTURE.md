@@ -6,7 +6,7 @@ your settings consistent across machines. Neither one orchestrates agents. Claud
 native Agent Teams do that; CTK adds a cap, model routing, three skills and a status
 display on top.
 
-Related documents: [CONFIGURATION](CONFIGURATION.md), [SECURITY](SECURITY.md),
+Related documents: [CONFIGURATION](CONFIGURATION.md), [THREAT-MODEL](THREAT-MODEL.md),
 [INSTALLATION](INSTALLATION.md), [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md),
 [ROLLBACK](ROLLBACK.md), [LIMITATIONS](LIMITATIONS.md).
 
@@ -136,7 +136,7 @@ available columns and yields to Claude Code's survey prompt. `tasks a/b` is comp
 **Stats.** When `recordStats` is on, the mod writes one JSON file per session to
 `<config>/ctk/stats/<sessionId>.json`, at most once every 2 seconds and once more at session
 end. If `session.start` fires again in the same session (reload, respawn), the counters
-continue from that session's file instead of resetting. Fields are in [SECURITY](SECURITY.md#what-the-stats-files-contain). `ctk stats` and
+continue from that session's file instead of resetting. Fields are in [THREAT-MODEL](THREAT-MODEL.md#what-the-stats-files-contain). `ctk stats` and
 `/ctk-stats` read them; both label figures as **counted** (events CTK saw) or **measured**
 (figures Claude Code reported). Claude Code exposes no per-worker cost, so none is shown or
 estimated.
@@ -310,11 +310,11 @@ profile repo
   a symlink, pull and publish refuse (exit `1`). Anything else in the repo is ignored on pull
   and refused on publish.
 - `sync init` rejects remote URLs that carry a password or token, and `git` runs with a
-  scrubbed environment. Details: [SECURITY](SECURITY.md#secrets-handling).
+  scrubbed environment. Details: [THREAT-MODEL](THREAT-MODEL.md#secrets-handling).
 - The `skills` list is one value in the profile, so two devices adding different skills
   produce a conflict (`sync resolve` takes one list).
 
-Secret scanning is described in [SECURITY](SECURITY.md#secrets-handling).
+Secret scanning is described in [THREAT-MODEL](THREAT-MODEL.md#secrets-handling).
 
 ## Design constraints
 

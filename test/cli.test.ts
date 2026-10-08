@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -72,4 +72,41 @@ test('sync arguments are handed over after global options are removed; sync init
   assert.equal(doc.status, 'dry-run')
   assert.equal(doc.remote, remote)
   assert.equal(existsSync(join(e.ctx.configDir, 'ctk', 'sync')), false)
+})
+
+test('--version is the package.json version', async t => {
+  const pkg = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }
+  assert.equal((await run(t, ['--version'])).out[0], pkg.version)
+})
+
+const GLOBAL_FLAGS = ['--config-dir', '--profile', '--device', '--dry-run', '--json', '--yes', '--help', '--version']
+const COMMAND_FLAGS: Record<string, string[]> = {
+  install: ['--no-statusline', '--no-enable-teams'],
+  doctor: [],
+  update: [],
+  rollback: ['--to'],
+  uninstall: [],
+  stats: [],
+  config: ['--device-layer', '--no-apply'],
+}
+
+test('every command answers --help (and `help <command>`) with its own usage and every flag it takes', async t => {
+  for (const [command, flags] of Object.entries(COMMAND_FLAGS)) {
+    for (const args of [[command, '--help'], ['help', command]]) {
+      const r = await run(t, args)
+      assert.equal(r.code, 0, args.join(' '))
+      const text = r.out.join('\n')
+      assert.match(text, new RegExp(`Usage: ctk ${command}\\b`), args.join(' '))
+      for (const f of [...flags, ...GLOBAL_FLAGS]) assert.ok(text.includes(f), `${args.join(' ')} should mention ${f}`)
+    }
+  }
+})
+
+test('ctk sync --help prints the sync usage; help for an unknown command falls back to the overview', async t => {
+  const s = await run(t, ['sync', '--help'])
+  assert.equal(s.code, 0)
+  assert.match(s.out.join('\n'), /usage: ctk sync/)
+  const u = await run(t, ['bogus', '--help'])
+  assert.equal(u.code, 0)
+  assert.match(u.out.join('\n'), /Commands:/)
 })

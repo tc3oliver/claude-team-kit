@@ -27,7 +27,7 @@ test('update refreshes the plugin and the status line script, backs up first, an
   assert.deepEqual(mutating(e.log().slice(calls)).map(c => c.slice(0, 3).join(' ')), ['plugin marketplace update', 'plugin update ctk@ctk-kit'])
   assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// statusline v2\n')
   assert.equal(readdirSync(e.ctx.paths.backupsDir).length, backups + 1)
-  assert.match(r.lines.join('\n'), /npm install -g claude-team-kit@latest/)
+  assert.match(r.lines.join('\n'), /git pull && npm ci && npm run build/)
   const before = snapshot(e.ctx.configDir)
   const again = await runUpdate(e.ctx, e.root)
   assert.equal(again.code, 0)

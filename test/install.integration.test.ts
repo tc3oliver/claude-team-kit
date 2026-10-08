@@ -40,6 +40,6 @@ test('real claude: install, idempotent re-install, doctor, uninstall', { skip: h
   assert.equal(u.code, 0, JSON.stringify(u.report))
   assert.deepEqual(await listPlugins(ctx), [])
   assert.deepEqual(await listMarketplaces(ctx), [])
-  assert.equal(readJson(ctx.paths.settings).pluginConfigs, undefined)
+  assert.deepEqual(readJson(ctx.paths.settings), {}, 'a fresh config dir is back to an empty settings.json')
   assert.deepEqual(readdirSync(ctx.paths.ctk), ['backups'])
 })

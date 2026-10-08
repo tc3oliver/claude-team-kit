@@ -71,6 +71,11 @@ const ledgerSchema = z.strictObject({
   ctkVersion: z.string(),
   configDir: z.string(),
   entries: z.array(ledgerEntry),
+  /**
+   * settings.json containers (JSON pointers) that did not exist before CTK's first write or `claude plugin` command.
+   * Uninstall deletes one only when it is still listed here AND is now an empty object.
+   */
+  containersAbsentBefore: z.array(z.string()).default([]),
   transactions: z.array(tx),
 })
 
@@ -95,6 +100,7 @@ export const newLedger = (ctx: Ctx): Ledger => ({
   ctkVersion: ctkVersion(),
   configDir: ctx.configDir,
   entries: [],
+  containersAbsentBefore: [],
   transactions: [],
 })
 

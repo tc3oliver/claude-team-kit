@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import { claudeVersion, isWsl, listMarketplaces, listPlugins, MODS_MIN_VERSION, versionAtLeast } from '../../core/claude.ts'
+import { claudeProblem, isWsl, probeClaude, listMarketplaces, listPlugins, MODS_MIN_VERSION, versionAtLeast } from '../../core/claude.ts'
 import { readJsonIfExists, verifyBackup, type BackupManifest } from '../../core/fsx.ts'
 import { deepEqual, isObject, pointerGet } from '../../core/jsonx.ts'
 import { loadLedger } from '../../core/ledger.ts'
@@ -31,8 +31,9 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   const nodeMajor = Number(process.versions.node.split('.')[0])
   nodeMajor >= 20 ? add('node', 'pass', `Node ${process.versions.node}`) : add('node', 'fail', `Node ${process.versions.node} is too old`, 'install Node >= 20 (mise use node@lts)')
 
-  const version = await claudeVersion(ctx)
-  if (version === null) add('claude', 'fail', 'cannot run "claude --version"', 'install Claude Code and make sure "claude" is on PATH')
+  const probe = await probeClaude(ctx)
+  const version = probe.version
+  if (version === null) add('claude', 'fail', claudeProblem(probe), 'install Claude Code and make sure "claude" is on PATH')
   else add('claude', 'pass', `Claude Code ${version}`)
   if (version !== null) {
     versionAtLeast(version, MODS_MIN_VERSION)

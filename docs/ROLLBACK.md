@@ -145,11 +145,14 @@ uninstall keeps them and says so:
 uninstall backup holds `settings.json`, Claude's two plugin registry files, the status line
 script, the ledger and `profile.json`, but not `stats/`.)
 
-Claude Code leaves empty objects behind in `settings.json`; this is cosmetic and harmless:
-
-```json
-{ "enabledPlugins": {}, "extraKnownMarketplaces": {} }
-```
+**`settings.json` ends as it began.** `claude plugin` creates the `enabledPlugins` and
+`extraKnownMarketplaces` objects. The ledger records (`containersAbsentBefore`) which of them did
+not exist before CTK's first write, and uninstall (and a rollback of the install) deletes
+such a container only if it is still listed there **and** is now empty. Observed: a config
+directory with a `settings.json` of `{ "model": ..., "permissions": ... }` came back with the
+same content after install and uninstall; one with no `settings.json` came back as `{}`; one
+that already had `"enabledPlugins": {}` kept it. Claude Code may reorder keys when it rewrites
+the file, so compare content, not byte order.
 
 Other plugins are untouched. With OMC installed (and disabled) in the same config directory,
 its plugin entry, marketplace and disabled state were unchanged after `ctk uninstall`.
@@ -185,7 +188,7 @@ exits `0`. Example after editing `maxWorkers` to 7 and `hudBand` to false:
   note: /pluginConfigs/ctk@ctk-kit/options/maxWorkers: removed with the plugin by Claude Code (your value 7 is kept in backup 2026-10-08T15-24-10-668Z-uninstall-1d7a7e)
 ```
 
-and the file ends as `{ "enabledPlugins": {}, "extraKnownMarketplaces": {}, "pluginConfigs": {} }`.
+and the file ends as `{}` in a config directory that had no `settings.json` before.
 Recover the values from that backup as described next. Edited keys outside
 `pluginConfigs["ctk@ctk-kit"]`, such as `statusLine`, are really left alone and reported as
 conflicts (exit `2`).

@@ -11,7 +11,7 @@ import {
   type Prior,
   type SettingsKeyEntry,
 } from '../core/ledger.ts'
-import { deepEqual, fromPointer, pointerDelete, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
+import { deepEqual, fromPointer, isObject, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
 import { PLUGIN_ID } from '../core/paths.ts'
 import { PORTABLE_SETTINGS_KEYS, profileToPluginOptions, type Profile } from '../core/schema.ts'
 import { readSettings, writeSettings } from '../core/settings.ts'
@@ -80,7 +80,40 @@ export const desiredEntries = (ctx: Ctx, p: Profile, opts: ApplyOpts = {}): { de
   return { desired, skipped }
 }
 
-export type Plan = { data: JsonObject; entries: LedgerEntry[]; changes: EntryChange[]; conflicts: ApplyResult['conflicts']; skipped: string[] }
+export type Plan = { newAbsent: string[]; data: JsonObject; entries: LedgerEntry[]; changes: EntryChange[]; conflicts: ApplyResult['conflicts']; skipped: string[] }
+
+/** Delete one leaf and nothing else: emptied parents stay, because only the ledger knows which ones CTK created. */
+export const deleteLeaf = (root: JsonObject, pointer: string): boolean => {
+  const segs = fromPointer(pointer)
+  const parent = segs.length === 1 ? root : pointerGet(root, toPointer(segs.slice(0, -1)))
+  const last = segs[segs.length - 1] as string
+  if (!isObject(parent) || !Object.hasOwn(parent, last)) return false
+  delete parent[last]
+  return true
+}
+
+/** Every proper ancestor of a pointer, shallowest first: /a/b/c -> /a, /a/b. */
+const ancestorsOf = (pointer: string): string[] => {
+  const segs = fromPointer(pointer)
+  return segs.slice(0, -1).map((_, i) => toPointer(segs.slice(0, i + 1)))
+}
+
+/** Remember which of `pointers` are absent from `data` now (ledger.containersAbsentBefore keeps them for uninstall). */
+export const noteAbsentContainers = (ledger: Ledger, data: JsonObject, pointers: string[]): void => {
+  for (const p of pointers) {
+    if (pointerGet(data, p) === undefined && !ledger.containersAbsentBefore.includes(p)) ledger.containersAbsentBefore.push(p)
+  }
+}
+
+/** Delete the listed containers that are now empty objects (deepest first). Returns the pointers removed. */
+export const pruneContainers = (data: JsonObject, listed: string[]): string[] => {
+  const removed: string[] = []
+  for (const p of [...listed].sort((a, b) => fromPointer(b).length - fromPointer(a).length)) {
+    const v = pointerGet(data, p)
+    if (isObject(v) && Object.keys(v).length === 0 && deleteLeaf(data, p)) removed.push(p)
+  }
+  return removed
+}
 
 const clean = (e: SettingsKeyEntry): SettingsKeyEntry => {
   const next = { ...e }
@@ -105,6 +138,7 @@ export const planSettings = (
   const changes: EntryChange[] = []
   const conflicts: Plan['conflicts'] = []
   const skipped: string[] = []
+  const newAbsent = new Set<string>()
 
   const putEntry = (old: SettingsKeyEntry | undefined, next: SettingsKeyEntry | null) => {
     const i = old ? entries.indexOf(old) : -1
@@ -134,8 +168,10 @@ export const planSettings = (
     const cur = pointerGet(data, d.pointer)
     const e = findEntry(entries, 'settings-key', d.pointer)
     const record = (valueBefore: Prior, next: SettingsKeyEntry): void => {
+      const absentAncestors = 'absent' in valueBefore ? ancestorsOf(d.pointer).filter(a => pointerGet(data, a) === undefined) : []
       const err = writeValue(d.pointer, d.value)
       if (err !== null) return void conflicts.push({ pointer: d.pointer, reason: err })
+      for (const a of absentAncestors) newAbsent.add(a)
       putEntry(e, next)
       changes.push({ kind: 'settings-key', pointer: d.pointer, before: e ?? null, after: next, valueBefore, valueAfter: { value: d.value } })
     }
@@ -172,13 +208,13 @@ export const planSettings = (
     if (e.pending !== undefined && priorEq(cur, e.pending)) {
       // a revert that already went through before a crash: nothing left to do
     } else if (e.owned && cur !== undefined && deepEqual(cur, e.written)) {
-      if ('absent' in e.prior) pointerDelete(data, e.pointer)
+      if ('absent' in e.prior) deleteLeaf(data, e.pointer)
       else pointerSet(data, e.pointer, structuredClone(e.prior.value))
       changes.push({ kind: 'settings-key', pointer: e.pointer, before: e, after: null, valueBefore: { value: e.written }, valueAfter: e.prior })
     } else if (e.owned && cur !== undefined) skipped.push(`${e.pointer}: changed since CTK wrote it; no longer managed`)
     putEntry(e, null)
   }
-  return { data, entries, changes, conflicts, skipped }
+  return { newAbsent: [...newAbsent], data, entries, changes, conflicts, skipped }
 }
 
 const readdPredicate = (opts: ApplyOpts) => (pointer: string): boolean =>
@@ -195,6 +231,7 @@ export const applySettings = (t: Txn, effective: Profile, opts: ApplyOpts = {}):
   if (!ctx.dryRun && changed) {
     if (settingsChanged) {
       ensureBackup(t, [ctx.paths.settings])
+      noteAbsentContainers(t.ledger, file.data, plan.newAbsent)
       t.changes.push(...plan.changes)
       // Record the intent first, marking each touched entry with the state settings.json is still in, so a
       // crash before the write is finished by the next run instead of mistaken for the user's edit.

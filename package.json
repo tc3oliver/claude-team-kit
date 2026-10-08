@@ -3,6 +3,26 @@
   "version": "0.1.0",
   "description": "A lightweight, token-efficient, portable team companion for Claude Code.",
   "license": "MIT",
+  "author": {
+    "name": "tc3oliver",
+    "url": "https://github.com/tc3oliver"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tc3oliver/claude-team-kit.git"
+  },
+  "homepage": "https://github.com/tc3oliver/claude-team-kit#readme",
+  "bugs": {
+    "url": "https://github.com/tc3oliver/claude-team-kit/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "agent-teams",
+    "claude-code-plugin",
+    "statusline",
+    "profile-sync",
+    "cli"
+  ],
   "type": "module",
   "bin": {
     "ctk": "dist/src/cli/bin.js"
@@ -28,6 +48,7 @@
   "scripts": {
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "prepack": "npm run build",
+    "ctk": "node dist/src/cli/bin.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test \"test/**/*.test.ts\" \"plugin/ctk/statusline/test/*.test.mjs\"",
     "test:plugin": "claude plugin test plugin/ctk",

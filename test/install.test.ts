@@ -281,3 +281,55 @@ test('update from a moved checkout re-points too; a foreign registration stays a
   assert.equal(r.code, 2)
   assert.equal(stubState(f).marketplaces[0].path, f.root)
 })
+
+const setEnabled = (e: ReturnType<typeof makeEnv>, enabled: boolean) => {
+  const file = join(e.ctx.configDir, 'plugins', 'stub-state.json')
+  const state = readJson(file)
+  state.plugins[0].enabled = enabled
+  writeJson(file, state)
+}
+
+test('a disabled plugin is still disabled after install re-points the marketplace', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  setEnabled(e, false)
+  const to = moved(e, false)
+  const calls = e.log().length
+  const dry = await runInstall({ ...e.ctx, dryRun: true }, flags, to)
+  assert.match(dry.lines.join('\n'), /reinstall, then disable it again/)
+  const r = await runInstall(e.ctx, flags, to)
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.equal(stubState(e).plugins.length, 1)
+  assert.equal(stubState(e).plugins[0].enabled, false)
+  assert.equal(readJson(e.ctx.paths.settings).enabledPlugins['ctk@ctk-kit'], false)
+  assert.ok(e.log().slice(calls).some(c => c[1] === 'disable'))
+})
+
+test('an enabled plugin stays enabled through a re-point and no disable is issued', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const to = moved(e, false)
+  const calls = e.log().length
+  assert.equal((await runInstall(e.ctx, flags, to)).code, 0)
+  assert.equal(stubState(e).plugins[0].enabled, true)
+  assert.ok(!e.log().slice(calls).some(c => c[1] === 'disable'))
+})
+
+test('ctk update never enables a disabled plugin, with or without a re-point', async t => {
+  const e = makeEnv(t, {}, { STUB_UPDATE_ENABLES: '1' }) // this stub re-enables on `plugin update`, as a worst case
+  await runInstall(e.ctx, flags, e.root)
+  setEnabled(e, false)
+  bump(e.root, '// statusline v1\n')
+  writeJson(join(e.root, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), { name: 'ctk', version: '0.2.0' })
+  const u = await runUpdate(e.ctx, e.root)
+  assert.equal(u.code, 0, u.lines.join('\n'))
+  assert.ok(e.log().some(c => c[1] === 'update'), 'the plugin update did run')
+  assert.equal(stubState(e).plugins[0].enabled, false)
+
+  const f = makeEnv(t)
+  await runInstall(f.ctx, flags, f.root)
+  setEnabled(f, false)
+  const to = moved(f, false)
+  assert.equal((await runUpdate(f.ctx, to)).code, 0)
+  assert.equal(stubState(f).plugins[0].enabled, false)
+})

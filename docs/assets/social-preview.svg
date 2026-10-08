@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="t">
+  <title id="t">Claude Team Kit - Better agent teams. Less overhead.</title>
+  <rect width="1280" height="640" fill="#0D1117"/>
+  <rect x="0" y="0" width="8" height="640" fill="#2DD4BF"/>
+  <g transform="translate(80 64) scale(1.375)">
+    <rect x=".75" y=".75" width="62.5" height="62.5" rx="14" fill="#161B22" stroke="#3D4652" stroke-width="1.5"/>
+    <g stroke="#8B98A5" stroke-width="2.5" stroke-linecap="round" fill="none">
+      <path d="M32 18L12.5 46M32 18L25.5 46M32 18L38.5 46"/>
+      <path d="M36 23.8L48.6 41.9" stroke-width="2" stroke-dasharray="1 4.5"/>
+    </g>
+    <circle cx="12.5" cy="46" r="5" fill="#E6EDF3"/>
+    <circle cx="25.5" cy="46" r="5" fill="#E6EDF3"/>
+    <circle cx="38.5" cy="46" r="5" fill="#E6EDF3"/>
+    <circle cx="51.5" cy="46" r="4.25" fill="none" stroke="#8B98A5" stroke-width="2" stroke-dasharray="3 2.6"/>
+    <circle cx="32" cy="18" r="7.5" fill="#2DD4BF"/>
+  </g>
+  <text x="188" y="132" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="46" font-weight="700" fill="#E6EDF3" letter-spacing="-0.5">Claude Team Kit</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="80" y="270" font-size="66" font-weight="700" fill="#E6EDF3">Better agent teams.</text>
+    <text x="80" y="344" font-size="66" font-weight="700" fill="#2DD4BF">Less overhead.</text>
+    <text x="80" y="398" font-size="24" fill="#9AA7B4">A lightweight, token-aware, portable</text>
+    <text x="80" y="430" font-size="24" fill="#9AA7B4">team companion for Claude Code.</text>
+    <g font-size="27" fill="#E6EDF3">
+      <rect x="80" y="486" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="498">Native Agent Teams</text>
+      <rect x="80" y="530" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="542">Hard worker limit + team HUD</text>
+      <rect x="80" y="574" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="586">Git-synced profiles</text>
+    </g>
+  </g>
+  <g stroke="#8B98A5" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M980 150L810 440M980 150L923 440M980 150L1037 440"/>
+    <path d="M1000 184.5L1138 419" stroke-width="4" stroke-dasharray="2 14"/>
+  </g>
+  <circle cx="810" cy="440" r="22" fill="#E6EDF3"/>
+  <circle cx="923" cy="440" r="22" fill="#E6EDF3"/>
+  <circle cx="1037" cy="440" r="22" fill="#E6EDF3"/>
+  <circle cx="1150" cy="440" r="19" fill="none" stroke="#8B98A5" stroke-width="4" stroke-dasharray="9 7"/>
+  <circle cx="980" cy="150" r="36" fill="#2DD4BF"/>
+</svg>

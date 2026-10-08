@@ -1,0 +1,10 @@
+title = "claude-team-kit"
+
+[extend]
+useDefault = true
+
+# The secrets scanner (src/sync/secrets.ts) is tested with deliberately fake credentials.
+# Only this one file is exempt; everything else is scanned by the default rules.
+[[allowlists]]
+description = "Fake credentials used as fixtures for the CTK secrets scanner tests"
+paths = ['''test/sync\.secrets\.test\.ts''']

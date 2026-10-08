@@ -126,7 +126,7 @@ credentials. In `-p` mode no prompt appeared.
   stores no credentials; git's own helpers do the authentication.
 - Sync is git only, never force-pushes, and refuses to publish anything the secret scanner
   flags. The scanner is pattern and entropy based and will miss secrets in forms it does not
-  recognise; see [SECURITY](SECURITY.md#known-limitations).
+  recognise; see [THREAT-MODEL](THREAT-MODEL.md#known-limitations).
 - The device layer is never published.
 
 ## Updates and versions

@@ -52,7 +52,7 @@ if (sub === 'marketplace') {
   } else if (verb === 'update') console.log(JSON.stringify({ outcome: 'ok' }))
   else fail('stub: unsupported marketplace ' + verb)
 } else if (sub === 'list') console.log(JSON.stringify(state.plugins))
-else if (['install', 'uninstall', 'enable', 'update'].includes(sub)) {
+else if (['install', 'uninstall', 'enable', 'disable', 'update'].includes(sub)) {
   const id = a
   const mk = state.marketplaces.find((m) => id.endsWith('@' + m.name))
   if (sub === 'install') {
@@ -64,11 +64,15 @@ else if (['install', 'uninstall', 'enable', 'update'].includes(sub)) {
     state.plugins = state.plugins.filter((p) => p.id !== id)
     // like the real binary: the plugin's whole pluginConfigs entry goes with it
     const s = readSettings(); if (s.enabledPlugins) delete s.enabledPlugins[id]; if (s.pluginConfigs) delete s.pluginConfigs[id]; save(s)
+  } else if (sub === 'disable') {
+    state.plugins = state.plugins.map((p) => (p.id === id ? { ...p, enabled: false } : p))
+    const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: false }; save(s)
   } else if (sub === 'enable') {
     state.plugins = state.plugins.map((p) => (p.id === id ? { ...p, enabled: true } : p))
     const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: true }; save(s)
   } else if (sub === 'update') {
     const p = state.plugins.find((x) => x.id === id)
+    if (p && process.env.STUB_UPDATE_ENABLES) p.enabled = true
     if (p && mk) p.version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugin', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
     save(null)
   }

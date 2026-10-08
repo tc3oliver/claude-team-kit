@@ -3,21 +3,26 @@ import { join } from 'node:path'
 
 import type { Ctx } from '../cli/context.ts'
 import { failure, type Report } from '../cli/report.ts'
-import { claudeVersion, listPlugins, pluginCommands, registryFiles } from '../core/claude.ts'
+import { claudeProblem, listPlugins, probeClaude, pluginCommands, registryFiles } from '../core/claude.ts'
 import { loadLedger, newLedger } from '../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID, marketplaceDir, packageRoot, pluginSourceDir } from '../core/paths.ts'
 import { loadEffective } from '../core/profilestore.ts'
 import { readSettings } from '../core/settings.ts'
 import { applySettings, desiredEntries, planSettings } from './apply.ts'
-import { conflictHelp, describeStep, planMarketplace, recordPluginEntry, repointMarketplace } from './marketplace.ts'
+import { assertWritable, packageProblem } from './install.ts'
+import { conflictHelp, describeStep, planMarketplace, recordPluginEntry, repointMarketplace, restoreDisabled } from './marketplace.ts'
 import { copyStatusline, planStatuslineCopy } from './statusline.ts'
 import { beginTxn, ensureBackup, syncLedger } from './txn.ts'
 
-const NPM_HINT = 'To upgrade ctk itself run "npm install -g claude-team-kit@latest", then "ctk update" again.'
+const NPM_HINT = 'To upgrade ctk itself, pull the latest checkout and rebuild (git pull && npm ci && npm run build), then run "ctk update" again.'
 
 /** Refresh the marketplace and plugin, re-copy the status line script if it changed, re-apply the profile. */
 export const runUpdate = async (ctx: Ctx, root = packageRoot()): Promise<Report> => {
-  if ((await claudeVersion(ctx)) === null) return failure('cannot run "claude --version"; install Claude Code first')
+  const incomplete = packageProblem(root)
+  if (incomplete) return failure(incomplete)
+  const probe = await probeClaude(ctx)
+  if (probe.version === null) return failure(claudeProblem(probe))
+  if (!ctx.dryRun) assertWritable(ctx.configDir)
   const settingsFile = readSettings(ctx.paths.settings)
   const plugin = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
   if (!plugin) return failure(`${PLUGIN_ID} is not installed; run "ctk install"`)
@@ -75,6 +80,7 @@ export const runUpdate = async (ctx: Ctx, root = packageRoot()): Promise<Report>
         await pluginCommands.update(ctx)
       }
     }
+    await restoreDisabled(ctx, !plugin.enabled)
     if (statuslineStep === 'copy') copyStatusline(t, root)
     result = applySettings(t, effective, { op: 'update', pluginReinstalled: installed })
   } finally {
