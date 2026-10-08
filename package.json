@@ -1,7 +1,7 @@
 {
   "name": "claude-team-kit",
   "version": "0.1.0",
-  "description": "A lightweight, token-efficient, portable team companion for Claude Code.",
+  "description": "A worker cap, role-based models and a team HUD for Claude Code's native Agent Teams. Lightweight, token-aware, portable.",
   "license": "MIT",
   "author": {
     "name": "tc3oliver",
