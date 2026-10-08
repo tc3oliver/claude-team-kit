@@ -111,7 +111,11 @@ export const claudeVersion = async (ctx: Ctx): Promise<string | null> => (await 
 export const claudeProblem = (p: ClaudeProbe): string =>
   p.missing ? CLAUDE_NOT_FOUND : `Claude Code did not report a version (claude --version: ${p.detail || 'no output'}). Check that "claude" starts, then run ctk again.`
 
-export type MarketplaceInfo = { name: string; path: string | null }
+/**
+ * `path` is set only for a marketplace Claude reads from a local directory or file (what `ctk install` registers).
+ * A github/git/url marketplace (the native install) has `path: null`; `remote` is its repo or url.
+ */
+export type MarketplaceInfo = { name: string; source: string | null; path: string | null; remote: string | null }
 /** `errors` are Claude's own load errors for the plugin, e.g. "Marketplace ctk-kit failed to load: cache-miss". */
 export type PluginInfo = { id: string; version: string | null; enabled: boolean; errors: string[] }
 
@@ -129,10 +133,13 @@ const jsonArray = async (ctx: Ctx, args: string[]): Promise<Record<string, unkno
 }
 
 export const listMarketplaces = async (ctx: Ctx): Promise<MarketplaceInfo[]> =>
-  (await jsonArray(ctx, ['plugin', 'marketplace', 'list', '--json'])).map(m => ({
-    name: String(m.name),
-    path: typeof m.path === 'string' ? m.path : typeof m.installLocation === 'string' ? m.installLocation : null,
-  }))
+  (await jsonArray(ctx, ['plugin', 'marketplace', 'list', '--json'])).map(m => {
+    const source = typeof m.source === 'string' ? m.source : null
+    const local = source === null ? typeof m.path === 'string' : source === 'directory' || source === 'file'
+    const path = local ? (typeof m.path === 'string' ? m.path : typeof m.installLocation === 'string' ? m.installLocation : null) : null
+    const remote = typeof m.repo === 'string' ? m.repo : typeof m.url === 'string' ? m.url : null
+    return { name: String(m.name), source, path, remote }
+  })
 
 export const listPlugins = async (ctx: Ctx): Promise<PluginInfo[]> =>
   (await jsonArray(ctx, ['plugin', 'list', '--json'])).map(p => ({

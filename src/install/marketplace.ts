@@ -22,24 +22,35 @@ const real = (p: string): string => {
  */
 export type MarketplaceStep = 'add' | 'present' | 'repoint' | 'conflict'
 
-export const planMarketplace = async (ctx: Ctx, source: string, ledger: Ledger): Promise<{ step: MarketplaceStep; registeredAt: string | null }> => {
+/**
+ * `native` = registered from a github/git/url source (`claude plugin marketplace add owner/repo`), not from a local
+ * directory. That is a compatible registration: CTK adopts it and never moves or removes it.
+ */
+export const planMarketplace = async (
+  ctx: Ctx,
+  source: string,
+  ledger: Ledger,
+): Promise<{ step: MarketplaceStep; registeredAt: string | null; native: boolean }> => {
   const mk = (await listMarketplaces(ctx)).find(m => m.name === MARKETPLACE_NAME)
-  if (!mk) return { step: 'add', registeredAt: null }
-  if (mk.path !== null && real(mk.path) === real(source)) return { step: 'present', registeredAt: mk.path }
+  if (!mk) return { step: 'add', registeredAt: null, native: false }
+  if (mk.path === null) return { step: 'present', registeredAt: `${mk.source ?? 'remote'}${mk.remote ? ` ${mk.remote}` : ''}`, native: true }
+  if (real(mk.path) === real(source)) return { step: 'present', registeredAt: mk.path, native: false }
   const addedByCtk = findEntry(ledger.entries, 'plugin')?.marketplaceAddedByCtk === true
   const gone = mk.path !== null && !existsSync(mk.path)
-  return { step: addedByCtk || gone ? 'repoint' : 'conflict', registeredAt: mk.path }
+  return { step: addedByCtk || gone ? 'repoint' : 'conflict', registeredAt: mk.path, native: false }
 }
 
 export const conflictHelp = (registeredAt: string | null): string =>
   `marketplace ${MARKETPLACE_NAME} is registered at ${registeredAt ?? 'another source'}, which still exists and was not added by CTK; ` +
   `to move it run "claude plugin marketplace remove ${MARKETPLACE_NAME}" (this also uninstalls ${PLUGIN_ID}) and then "ctk install" from the checkout you want to keep`
 
-export const describeStep = (step: MarketplaceStep, source: string, registeredAt: string | null): string =>
+export const describeStep = (step: MarketplaceStep, source: string, registeredAt: string | null, native = false): string =>
   step === 'add'
     ? `add ${source}`
     : step === 'present'
-      ? 'already registered'
+      ? native
+        ? `already registered from ${registeredAt} (a native install; kept as is)`
+        : 'already registered'
       : step === 'repoint'
         ? `re-point from ${registeredAt ?? 'its old source'} to ${source} (Claude removes the plugin with the marketplace, so it is reinstalled)`
         : `CONFLICT, registered at ${registeredAt ?? 'another source'}`

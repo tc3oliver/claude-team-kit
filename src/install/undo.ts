@@ -221,14 +221,30 @@ const wipeCtkDir = (ctx: Ctx): string[] => {
   return KEEP_IN_CTK.filter(n => n !== 'backups' && existsSync(join(dir, n))).map(n => join(dir, n))
 }
 
+const NATIVE_REMOVAL = `Remove it in Claude Code with: /plugin uninstall ${PLUGIN_ID} (and /plugin marketplace remove ${MARKETPLACE_NAME})`
+
+/** Nothing in the ledger: say so, how a native install is removed, and the one leftover that removal does not clean up. */
+const noLedgerNotes = (ctx: Ctx): string[] => {
+  const stats = ctx.paths.statsDir
+  const remove = process.platform === 'win32' ? `rmdir /s /q "${stats}"` : `rm -rf '${stats.replace(/'/g, `'\\''`)}'`
+  return [
+    'no ledger: ctk owns nothing here and changed nothing',
+    `if you installed the plugin natively, ${NATIVE_REMOVAL.charAt(0).toLowerCase()}${NATIVE_REMOVAL.slice(1)}`,
+    existsSync(stats)
+      ? `the mod's per-session counters in ${stats} stay behind after a native uninstall; delete them with: ${remove}`
+      : `no stats directory at ${stats} (the mod writes its per-session counters there; a native uninstall would leave them behind)`,
+  ]
+}
+
 export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: boolean }> => {
   readSettings(ctx.paths.settings)
   const ledger = loadLedger(ctx)
   if (!ledger) {
-    return { code: 0, undone: [], removedDir: false, report: { reverted: [], removed: [], conflicts: [], notes: ['no ledger: CTK owns nothing here'] } }
+    return { code: 0, undone: [], removedDir: false, report: { reverted: [], removed: [], conflicts: [], notes: noLedgerNotes(ctx) } }
   }
   const changes: EntryChange[] = []
   const inCtkDir: FileEntry[] = []
+  const adopted: string[] = []
   for (const e of [...ledger.entries].reverse()) {
     if (e.kind === 'settings-key' && e.owned) {
       changes.push({ kind: 'settings-key', pointer: e.pointer, before: null, after: e, valueBefore: e.prior, valueAfter: { value: e.written } })
@@ -237,11 +253,13 @@ export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: bo
     } else if (e.kind === 'file') {
       changes.push({ kind: 'file', path: e.path, before: null, after: { ...e, priorSha256: null } })
     } else if (e.kind === 'plugin') {
-      changes.push({ kind: 'plugin', before: null, after: { ...e, pluginInstalledByCtk: true } })
+      changes.push({ kind: 'plugin', before: null, after: e }) // only what CTK installed or registered is removed
+      if (!e.pluginInstalledByCtk) adopted.push(`left plugin ${PLUGIN_ID} installed: ctk did not install it. ${NATIVE_REMOVAL}`)
     }
   }
   const opBackupId = ctx.dryRun ? null : createBackup(ctx.paths.backupsDir, 'uninstall', [...backupSet(ctx), ctx.paths.ledger, ctx.paths.profile]).id
   const report = await undoChanges(ctx, ledger, changes, null, opBackupId)
+  report.notes.push(...adopted)
   // Scripts inside the ctk dir go with it, but only if they are still exactly what CTK wrote.
   for (const e of inCtkDir) {
     const cur = currentHash(e.path)

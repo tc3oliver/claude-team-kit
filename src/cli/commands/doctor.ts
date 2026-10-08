@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { claudeProblem, isWsl, probeClaude, listMarketplaces, listPlugins, MODS_MIN_VERSION, versionAtLeast } from '../../core/claude.ts'
 import { readJsonIfExists, verifyBackup, type BackupManifest } from '../../core/fsx.ts'
 import { deepEqual, isObject, pointerGet } from '../../core/jsonx.ts'
-import { loadLedger } from '../../core/ledger.ts'
+import { findEntry, loadLedger, type Ledger } from '../../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../../core/paths.ts'
 import { loadEffective } from '../../core/profilestore.ts'
 import { readSettings, type SettingsFile } from '../../core/settings.ts'
@@ -55,19 +55,30 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
     }
   }
 
+  let pluginPresent = false
+  let ledgerForPlugin: Ledger | null = null
+  try {
+    ledgerForPlugin = loadLedger(ctx) // a broken ledger is reported by the ledger check below
+  } catch {
+    ledgerForPlugin = null
+  }
   try {
     const plugin = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
+    pluginPresent = plugin !== undefined
     const loadFix = 'run "ctk install" from the checkout you want to keep'
     if (!plugin) add('plugin', 'fail', `${PLUGIN_ID} is not installed`, 'run "ctk install"')
     else if (plugin.errors.length > 0) add('plugin', 'fail', `${PLUGIN_ID} failed to load: ${plugin.errors.join('; ')}`, loadFix)
     else if (!plugin.enabled) add('plugin', 'warn', `${PLUGIN_ID} is installed but disabled`, `run "claude plugin enable ${PLUGIN_ID}"`)
-    else add('plugin', 'pass', `${PLUGIN_ID} ${plugin.version ?? ''} installed and enabled`.replace('  ', ' '))
+    else {
+      const native = ledgerForPlugin === null ? ' (no ctk ledger)' : findEntry(ledgerForPlugin.entries, 'plugin')?.pluginInstalledByCtk === false ? ' (not by ctk)' : ''
+      add('plugin', 'pass', `${PLUGIN_ID} ${plugin.version ?? ''} installed and enabled${native ? `; installed natively${native}` : ''}`.replace('  ', ' '))
+    }
     const mk = (await listMarketplaces(ctx)).find(m => m.name === MARKETPLACE_NAME)
     const loadError = plugin?.errors.find(e => e.includes(`Marketplace ${MARKETPLACE_NAME}`))
     if (!mk) add('marketplace', 'fail', `marketplace ${MARKETPLACE_NAME} is not registered`, 'run "ctk install"')
     else if (mk.path !== null && !existsSync(mk.path)) add('marketplace', 'fail', `marketplace ${MARKETPLACE_NAME} is registered at ${mk.path}, which does not exist`, loadFix)
     else if (loadError) add('marketplace', 'fail', loadError, loadFix)
-    else add('marketplace', 'pass', `marketplace ${MARKETPLACE_NAME} registered`)
+    else add('marketplace', 'pass', `marketplace ${MARKETPLACE_NAME} registered${mk.path === null ? ` (${mk.source ?? 'remote'}${mk.remote ? ` ${mk.remote}` : ''})` : ''}`)
   } catch (e) {
     add('plugin', 'warn', `could not query Claude Code: ${errMsg(e).slice(0, 160)}`)
   }
@@ -114,7 +125,8 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
 
   try {
     const ledger = loadLedger(ctx)
-    if (!ledger) add('ledger', 'warn', 'no ledger: ctk has not installed anything here', 'run "ctk install"')
+    if (!ledger && pluginPresent) add('ledger', 'info', 'no ctk ledger: the plugin was installed natively; "ctk install" is optional (adds the status line, the teams flag and profile sync)')
+    else if (!ledger) add('ledger', 'warn', 'no ledger: ctk has not installed anything here', 'run "ctk install"')
     else if (settings) {
       const owned = ledger.entries.filter(e => e.kind === 'settings-key' && e.owned)
       const cur = (e: (typeof owned)[number]) => (e.kind === 'settings-key' ? pointerGet(settings.data, e.pointer) : undefined)

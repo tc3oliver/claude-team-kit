@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="t">
-  <title id="t">Claude Team Kit - Better agent teams. Less overhead.</title>
+  <title id="t">Claude Team Kit - Native agent teams. Under control.</title>
   <rect width="1280" height="640" fill="#0D1117"/>
   <rect x="0" y="0" width="8" height="640" fill="#2DD4BF"/>
   <g transform="translate(80 64) scale(1.375)">
@@ -16,13 +16,13 @@
   </g>
   <text x="188" y="132" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="46" font-weight="700" fill="#E6EDF3" letter-spacing="-0.5">Claude Team Kit</text>
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
-    <text x="80" y="270" font-size="66" font-weight="700" fill="#E6EDF3">Better agent teams.</text>
-    <text x="80" y="344" font-size="66" font-weight="700" fill="#2DD4BF">Less overhead.</text>
-    <text x="80" y="398" font-size="24" fill="#9AA7B4">A lightweight, token-aware, portable</text>
-    <text x="80" y="430" font-size="24" fill="#9AA7B4">team companion for Claude Code.</text>
+    <text x="80" y="270" font-size="66" font-weight="700" fill="#E6EDF3">Native agent teams.</text>
+    <text x="80" y="344" font-size="66" font-weight="700" fill="#2DD4BF">Under control.</text>
+    <text x="80" y="398" font-size="24" fill="#9AA7B4">Hard worker limits, live team visibility,</text>
+    <text x="80" y="430" font-size="24" fill="#9AA7B4">and portable configuration for Claude Code.</text>
     <g font-size="27" fill="#E6EDF3">
-      <rect x="80" y="486" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="498">Native Agent Teams</text>
-      <rect x="80" y="530" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="542">Hard worker limit + team HUD</text>
+      <rect x="80" y="486" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="498">Hard worker limit</text>
+      <rect x="80" y="530" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="542">Live team HUD</text>
       <rect x="80" y="574" width="12" height="12" rx="2" fill="#2DD4BF"/><text x="108" y="586">Git-synced profiles</text>
     </g>
   </g>

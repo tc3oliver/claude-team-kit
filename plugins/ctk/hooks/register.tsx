@@ -5,6 +5,8 @@ import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import { formatBand, formatSummary } from './band.ts'
+import { factsFrom, formatDoctor } from './doctor.ts'
+import type { Facts } from './doctor.ts'
 import { capacityDeny, effectiveLive, emptySnapshot, guardDeny, measuredOf, routed, snapshotOf, STATUS_TOOL_NAME } from './team.ts'
 import type { Snapshot } from './team.ts'
 
@@ -90,6 +92,17 @@ async function liveTeammates($: EngineInterface, c: Ctx): Promise<number> {
   const now = await $.clock.now()
   c.lastNow = now
   return effectiveLive(roster, c.pending, now)
+}
+
+// What the readiness report and the status tool's preflight fields rest on. Each read
+// degrades to null on failure; nothing is written.
+async function gatherFacts($: EngineInterface, c: Ctx): Promise<Facts> {
+  const [value, settings, tools] = await Promise.all([
+    $.env.get('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS').then(value => ({ value }), () => null),
+    $.settings.read().catch(() => null),
+    $.tool.list().catch(() => null),
+  ])
+  return factsFrom({ opts: c.opts, envFlag: value, settings, toolNames: tools === null ? null : tools.map(t => t.name) })
 }
 
 // A session.start that fires again (enable, worker respawn, reload) continues this
@@ -197,6 +210,11 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command `ctk stats` still reads the stats file.
     }
+    try {
+      await $.command.register({ name: 'ctk-doctor', description: 'Check CTK readiness (read-only).' })
+    } catch {
+      // Without the command the status tool still reports the same facts.
+    }
     const r = await next(e)
     await boot($, c)
     return r
@@ -236,12 +254,16 @@ export const register: Register = (on, options) => {
   // The matcher must be a literal for `claude plugin validate`; policy.test.ts ties it to STATUS_TOOL.
   on('tool.call', { tool: 'mcp__ctk__ctk_team_status' }, async ($, e, next) => {
     await refresh($, c)
+    const facts = await gatherFacts($, c)
     const status = {
       live: c.snap.live,
       max: c.opts.maxWorkers,
       workers: c.snap.workers,
       rejected: c.stats.spawnsRejected,
       accepted: c.stats.spawnsAccepted,
+      cap: c.opts.maxWorkers,
+      teamsEnabled: facts.teamsEnabled,
+      taskTools: facts.taskTools,
     }
     return { result: { content: [{ type: 'text', text: JSON.stringify(status) }], isError: false } }
   })
@@ -250,6 +272,8 @@ export const register: Register = (on, options) => {
     await refresh($, c)
     return { text: formatSummary(c.stats, c.snap) }
   })
+
+  on('command.run', { command: 'ctk-doctor' }, async ($, e, next) => ({ text: formatDoctor(await gatherFacts($, c)) }))
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!c.opts.hudBand || !c.ready || e.props.hasSurvey) return next(e)

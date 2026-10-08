@@ -31,21 +31,22 @@ export const runUpdate = async (ctx: Ctx, root = packageRoot()): Promise<Report>
   const effective = loadEffective(ctx.paths, ctx.device)
   const ledger = loadLedger(ctx) ?? newLedger(ctx)
   const source = marketplaceDir(root)
-  const { step: marketplaceStep, registeredAt } = await planMarketplace(ctx, source, ledger)
+  const { step: marketplaceStep, registeredAt, native } = await planMarketplace(ctx, source, ledger)
   if (marketplaceStep === 'conflict') {
     const reason = conflictHelp(registeredAt)
     return { code: 2, data: { steps: { marketplace: marketplaceStep }, conflicts: [{ pointer: `marketplace:${MARKETPLACE_NAME}`, reason }] }, lines: [`conflict: ${reason}`] }
   }
   // Re-pointing removes the marketplace and, with it, the plugin: it is installed again afterwards.
-  const pluginStep = marketplaceStep === 'repoint' ? 'reinstall' : plugin.version !== packaged ? 'update' : 'current'
+  // A native (github) install updates through Claude Code itself, so CTK leaves the plugin alone.
+  const pluginStep = marketplaceStep === 'repoint' ? 'reinstall' : native ? 'native' : plugin.version !== packaged ? 'update' : 'current'
   const statuslineStep = effective.hud.statusLine === 'auto' ? planStatuslineCopy(root, ctx.paths.statusline, ledger) : 'off'
   const { desired } = desiredEntries(ctx, effective, { assumeStatuslineFile: statuslineStep === 'copy' || statuslineStep === 'unchanged' || statuslineStep === 'edited' })
   const plan = planSettings(settingsFile.data, ledger.entries, desired, p => pluginStep === 'reinstall' && p.startsWith(`/pluginConfigs/${PLUGIN_ID}/options/`))
 
   const lines = [
     `${ctx.dryRun ? 'plan' : 'update'}:`,
-    `  marketplace ${MARKETPLACE_NAME}: ${describeStep(marketplaceStep, source, registeredAt)}`,
-    `  plugin ${PLUGIN_ID}: ${pluginStep === 'reinstall' ? 'reinstall' : pluginStep === 'update' ? `${plugin.version ?? '?'} -> ${packaged ?? '?'}` : `up to date (${plugin.version ?? '?'})`}`,
+    `  marketplace ${MARKETPLACE_NAME}: ${describeStep(marketplaceStep, source, registeredAt, native)}`,
+    `  plugin ${PLUGIN_ID}: ${pluginStep === 'native' ? `${plugin.version ?? '?'}, installed natively: update it with /plugin update ${PLUGIN_ID}` : pluginStep === 'reinstall' ? 'reinstall' : pluginStep === 'update' ? `${plugin.version ?? '?'} -> ${packaged ?? '?'}` : `up to date (${plugin.version ?? '?'})`}`,
     `  status line script: ${statuslineStep === 'copy' ? 'refresh' : statuslineStep === 'unchanged' ? 'up to date' : statuslineStep === 'edited' ? 'edited by you, left unchanged' : 'not managed'}`,
     `  settings.json: ${plan.changes.length === 0 ? 'no key changes' : `${plan.changes.length} key(s)`}`,
   ]
@@ -87,7 +88,7 @@ export const runUpdate = async (ctx: Ctx, root = packageRoot()): Promise<Report>
     if (added || installed) recordPluginEntry(t, added, installed)
     if (t.changes.length > 0 || JSON.stringify(ledger.entries) !== entriesBefore) syncLedger(t)
   }
-  const changed = pluginStep !== 'current' || statuslineStep === 'copy' || result.changed
+  const changed = pluginStep === 'update' || pluginStep === 'reinstall' || statuslineStep === 'copy' || result.changed
   lines.push(changed ? 'done. Restart Claude Code (or run /reload-plugins) to load the update.' : 'already up to date; nothing to change.')
   for (const s of result.skipped) lines.push(`  note: ${s}`)
   const conflicts = [...result.conflicts, ...editedScript]

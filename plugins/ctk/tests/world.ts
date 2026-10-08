@@ -17,6 +17,10 @@ export type World = {
   usage: Record<string, unknown>
   /** Every path $.fs.write received, as received. */
   rawPaths: string[]
+  /** What $.settings.read answers (merged); null makes it reject. */
+  settings: Record<string, unknown> | null
+  /** Names $.tool.list answers; null makes it reject. */
+  tools: string[] | null
   /** While true, $.fs.write rejects. */
   failWrites: boolean
   /** Teammates the roster does not list yet: id -> list calls left before it appears. */
@@ -53,6 +57,8 @@ export const fresh = (): World => ({
   registeredCommands: [],
   usage: { startedAt: 0, context: { window: 200000 }, rateLimits: [] },
   rawPaths: [],
+  settings: {},
+  tools: [],
   failWrites: false,
   lag: new Map(),
 })
@@ -62,6 +68,8 @@ export const fresh = (): World => ({
 export const norm = (path: string): string => path.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '')
 
 export type EngineOptions = {
+  /** $.env.get rejects (the environment cannot be read). */
+  envFails?: boolean
   /** Environment the plugin sees; defaults to CLAUDE_CONFIG_DIR=/cfg. */
   env?: Record<string, string>
   listFails?: boolean
@@ -81,7 +89,21 @@ export type EngineOptions = {
 // startup) before the teammate appears in the roster. Returns the mocked clock.
 export const engine = (on: On, w: World, delay: (i: number) => number = () => 3, opts: EngineOptions = {}) => {
   const clock = mock.clock(on, { now: 1_000_000 })
-  mock.env(on, opts.env ?? { CLAUDE_CONFIG_DIR: '/cfg' })
+  if (opts.envFails) {
+    on('env.get', () => {
+      throw new Error('env unavailable')
+    })
+  } else {
+    mock.env(on, opts.env ?? { CLAUDE_CONFIG_DIR: '/cfg' })
+  }
+  on('settings.read', () => {
+    if (w.settings === null) throw new Error('settings unavailable')
+    return { value: w.settings } as never
+  })
+  on('tool.list', () => {
+    if (w.tools === null) throw new Error('tool list unavailable')
+    return { value: w.tools.map(name => ({ name, description: '', mcp: false })) } as never
+  })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }) as never)
   on('classic.TaskCreated', () => ({}))

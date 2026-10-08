@@ -29,6 +29,8 @@ const save = (settings) => {
   fs.writeFileSync(path.join(dir, 'known_marketplaces.json'), JSON.stringify(state.marketplaces, null, 2))
   if (settings) fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2))
 }
+// a github-source marketplace has no local path: its plugin version comes from the (pretend) remote
+const remoteOrLocalVersion = (mk) => (mk.path ? JSON.parse(fs.readFileSync(path.join(mk.path, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version : process.env.STUB_REMOTE_VERSION || '0.1.0')
 const fail = (m) => { console.error(m); process.exit(1) }
 if (process.env.STUB_FAIL && args.join(' ').includes(process.env.STUB_FAIL)) fail('stub: forced failure')
 const [, sub, a, b] = args
@@ -57,7 +59,7 @@ else if (['install', 'uninstall', 'enable', 'disable', 'update'].includes(sub)) 
   const mk = state.marketplaces.find((m) => id.endsWith('@' + m.name))
   if (sub === 'install') {
     if (!mk) fail('stub: marketplace not found')
-    const version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
+    const version = remoteOrLocalVersion(mk)
     state.plugins = state.plugins.filter((p) => p.id !== id).concat({ id, version, enabled: true, scope: 'user' })
     const s = readSettings(); s.enabledPlugins = { ...(s.enabledPlugins || {}), [id]: true }; save(s)
   } else if (sub === 'uninstall') {
@@ -73,7 +75,7 @@ else if (['install', 'uninstall', 'enable', 'disable', 'update'].includes(sub)) 
   } else if (sub === 'update') {
     const p = state.plugins.find((x) => x.id === id)
     if (p && process.env.STUB_UPDATE_ENABLES) p.enabled = true
-    if (p && mk) p.version = JSON.parse(fs.readFileSync(path.join(mk.path, 'plugins', 'ctk', '.claude-plugin', 'plugin.json'), 'utf8')).version
+    if (p && mk) p.version = remoteOrLocalVersion(mk)
     save(null)
   }
   console.log(JSON.stringify({ outcome: 'ok' }))
@@ -145,3 +147,20 @@ export const writeJson = (p: string, v: unknown): void => {
 /** The mutating claude calls (everything except version/list queries). */
 export const mutating = (calls: string[][]): string[][] =>
   calls.filter(c => c[0] === 'plugin' && !(c[1] === 'list' || (c[1] === 'marketplace' && c[2] === 'list')))
+
+/**
+ * The registry state of a native install (`claude plugin marketplace add tc3oliver/claude-team-kit` +
+ * `claude plugin install ctk@ctk-kit`), as the real binary wrote it: a github source has no `path`, and
+ * settings.json declares `{ source: 'github', repo }`.
+ */
+export const seedNativeInstall = (e: Env): void => {
+  const source = { source: 'github', repo: 'tc3oliver/claude-team-kit' }
+  const installLocation = join(e.ctx.configDir, 'plugins', 'marketplaces', 'ctk-kit')
+  const plugin = { id: 'ctk@ctk-kit', version: '0.1.0', enabled: true, scope: 'user' }
+  const dir = join(e.ctx.configDir, 'plugins')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'stub-state.json'), JSON.stringify({ marketplaces: [{ name: 'ctk-kit', ...source, installLocation }], plugins: [plugin] }))
+  writeFileSync(join(dir, 'known_marketplaces.json'), JSON.stringify({ 'ctk-kit': { source, installLocation } }, null, 2))
+  writeFileSync(join(dir, 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: [plugin] }, null, 2))
+  writeFileSync(join(e.ctx.configDir, 'settings.json'), JSON.stringify({ extraKnownMarketplaces: { 'ctk-kit': { source } }, enabledPlugins: { 'ctk@ctk-kit': true } }, null, 2) + '\n')
+}

@@ -77,7 +77,7 @@ export const runInstall = async (ctx: Ctx, flags: InstallFlags, root = packageRo
 
   const effective = effectiveWithFlags(ctx, flags)
   const ledger = loadLedger(ctx) ?? newLedger(ctx)
-  const { step: marketplaceStep, registeredAt } = await planMarketplace(ctx, source, ledger)
+  const { step: marketplaceStep, registeredAt, native } = await planMarketplace(ctx, source, ledger)
   const plugin = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
   // A plugin the user disabled stays disabled: CTK does not flip it back on behind their back.
   // Re-pointing the marketplace uninstalls the plugin with it, so it is installed again afterwards.
@@ -91,7 +91,7 @@ export const runInstall = async (ctx: Ctx, flags: InstallFlags, root = packageRo
   const platform = `${process.platform}${isWsl() ? ' (WSL)' : ''}`
   lines.push(`${ctx.dryRun ? 'plan' : 'install'}: ${platform}, Claude Code ${version}, config ${ctx.configDir}`)
   if (!mods) lines.push(`Claude Code ${version} is older than ${MODS_MIN_VERSION}, the first release with plugin mods: the team cap, the team band and stats recording stay inactive until you upgrade (needs >= ${MODS_MIN_VERSION}); skills, agents and the status line still install.`)
-  lines.push(`  marketplace ${MARKETPLACE_NAME}: ${describeStep(marketplaceStep, source, registeredAt)}`)
+  lines.push(`  marketplace ${MARKETPLACE_NAME}: ${describeStep(marketplaceStep, source, registeredAt, native)}`)
   const pluginLabel =
     pluginStep === 'disabled'
       ? 'installed but disabled, left disabled'

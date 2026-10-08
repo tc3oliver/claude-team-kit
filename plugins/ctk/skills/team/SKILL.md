@@ -7,6 +7,16 @@ argument-hint: "<goal>"
 
 Goal: $ARGUMENTS. You are the lead.
 
+## 0. Preflight
+Call `ctk_team_status` if it exists, then branch:
+- Tool absent: the CTK mod is not active here (unsupported build or mods disabled). Say in two lines that
+  the worker cap, HUD band and stats are OFF and teams run without a limit; offer to continue. Never imply a cap.
+- `teamsEnabled` is false: spawn nothing. Tell the user the one-time setup: add
+  `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to settings.json (`~/.claude/settings.json`
+  or the project's) and restart Claude Code. Edit it only if they say yes, with the Edit tool so they approve.
+  `/ctk-doctor` shows readiness.
+- `teamsEnabled` is null: say you cannot tell, then proceed. Otherwise proceed.
+
 ## 1. Decide
 Default to one agent (yourself) doing the work. Use a team only if the user asked for one
 or the goal splits into 2+ slices that can be built and verified independently.
@@ -14,8 +24,12 @@ If neither holds, say so in one line and do the work directly.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior.
-- If `TaskCreate` is in your tool list, create one task per slice and add real dependencies with
-  `addBlockedBy` only. If it is not (current default on Claude 5.x), say so in one line, keep a numbered
+- If `TaskCreate` is in your tool list, you MUST create the tasks before spawning anyone, even when every
+  slice is independent: one task per slice, plus a final integration/verification task blocked by all of them.
+  Use `addBlockedBy` for real dependencies only, so independent slices stay unblocked. The shared task list is
+  what the user watches and what the HUD `tasks` count reads. Workers claim a task with `TaskUpdate`
+  (owner + `in_progress`) and complete it. You close the final task only after running its verify command.
+- If `TaskCreate` is not in your tool list (current default on Claude 5.x), say so in one line, keep a numbered
   plan in your reply with explicit "blocked by" notes, and coordinate with `SendMessage`.
   The user can get the shared task list with `ctk config set claude.enableTaskTools true`
   or by starting Claude Code with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`.
