@@ -2,8 +2,8 @@
 
 ## Setup
 
-Node 20 or later is required to run the built CLI. Tests run `.ts` files
-directly, so use Node 22.18 or later for development. CI uses Node 24.
+Node 22 or later is required (CI runs 22 and 24). Tests run `.ts` files
+directly, so use Node 22.18 or later for development. CI runs the latest 22.x and 24.x.
 
 ```sh
 npm ci

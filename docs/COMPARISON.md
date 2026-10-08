@@ -21,7 +21,7 @@ Compared: CTK (this repository), Claude Code's native **Agent Teams**,
   (`plugin.json`). The claude-hud version was not checked. All four repositories are MIT licensed
   (GitHub API); CTK is MIT (`LICENSE`).
 - No performance, cost or total-token comparison is made. Fixed context for CTK and OMC is
-  discussed, with its limits, in the [README](../README.md#differences-from-oh-my-claude-code).
+  discussed, with its limits, in the [README](../README.md#why-claude-team-kit).
 - "Not stated" means the sources listed here do not say. It is not a claim that the feature is
   absent.
 
@@ -144,7 +144,7 @@ Other facts that affect the choice:
 - **claude-hud runtime**: Node.js 18+ or Bun on macOS and Linux, Node 18+ on Windows; Claude Code
   v2.1.260 or later (README "Requirements").
 - **CTK** needs Claude Code >= 2.1.287 for the cap and band, and depends on experimental Agent
-  Teams and early-access mods (see the [README](../README.md#experimental-or-early-access-dependencies)).
+  Teams and early-access mods (see the [limitations](LIMITATIONS.md#claude-code-features-ctk-depends-on)).
   It adds nothing for non-Claude workers.
 
 ## When another project is the better choice

@@ -9,7 +9,7 @@ from an npm tarball. Nothing here needs a published package.
 
 | Need | Version | Check |
 |---|---|---|
-| Node.js | 20 or newer | `node --version` |
+| Node.js | 22 or newer (CI tests 22 and 24) | `node --version` |
 | Claude Code | 2.1.287 or newer for the mod (the cap and the band). Older builds still get the skills, agents and status line. | `claude --version` |
 | `claude` on `PATH` | | `ctk` runs `claude plugin ...` for you |
 | git | only for `ctk sync` | |
@@ -397,10 +397,10 @@ What the code does for Windows, and what has and has not been tested:
   quotes, because Claude Code runs it through Git Bash, which eats backslashes. A path containing
   `"`, `$`, a backtick or `%` is refused. This is from the code and its comments; it was not run
   on Windows.
-- CTK's unit tests are configured to run on `windows-latest` in the CI workflow. The CI
-  workflows have never been run.
-- **Not verified:** a real `ctk install`, the mod, or `/ctk:team` on native Windows, Windows
-  Terminal, VS Code's terminal, or WSL.
+- CTK's tests and the plugin validation and plugin test jobs ran on `windows-latest` in GitHub
+  Actions and passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), 2026-10-09). That is automated coverage only.
+- **Not verified interactively:** a real `ctk install`, the mod, or `/ctk:team` on native Windows,
+  Windows Terminal, VS Code's terminal, or WSL.
 - WSL: install CTK and Claude Code inside the Linux distribution and keep
   `CLAUDE_CONFIG_DIR` on the Linux filesystem. `ctk doctor` warns when it is under `/mnt/`.
   Mods are reported unsupported in WSL sessions, so there the cap and band would not be

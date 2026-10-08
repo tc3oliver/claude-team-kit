@@ -75,10 +75,11 @@ Evidence levels used below:
 | Platform | Status |
 |---|---|
 | macOS | Live: install, rollback, uninstall, doctor, a same-version `update`, the mod in `claude -p`, npm tarball install. |
-| Linux | CI configuration only; not run. |
-| Windows native, Windows Terminal, VS Code terminal | Not verified end to end. CI is configured to run unit tests on `windows-latest`; the `.cmd`/`.exe` handling and the forward-slash status line command are code only. |
+| Linux | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), ubuntu-latest, Node 22 and 24, plus plugin validate and plugin test). Interactive behaviour not verified. |
+| Windows native | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), windows-latest, Node 22 and 24, plus plugin validate and plugin test). The first Windows runs failed and found real bugs, since fixed (see [REVIEW](REVIEW.md#5a-found-by-ci-on-windows)). A real `ctk install`, the mod and `/ctk:team` were not run interactively; the `.cmd`/`.exe` handling and the Git Bash status line command are covered only by CI's unit tests. |
+| Windows Terminal, VS Code terminal | Not verified. |
 | WSL | Not tested. Mods are reported unsupported there; the status line script is the fallback. |
-| CI workflows (`.github/workflows`) | They have never been run, on any platform. Treat the Linux and Windows rows above as untested. |
+| CI (`.github/workflows`) | One run passed all 10 jobs ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991), 2026-10-09): tests on ubuntu, macos and windows with Node 22 and 24, plugin validate `--strict` and plugin test on the three systems, and the pack audit. The repository was private during these runs, they used GitHub-hosted runners only, and Claude Code came from npm `latest` at the time. |
 
 In an interactive session, whether Claude Code asks you to approve the plugin or its mod on
 first load was not tested: the interactive check went as far as the login screen, which needs

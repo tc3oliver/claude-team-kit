@@ -131,10 +131,13 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   - pending never expires: KILLED (1, the 10 s release test);
   - guard fails open (`.catch` returns `next(e)`): KILLED (1);
   - unreadable roster tolerated (`.catch(() => [])`): KILLED (1);
-  - **reservation taken after the first `await` instead of before: SURVIVED.** No test shows
-    the "before the first await" ordering is required; the pending set and the post-await
-    comparison enforce the cap in every simulated schedule. The code comment claims the early
-    reservation matters; that claim is not pinned.
+  - reservation taken after the first `await` instead of before: **this mutant is semantically
+    still safe** (the cap still admits exactly 3), and it first SURVIVED because no test pinned
+    *which* spawns are refused. A 12-case test (`early reservation > 6 concurrent, roster answers
+    after N ticks, spawn takes M: each sees the others' reservations`) now pins that the first
+    three spawns are refused with `starting=5,4,3` and the last three start. With it the mutant is
+    KILLED (12 tests). What the early reservation guarantees is the order of refusals, not the
+    number admitted.
 - **Live evidence:** Reported by the maintainers (6 concurrent spawns on 2.1.294: 3 started,
   3 refused); not reproduced independently. `UNVERIFIED` live.
 
@@ -164,7 +167,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   no stats) and the cap stays fail-closed; on Claude Code older than 2.1.287 `ctk install` still
   installs skills, agents and the status line and says what is inactive; `claude plugin validate
   --strict` passes for the build in use.
-- **Tests:** `claude plugin test plugin/ctk` (58 tests) and `validate:plugin` (both pass);
+- **Tests:** `claude plugin test plugin/ctk` (76 tests) and `validate:plugin` (both pass);
   `test/firstrun.test.ts` "Claude Code older than 2.1.287: says what is unavailable and which
   version is needed, then installs the rest" (stub `claude`); `test/doctor.test.ts` ("old Claude
   Code warns about mods").
@@ -229,8 +232,9 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   - password in remote URL accepted: KILLED (2);
   - scan of the planned publish files skipped: KILLED (2);
   - Anthropic key rule removed from the scanner: KILLED (2);
-  - **`ext::` added to the default `GIT_ALLOW_PROTOCOL`: SURVIVED.** No test checks that the
-    allow-list excludes `ext`.
+  - `ext::` added to the default `GIT_ALLOW_PROTOCOL`: first SURVIVED; now KILLED (2) by "git
+    helper pins the transport allow-list: plain transports only, never ext or fd" and "git itself
+    refuses to run an ext:: transport started through the helper".
 - **Known gaps:** the scanner is pattern and entropy based; the remote URL check is not
   exhaustive; a pulled profile is trusted within the whitelist; only local bare repositories were
   exercised (no hosted remote, no authentication flow). See
@@ -293,7 +297,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **Untested:** everything that needs Windows or WSL to run: real `ctk install`, the `.cmd` shim
   path, Git Bash handling of the status line command, the mod under Windows Terminal or VS Code,
   WSL behaviour (mods are reported unsupported there; `ctk install` decides by version only and does
-  not detect WSL for this). `UNVERIFIED`. CI is configured for `windows-latest` and has not run.
+  not detect WSL for this). `UNVERIFIED`. CI on `windows-latest` passed ([CI run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991)); that is automated coverage only.
 
 ### 5.8 Status line git-config gate
 
@@ -306,24 +310,52 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   gpg, program, credential). When a file does match, the branch is still shown and the dirty marker
   is skipped. `git` is called with `core.fsmonitor=false`, `core.hooksPath=` and
   `--no-optional-locks`, a 250 ms timeout, stdin ignored. It prints one line for garbage input.
-- **Tests:** `plugin/ctk/statusline/test/statusline.test.mjs`: "hostile repo config (fsmonitor)
+- **Environment and config:** the child environment drops `GIT_DIR`, `GIT_WORK_TREE`,
+  `GIT_INDEX_FILE` and `GIT_EXTERNAL_DIFF`. System and global git config are **honoured**: Git
+  for Windows ships `core.autocrlf=true` in the system config, and ignoring it (an earlier
+  `GIT_CONFIG_NOSYSTEM=1`) made every clean Windows repository show a dirty marker. Only repo-local
+  config is distrusted.
+- **Tests:** `plugin/ctk/statusline/test/statusline.test.mjs` (31 tests): "inherited GIT_DIR cannot
+  redirect the dirty check", "system autocrlf", "hostile repo config (fsmonitor)
   never runs and the branch still shows", "hostile repo config (filter driver) skips the dirty
   marker", "hostile common config reached from a linked worktree skips the dirty marker", "oversized
   repo config skips the dirty marker", "control characters from HEAD and input are stripped",
   "process latency well under the 300 ms debounce".
-- **Mutations:** the config gate replaced by `true`: KILLED (2). **Removing the deletion of
-  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_EXTERNAL_DIFF` from the child environment:
-  SURVIVED** (no test sets those variables).
+- **Mutations:**
+  - the config gate replaced by `true`: KILLED (2);
+  - the `GIT_*` deletion removed: first SURVIVED; now KILLED (1, "inherited GIT_DIR cannot
+    redirect the dirty check");
+  - only `GIT_EXTERNAL_DIFF` dropped from the list: **SURVIVED**. That half is a guard only:
+    `git status` never runs an external diff, so no test can observe it;
+  - `-c core.fsmonitor=false` flipped to `true`: **SURVIVED**. The repo-config gate already
+    skips `git status` for any repo-local fsmonitor setting; the flag is defence in depth for a
+    value coming from global config, which no test sets;
+  - `GIT_CONFIG_NOSYSTEM=1` reintroduced: KILLED (1, "system autocrlf").
 - **Known limit:** a pattern list is a blocklist; a git configuration key that executes a command
   and is not in the list would pass.
+
+## 5a. Found by CI on Windows
+
+The first runs of the workflow on `windows-latest` found three defects that no run on macOS or
+Linux had shown. All three are fixed. CI run: [https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991).
+
+- **Invalid YAML in a skill description.** The `debug` skill's frontmatter `description` contained an
+  unquoted colon. macOS and Linux validators accepted it; the Windows run rejected it as invalid YAML.
+- **Status line dirty marker wrong on every Windows repository.** The script ran git with
+  `GIT_CONFIG_NOSYSTEM=1`. Git for Windows ships `core.autocrlf=true` in the system config, so
+  ignoring it made a clean repository report changes. The variable is gone (see 5.8).
+- **Tests that assumed POSIX.** Some tests used `/dev/null` and POSIX paths.
+
+Windows is verified only through CI results. Nothing was run interactively on Windows:
+the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` stand.
 
 ## 6. Verification status
 
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 310 tests, 310 pass, 0 fail (two consecutive runs). One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on the next two runs. |
-| Plugin tests | PASS | `npm run test:plugin`: 58 pass, 0 fail |
+| Unit and integration tests | PASS | `npm test`: 324 tests (31 of them the status line tests), 324 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Plugin tests | PASS | `npm run test:plugin`: 76 pass, 0 fail |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugin/ctk --noEmit`, exit 0 (types generated locally) |
 | Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |
@@ -331,20 +363,20 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 | Mod loads in `claude -p "/ctk-stats"` | PASS | output printed; also with OMC installed beside it |
 | npm tarball install (`--prefix`) and install from it | PASS | `npm pack`, `npm install --prefix`, `ctk install`, plugin loaded |
 | Documentation consistency | PASS | `test/docs.test.ts`, part of `npm test` |
-| Mutation checks | PARTIAL | 27 single-line mutations: 24 KILLED, 3 SURVIVED (5.1 early reservation, 5.5 `ext` transport, 5.8 status line `GIT_*` scrub) |
-| CI on GitHub (`.github/workflows/ci.yml`, three operating systems, Node 22 and 24) | **NOT RUN YET** | Run link: `FILL IN: <link to the first green run>` |
+| Mutation checks | PARTIAL | 30 single-line mutations: 28 KILLED, 2 SURVIVED (5.8: the `GIT_EXTERNAL_DIFF` half of the scrub, a guard that cannot be observed; the `core.fsmonitor=false` override, defence in depth behind the repo-config gate). Three earlier survivors (5.1 early reservation, 5.5 `ext` transport, 5.8 `GIT_DIR` scrub) were pinned by new tests and re-run: now killed. |
+| CI on GitHub, commit f4b9a13: tests on ubuntu, macos and windows x Node 22 and 24; plugin validate `--strict` and plugin test on ubuntu, macos and windows; pack audit | PASS (10 of 10 jobs, 2026-10-09) | [https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991). Earlier runs failed on Windows and found real bugs (section 5a). The repository was private during these runs; they used GitHub-hosted runners only, with Claude Code from npm `latest` at the time. |
 | Hard cap against real concurrent spawns | UNVERIFIED (independently) | Reported by the maintainers: 6 concurrent, 3 started, 3 refused, on 2.1.294; simulated-host tests pass |
 | `/ctk:team` on a real task with live agents | UNVERIFIED | skill text and cap checked separately |
 | `/ctk:review`, `/ctk:debug` on real changes | UNVERIFIED | validated as plugin components only |
 | Model routing on live teammates, per team mode | UNVERIFIED | resolution is unit-tested |
 | Team band in a live multi-worker session | UNVERIFIED | rendering tests only |
 | Interactive first launch: plugin or mod approval prompts | UNVERIFIED | the interactive check stopped at the login screen; `-p` mode showed no prompt |
-| Linux, Windows native, Windows Terminal, VS Code terminal, WSL | UNVERIFIED | not run |
+| Windows Terminal, VS Code terminal, WSL; interactive use on Linux and Windows | UNVERIFIED | only automated CI jobs ran on Linux and Windows (previous row); nothing was run interactively |
 | Sync against a hosted remote or with authentication | UNVERIFIED | local bare repositories only |
 | Plugin version bump through `ctk update`; rollback to an older tag | UNVERIFIED | only same-version update was run |
 | `settings.json` written concurrently by a running Claude Code | UNVERIFIED | atomic write only |
 | A real process kill between ledger save and settings write | UNVERIFIED | simulated crash test only |
-| Node 20 (declared in `engines`) | UNVERIFIED | tests need a Node that strips types; compiled output not run on 20 |
+| Node versions other than 22 and 24 | UNVERIFIED | `engines` is `>=22`; CI and local runs used 22 and 24 only (22.19, 24.21 locally) |
 
 ## 7. Known limitations
 
@@ -355,7 +387,7 @@ per-worker cost; the install directory must stay in place.
 
 ## 8. Unresolved issues
 
-- Three mutation survivors listed in section 6 have no test.
+- Two mutation survivors (section 5.8) have no test, for the reasons given there.
 - `ctk doctor`'s onboarding check passes after `ctk install` on a directory where `claude` was
   never launched (any `claude plugin` command creates `.claude.json`).
 - The next-step lines (`Try: /ctk:team <goal>`) print after a no-change install even when the

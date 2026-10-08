@@ -153,8 +153,10 @@ It reads only that JSON, `.git/HEAD` for the branch (and the repository's git co
 and runs one `git status --porcelain -uno` (250 ms timeout) for the dirty marker. A repository's
 own config can make git run commands (`core.fsmonitor`, filters, hooks, pagers, aliases,
 credential helpers and similar); if the script sees any of those, it skips the dirty marker and
-still shows the branch. The git call also runs with `core.fsmonitor=false`, no `hooksPath`, no
-system config, and without `GIT_DIR`-style variables. Control characters are stripped from
+still shows the branch. The git call also runs with `core.fsmonitor=false`, no `hooksPath`, and
+without the inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_EXTERNAL_DIFF`
+variables. System and global git config are honoured (Git for Windows ships `core.autocrlf=true`
+in the system config); only repo-local config is distrusted. Control characters are stripped from
 every string taken from the JSON. The script shows no worker data, makes no network call, and
 prints a line even for empty or malformed input. `COLUMNS` is honoured; ANSI is off unless
 `CTK_COLOR=1`. A `statusLine` you already have is never replaced, so with your own status
@@ -334,9 +336,9 @@ Secret scanning is described in [THREAT-MODEL](THREAT-MODEL.md#secrets-handling)
 ## Contributor notes
 
 - TypeScript with `erasableSyntaxOnly` (no enums, parameter properties or namespaces);
-  relative imports use the `.ts` extension. Compiled output requires Node >= 20; tests run
+  relative imports use the `.ts` extension. Compiled output requires Node >= 22 (the `engines` field); tests run
   `.ts` files directly and need a Node that can strip types (CI uses 22 and 24; tests have been
-  run on Node 22.19 and 24.21; Node 20 is declared in `engines` but not tested).
+  run on Node 22.19 and 24.21; Node 20 is not declared and not tested).
 - Tests use `node:test` and `node:assert/strict` in `test/**/*.test.ts`, with a temporary
   config dir per test and no network. CLI tests drive a stub `claude` script; one test uses
   the real binary and skips when it is absent.
