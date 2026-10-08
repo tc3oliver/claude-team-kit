@@ -14,7 +14,7 @@ import { MANAGED_MARKER } from '../../sync/files.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 
-export type Check = { id: string; status: 'pass' | 'warn' | 'fail'; message: string; fix?: string }
+export type Check = { id: string; status: 'pass' | 'info' | 'warn' | 'fail'; message: string; fix?: string }
 
 const TEAMS_ENV = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
 
@@ -96,7 +96,9 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
     else add('statusline', 'fail', 'CTK status line configured but the script is missing', 'run "ctk update"')
   }
 
-  if (onboarded) add('onboarding', 'pass', 'Claude Code has been started once')
+  // ctk's own `claude plugin ...` commands create .claude.json, so once a ledger exists its presence proves nothing.
+  if (onboarded && existsSync(ctx.paths.ledger)) add('onboarding', 'info', "cannot tell whether Claude Code was started interactively (ctk's own claude commands create .claude.json)")
+  else if (onboarded) add('onboarding', 'pass', 'Claude Code has been started once')
   else add('onboarding', 'warn', 'Claude Code not started yet (no .claude.json)', 'run "claude" once and log in')
 
   try {
@@ -155,7 +157,7 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
     : add('backups', 'fail', `${problems.length} backup problem(s): ${problems[0]}`, 'keep the backups directory intact; do not edit it')
 
   const code = checks.some(c => c.status === 'fail') ? EXIT.error : checks.some(c => c.status === 'warn') ? EXIT.attention : EXIT.ok
-  const mark = { pass: 'ok  ', warn: 'warn', fail: 'FAIL' } as const
+  const mark = { pass: 'ok  ', info: 'info', warn: 'warn', fail: 'FAIL' } as const
   const lines = checks.flatMap(c => [`[${mark[c.status]}] ${c.id}: ${c.message}`, ...(c.fix && c.status !== 'pass' ? [`       fix: ${c.fix}`] : [])])
   lines.push(code === EXIT.ok ? 'all checks passed' : code === EXIT.attention ? 'passed with warnings' : 'some checks failed')
   return { code, data: { checks }, lines }

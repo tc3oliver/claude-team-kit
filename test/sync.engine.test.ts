@@ -8,6 +8,11 @@ import { bareRemote, tmp, device, git, readProfile, registerCleanup, remoteRefs,
 
 registerCleanup()
 
+// Git for Windows checks symlinks out as plain files unless core.symlinks is on (needs a privilege),
+// and Windows file names cannot hold control characters: those fixtures cannot exist there.
+const NO_SYMLINK_FIXTURE = process.platform === 'win32' ? 'symlink fixtures need core.symlinks and a privilege on Windows' : false
+const NO_CONTROL_NAMES = process.platform === 'win32' ? 'Windows file names cannot contain control characters' : false
+
 const SKILL_MD = '---\nname: alpha\ndescription: test skill\n---\nDo the thing.\n'
 const fixture = () => ({ remote: bareRemote(), a: device('laptop'), b: device('desktop') })
 
@@ -328,7 +333,7 @@ for (const [name, edit, reason] of [
   ['extension', (w: string) => writeFileSync(join(w, 'skills', 'alpha', 'run.exe'), 'x'), /extension not allowed/],
   ['oversize', (w: string) => writeFileSync(join(w, 'skills', 'alpha', 'big.md'), 'x'.repeat(300 * 1024)), /larger than/],
 ] as const) {
-  test(`pull refuses an incoming skill with a ${name} and applies nothing`, async () => {
+  test(`pull refuses an incoming skill with a ${name} and applies nothing`, { skip: name === 'symlink' && NO_SYMLINK_FIXTURE }, async () => {
     const { remote, b } = await seeded()
     await b.sync('init', '--remote', remote)
     tamper(remote, edit)
@@ -337,7 +342,8 @@ for (const [name, edit, reason] of [
     assert.match(b.out.join('\n'), reason)
     assert.equal(existsSync(b.ctx.paths.profile), false)
     assert.equal(existsSync(join(b.ctx.paths.skillsDir, 'alpha')), false)
-    assert.deepEqual(Object.keys(snapshot(b.ctx.configDir)).filter(k => !k.includes('/sync/repo/')), Object.keys(before).filter(k => !k.includes('/sync/repo/')))
+    const outsideClone = (m: Record<string, string>) => Object.keys(m).filter(k => !k.replaceAll('\\', '/').includes('/sync/repo/'))
+    assert.deepEqual(outsideClone(snapshot(b.ctx.configDir)), outsideClone(before))
     assert.deepEqual(b.applied, [])
   })
 }
@@ -461,7 +467,7 @@ test('publish needs a local profile and a profile repo marker is written once', 
 
 const treeOf = (dir: string) => Object.keys(snapshot(dir)).sort()
 
-test('a symlinked profiles/ in the remote is a refusal on pull, and nothing is written outside the clone', async () => {
+test('a symlinked profiles/ in the remote is a refusal on pull, and nothing is written outside the clone', { skip: NO_SYMLINK_FIXTURE }, async () => {
   const { remote, a } = fixture()
   const outside = tmp('ctk-outside-')
   writeFileSync(join(outside, 'default.json'), `${JSON.stringify({ schemaVersion: 1, team: { maxWorkers: 9 } })}\n`)
@@ -480,7 +486,7 @@ test('a symlinked profiles/ in the remote is a refusal on pull, and nothing is w
   assert.deepEqual(a.applied, [])
 })
 
-test('a symlinked skills/ in the remote cannot redirect publish writes outside the clone', async () => {
+test('a symlinked skills/ in the remote cannot redirect publish writes outside the clone', { skip: NO_SYMLINK_FIXTURE }, async () => {
   const { remote, a } = fixture()
   const outside = tmp('ctk-outside-')
   tamper(remote, w => {
@@ -499,7 +505,7 @@ test('a symlinked skills/ in the remote cannot redirect publish writes outside t
   assert.equal(remoteRefs(remote), refs)
 })
 
-test('a symlinked skills/<name> in the remote is refused on pull', async () => {
+test('a symlinked skills/<name> in the remote is refused on pull', { skip: NO_SYMLINK_FIXTURE }, async () => {
   const { remote, b } = await seeded()
   const outside = tmp('ctk-outside-')
   tamper(remote, w => {
@@ -568,7 +574,7 @@ test('publish pushes a clean unpushed commit when the profile is otherwise curre
   assert.match(git(remote, 'show', 'main:skills/alpha/SKILL.md'), /edit/)
 })
 
-test('terminal escape sequences in remote file names are neither accepted nor printed', async () => {
+test('terminal escape sequences in remote file names are neither accepted nor printed', { skip: NO_CONTROL_NAMES }, async () => {
   const { remote, b } = await seeded()
   await b.sync('init', '--remote', remote)
   const evil = 'x\x1b]0;pwned\x07.md'
@@ -579,12 +585,38 @@ test('terminal escape sequences in remote file names are neither accepted nor pr
   assert.ok(!/[\x00-\x08\x0b-\x1f\x7f-\x9f]/.test(text), JSON.stringify(text))
   const j = await b.json('pull')
   assert.ok(!JSON.stringify(j.doc).includes('\\u001b'), 'the JSON document is sanitized too')
-  // git's own error text can echo attacker-chosen names too
+})
+
+test('control characters in a remote path echoed by git are not printed', async () => {
   const c = device('tablet')
   assert.equal(await c.sync('init', '--remote', join(c.ctx.cwd, 'no\x1b[31mpe.git')), EXIT.error)
   assert.match(c.out.join('\n'), /cannot reach/)
   assert.ok(!/[\x00-\x08\x0b-\x1f\x7f-\x9f]/.test(c.out.join('\n') + c.err.join('\n')))
 })
+
+for (const [what, make] of [
+  ['skills', (w: string) => writeFileSync(join(w, 'skills'), 'not a directory\n')],
+  ['profiles', (w: string) => writeFileSync(join(w, 'profiles'), 'not a directory\n')],
+] as const) {
+  test(`a plain file where ${what}/ belongs is a clean refusal, not a raw filesystem error`, async () => {
+    const { remote, a } = fixture()
+    tamper(remote, w => {
+      writeFileSync(join(w, 'ctk-profile.json'), `${JSON.stringify({ schemaVersion: 1, name: 'x' })}\n`)
+      if (what === 'skills') {
+        mkdirSync(join(w, 'profiles'))
+        writeFileSync(join(w, 'profiles', 'default.json'), `${JSON.stringify({ schemaVersion: 1 })}\n`)
+      }
+      make(w)
+    })
+    await a.sync('init', '--remote', remote)
+    writeProfile(a, { skills: ['alpha'] })
+    writeSkill(a, 'alpha', { 'SKILL.md': SKILL_MD })
+    const refs = remoteRefs(remote)
+    assert.equal(await a.sync('publish'), EXIT.error)
+    assert.match(a.out.join('\n') + a.err.join('\n'), new RegExp(`"${what}" is not a directory`))
+    assert.equal(remoteRefs(remote), refs)
+  })
+}
 
 test('a failed rollback is reported, not swallowed', async () => {
   const { a } = await seeded()

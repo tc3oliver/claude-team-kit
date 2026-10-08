@@ -119,3 +119,19 @@ test('doctor fails on Claude load errors and on a marketplace whose directory is
   assert.equal(status(g, 'marketplace'), 'fail')
   assert.match(g.lines.join('\n'), /which does not exist/)
 })
+
+test('after ctk has run claude commands the onboarding check is info, which never changes the exit code', async t => {
+  const e = makeEnv(t)
+  writeFileSync(join(e.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(e.ctx, flags, e.root)
+  const r = await runDoctor(e.ctx)
+  assert.equal(status(r, 'onboarding'), 'info')
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.match(r.lines.join('\n'), /\[info\] onboarding: cannot tell whether Claude Code was started interactively \(ctk's own claude commands create \.claude\.json\)/)
+  assert.ok(!r.lines.join('\n').includes('fix:'))
+  assert.match(r.lines.join('\n'), /all checks passed/)
+
+  const plain = makeEnv(t) // Claude was started by the user, ctk never ran here
+  writeFileSync(join(plain.ctx.configDir, '.claude.json'), '{}')
+  assert.equal(status(await runDoctor(plain.ctx), 'onboarding'), 'pass')
+})

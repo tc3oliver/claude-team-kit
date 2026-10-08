@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { main } from '../src/cli/index.ts'
 import { runConfig } from '../src/cli/commands/config.ts'
 import { sha256 } from '../src/core/fsx.ts'
 import { loadLedger, saveLedger } from '../src/core/ledger.ts'
@@ -302,4 +303,36 @@ test('a container ctk created is kept when it holds something of the user', asyn
   writeJson(e.ctx.paths.settings, s)
   assert.equal((await uninstall(e.ctx)).code, 0)
   assert.deepEqual(readJson(e.ctx.paths.settings).env, { MY_VAR: '1' })
+})
+
+const router = async (e: ReturnType<typeof makeEnv>, args: string[]) => {
+  const out: string[] = []
+  const code = await main([...args, '--config-dir', e.ctx.configDir], { out: l => out.push(l), err: l => out.push(l), env: e.ctx.env, cwd: e.dir, claudeBin: e.stub })
+  return { code, out }
+}
+
+test('uninstall prints "removed" for deleted keys and "restored" only when a previous value is put back', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  await runConfig(e.ctx, ['set', 'team.maxWorkers', '5'], cfgFlags)
+  const rb = await router(e, ['rollback'])
+  assert.equal(rb.code, 0, rb.out.join('\n'))
+  assert.ok(rb.out.includes('  restored /pluginConfigs/ctk@ctk-kit/options/maxWorkers'), rb.out.join('\n'))
+  assert.ok(!rb.out.some(l => l.includes('removed /pluginConfigs')))
+  const un = await router(e, ['uninstall'])
+  const text = un.out.join('\n')
+  assert.match(text, /^  removed \/statusLine$/m)
+  assert.match(text, /^  removed plugin ctk@ctk-kit$/m)
+  assert.ok(!/restored \/statusLine/.test(text))
+})
+
+test('--json keeps `reverted` as everything put back and adds `removed` as its deleted subset', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, { env: { KEEP: '1' } })
+  await runInstall(e.ctx, flags, e.root)
+  const un = await router(e, ['uninstall', '--json'])
+  const doc = JSON.parse(un.out.join('\n'))
+  assert.ok(Array.isArray(doc.reverted) && Array.isArray(doc.removed) && Array.isArray(doc.conflicts) && Array.isArray(doc.notes))
+  assert.ok(doc.reverted.includes('/statusLine'))
+  assert.ok(doc.removed.length > 0 && doc.removed.every((k: string) => doc.reverted.includes(k)))
 })

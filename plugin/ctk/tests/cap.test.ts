@@ -201,3 +201,28 @@ describe('roster lags behind an accepted spawn', () => {
     expect((await seq($, 6, 3)).every(r => r.deny === undefined)).toBe(true)
   })
 })
+
+describe('early reservation', () => {
+  // Every roster read answers after the same number of microtasks, so all six spawns read
+  // live=0 at the same moment and resume in call order. Each reserves before its read, so
+  // the first to check sees all six reservations (starting=5), the next five, and so on;
+  // the first three are refused and the last three start. A reservation made after the
+  // read would let the first three start and refuse the rest, with starting=3,4,5.
+  for (const listDelay of [0, 1, 3, 10]) {
+    for (const spawnDelay of [0, 3, 20]) {
+      test(`6 concurrent, roster answers after ${listDelay} ticks, spawn takes ${spawnDelay}: each sees the others' reservations`, async ($, on) => {
+        const w = fresh()
+        engine(on, w, () => spawnDelay, { listDelay })
+        const results = await spawnSix($)
+        expect(w.started).toBe(3)
+        expect(w.peak).toBeLessThanOrEqual(3)
+        expect(results.map(r => r.deny !== undefined)).toEqual([true, true, true, false, false, false])
+        expect(results.slice(0, 3).map(r => String(r.deny))).toEqual([
+          expect.stringMatching(/^TEAM_CAPACITY_REACHED: live=0 starting=5 max=3\./),
+          expect.stringMatching(/^TEAM_CAPACITY_REACHED: live=0 starting=4 max=3\./),
+          expect.stringMatching(/^TEAM_CAPACITY_REACHED: live=0 starting=3 max=3\./),
+        ])
+      })
+    }
+  }
+})

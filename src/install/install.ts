@@ -60,6 +60,9 @@ export const assertWritable = (dir: string): void => {
 
 export const NEXT_STEPS = ['Restart Claude Code (or run /reload-plugins).', 'Try: /ctk:team <goal>   (status: /ctk-stats)', 'Undo any time: ctk uninstall']
 
+/** A plugin the user disabled is not usable yet: say how to enable it instead of suggesting /ctk:team. */
+const nextStepsDisabled = [NEXT_STEPS[0] as string, `The ctk plugin is disabled; enable it with: claude plugin enable ${PLUGIN_ID}`, NEXT_STEPS[2] as string]
+
 export const runInstall = async (ctx: Ctx, flags: InstallFlags, root = packageRoot()): Promise<Report> => {
   const lines: string[] = []
   const incomplete = packageProblem(root)
@@ -156,12 +159,13 @@ export const runInstall = async (ctx: Ctx, flags: InstallFlags, root = packageRo
   const conflicts = [...apply.conflicts]
   if (statuslineStep === 'edited') conflicts.push({ pointer: ctx.paths.statusline, reason: 'edited since CTK wrote it; not overwritten (restore it or delete it, then re-run "ctk install")' })
   const skipped = [...apply.skipped]
-  if (pluginStep === 'disabled') skipped.push(`${PLUGIN_ID} is installed but disabled; left disabled (run "claude plugin enable ${PLUGIN_ID}" to turn it on)`)
   const changedAnything = marketplaceStep !== 'present' || pluginStep === 'install' || statuslineStep === 'copy' || apply.changed
   if (!ctx.dryRun) lines.push(changedAnything ? 'installed.' : 'already installed; nothing to change.')
   for (const s of skipped) lines.push(`  note: ${s}`)
   for (const c of conflicts) lines.push(`  conflict: ${c.pointer}: ${c.reason}`)
   if (conflicts.length > 0) lines.push('conflicting keys were left untouched; make them match your profile (see "ctk config list") or remove them, then re-run "ctk install".')
-  if (!ctx.dryRun) lines.push(...NEXT_STEPS)
-  return { code: conflicts.length > 0 ? 2 : 0, data: { ...data, changed: changedAnything, conflicts, skipped, ...(ctx.dryRun ? {} : { nextSteps: NEXT_STEPS }) }, lines }
+  const leftDisabled = pluginStep === 'disabled' || (marketplaceStep === 'repoint' && plugin !== undefined && !plugin.enabled)
+  const nextSteps = leftDisabled ? nextStepsDisabled : NEXT_STEPS
+  if (!ctx.dryRun) lines.push(...nextSteps)
+  return { code: conflicts.length > 0 ? 2 : 0, data: { ...data, changed: changedAnything, conflicts, skipped, ...(ctx.dryRun ? {} : { nextSteps }) }, lines }
 }

@@ -1,6 +1,6 @@
 import { execFile, type ExecFileException } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { extname, join, win32 } from 'node:path'
 
 import type { Ctx } from '../cli/context.ts'
 import { isObject } from './jsonx.ts'
@@ -45,20 +45,46 @@ const spawnOnce = (file: string, args: string[], env: NodeJS.ProcessEnv, cwd: st
     })
   })
 
+export type SpawnPlan = { file: string; args: string[]; shell: boolean }
+
+/** Windows: find claude as .exe, .cmd or .bat (in this order, per directory) the way a shell would. null = not found. */
+export const resolveOnWindows = (bin: string, env: NodeJS.ProcessEnv, exists: (p: string) => boolean = existsSync): string | null => {
+  const candidates = (base: string) => (win32.extname(base) !== '' ? [base] : ['.exe', '.cmd', '.bat'].map(e => base + e))
+  const hasDir = /[\\/]/.test(bin)
+  const dirs = hasDir ? [''] : (env[Object.keys(env).find(k => k.toLowerCase() === 'path') ?? 'PATH'] ?? '').split(win32.delimiter).filter(d => d !== '')
+  for (const dir of dirs) {
+    for (const c of candidates(dir === '' ? bin : win32.join(dir, bin))) if (exists(c)) return c
+  }
+  return null
+}
+
 /**
- * The single place that spawns `claude`. Always an argv array; the child sees CLAUDE_CONFIG_DIR=<configDir>.
- * `.js/.mjs` binaries (test stubs) run under this node. On Windows a bare `claude` is tried as claude.exe,
- * then as claude.cmd, which can only run through a shell and so gets quoted arguments.
+ * How to run `claude` with `args`, or null when it cannot be found (Windows only: elsewhere the spawn reports ENOENT).
+ * `.js/.mjs` binaries (test stubs) run under this node. On Windows a .cmd/.bat can only run through a shell,
+ * so its arguments are quoted; an .exe runs directly.
  */
+export const planSpawn = (
+  bin: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  platform: string = process.platform,
+  exists: (p: string) => boolean = existsSync,
+): SpawnPlan | null => {
+  if (['.js', '.mjs', '.cjs'].includes(extname(bin))) return { file: process.execPath, args: [bin, ...args], shell: false }
+  if (platform !== 'win32') return { file: bin, args, shell: false }
+  const found = resolveOnWindows(bin, env, exists)
+  if (found === null) return null
+  if (/\.(cmd|bat)$/i.test(found)) return { file: `"${found}"`, args: args.map(quoteWin), shell: true }
+  return { file: found, args, shell: false }
+}
+
+/** The single place that spawns `claude`. Always an argv array; the child sees CLAUDE_CONFIG_DIR=<configDir>. */
 export const runClaude = async (ctx: Ctx, args: string[]): Promise<Run> => {
   const env = { ...ctx.env, CLAUDE_CONFIG_DIR: ctx.configDir }
   const bin = ctx.claudeBin ?? 'claude'
-  if (['.js', '.mjs', '.cjs'].includes(extname(bin))) return spawnOnce(process.execPath, [bin, ...args], env, ctx.cwd, false)
-  if (process.platform !== 'win32') return spawnOnce(bin, args, env, ctx.cwd, false)
-  if (/\.cmd$|\.bat$/i.test(bin)) return spawnOnce(`"${bin}"`, args.map(quoteWin), env, ctx.cwd, true)
-  if (extname(bin) !== '') return spawnOnce(bin, args, env, ctx.cwd, false)
-  const exe = await spawnOnce(`${bin}.exe`, args, env, ctx.cwd, false)
-  return exe.missing ? spawnOnce(`"${bin}.cmd"`, args.map(quoteWin), env, ctx.cwd, true) : exe
+  const plan = planSpawn(bin, args, env)
+  if (plan === null) return { code: 127, stdout: '', stderr: `${bin}: not found`, missing: true }
+  return spawnOnce(plan.file, plan.args, env, ctx.cwd, plan.shell)
 }
 
 const quoteWin = (a: string): string => {

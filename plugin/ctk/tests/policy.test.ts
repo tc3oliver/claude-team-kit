@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, spawnInput } from './world.ts'
+import { engine, fresh, norm, spawnInput } from './world.ts'
 
 const STATS = '/cfg/ctk/stats/sess_1.json'
 
 const END = { reason: 'other', sessionId: 'sess/1' } as never
 
-const written = (w: ReturnType<typeof fresh>) => JSON.parse(w.files.get(STATS) ?? 'null')
+const written = (w: ReturnType<typeof fresh>) => JSON.parse(w.files.get(norm(STATS)) ?? 'null')
 
 describe('model routing', () => {
   test('a CTK role without a model gets its configured alias', async ($, on) => {
@@ -128,6 +128,40 @@ describe('verified acceptance and stats', () => {
   })
 })
 
+describe('stats path', () => {
+  const START = { cwd: '/w', surface: null, isInteractive: false } as const
+  // Windows and POSIX config dirs, with and without trailing separators and a drive letter.
+  const CASES: [string, Record<string, string>, string][] = [
+    ['a Windows config dir', { CLAUDE_CONFIG_DIR: 'C:\\Users\\x\\.claude' }, 'C:/Users/x/.claude/ctk/stats/sess_1.json'],
+    ['a Windows config dir with a trailing backslash', { CLAUDE_CONFIG_DIR: 'C:\\Users\\x\\.claude\\' }, 'C:/Users/x/.claude/ctk/stats/sess_1.json'],
+    ['a POSIX config dir with trailing slashes', { CLAUDE_CONFIG_DIR: '/cfg//' }, '/cfg/ctk/stats/sess_1.json'],
+    ['HOME', { HOME: '/home/x' }, '/home/x/.claude/ctk/stats/sess_1.json'],
+    ['USERPROFILE', { USERPROFILE: 'C:\\Users\\x' }, 'C:/Users/x/.claude/ctk/stats/sess_1.json'],
+  ]
+  for (const [label, env, expected] of CASES) {
+    test(`${label} gives one valid path`, async ($, on) => {
+      const w = fresh()
+      engine(on, w, undefined, { env })
+      await $.session.start(START)
+      await $.session.end(END)
+      // The kit resolves a path that is not rooted on this platform against its working
+      // directory (a Windows path on POSIX, a drive-less one on Windows): compare the tail.
+      const paths = [...new Set(w.rawPaths.map(p => p.replace(/\\/g, '/')))]
+      expect(paths.length).toBe(1)
+      expect(paths[0]!.endsWith(expected)).toBe(true)
+      expect(paths[0]).not.toMatch(/\/\//)
+    })
+  }
+
+  test('no config dir at all writes nothing', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { env: {} })
+    await $.session.start(START)
+    await $.session.end(END)
+    expect(w.rawPaths).toEqual([])
+  })
+})
+
 describe('session.start again (enable, respawn, reload)', () => {
   const START = { cwd: '/w', surface: null, isInteractive: false } as const
 
@@ -153,7 +187,7 @@ describe('session.start again (enable, respawn, reload)', () => {
   ] as const) {
     test(`a stats file of ${label} is ignored`, async ($, on) => {
       const w = fresh()
-      w.files.set(STATS, text)
+      w.files.set(norm(STATS), text)
       engine(on, w)
       await $.session.start(START)
       const out = await $.command.run({ command: 'ctk-stats', args: '' } as never)

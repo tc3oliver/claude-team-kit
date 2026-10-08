@@ -5,6 +5,7 @@ import { test } from 'node:test'
 
 import { runClaude } from '../src/core/claude.ts'
 import { loadLedger } from '../src/core/ledger.ts'
+import { statuslineCommand } from '../src/install/statusline.ts'
 import { runUpdate } from '../src/install/update.ts'
 import { loadDeviceLayer, saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
@@ -32,7 +33,12 @@ test('install writes plugin, statusline, owned keys and a ledger; keeps other se
   assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
   assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
   assert.equal(s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, '1')
-  assert.match(s.statusLine.command, /^'.*node[^']*' '.*\/ctk\/bin\/ctk-statusline\.mjs'$/)
+  // POSIX: single-quoted absolute paths. Windows: double-quoted with forward slashes (Git Bash eats backslashes).
+  assert.equal(s.statusLine.command, statuslineCommand(process.execPath, e.ctx.paths.statusline))
+  assert.match(
+    s.statusLine.command,
+    process.platform === 'win32' ? /^"[^"]*node(\.exe)?" "[^"\\]*\/ctk\/bin\/ctk-statusline\.mjs"$/ : /^'.*node[^']*' '.*\/ctk\/bin\/ctk-statusline\.mjs'$/,
+  )
   assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// statusline v1\n')
   const ledger = loadLedger(e.ctx)
   assert.ok(ledger)
@@ -192,7 +198,10 @@ test('a plugin the user disabled stays disabled: install warns and does not enab
   assert.equal(r.code, 0)
   assert.deepEqual(mutating(e.log().slice(calls)), [])
   assert.equal(readJson(stateFile).plugins[0].enabled, false)
-  assert.match(r.lines.join('\n'), /installed but disabled; left disabled/)
+  const text = r.lines.join('\n')
+  assert.match(text, /installed but disabled, left disabled/)
+  assert.deepEqual(r.lines.slice(-3), ['Restart Claude Code (or run /reload-plugins).', 'The ctk plugin is disabled; enable it with: claude plugin enable ctk@ctk-kit', 'Undo any time: ctk uninstall'])
+  assert.ok(!text.includes('Try: /ctk:team'))
 })
 
 test('options Claude deleted with an uninstalled plugin are re-added when install reinstalls it', async t => {
@@ -299,6 +308,8 @@ test('a disabled plugin is still disabled after install re-points the marketplac
   assert.match(dry.lines.join('\n'), /reinstall, then disable it again/)
   const r = await runInstall(e.ctx, flags, to)
   assert.equal(r.code, 0, r.lines.join('\n'))
+  assert.ok(r.lines.includes('The ctk plugin is disabled; enable it with: claude plugin enable ctk@ctk-kit'))
+  assert.ok(!r.lines.join('\n').includes('Try: /ctk:team'))
   assert.equal(stubState(e).plugins.length, 1)
   assert.equal(stubState(e).plugins[0].enabled, false)
   assert.equal(readJson(e.ctx.paths.settings).enabledPlugins['ctk@ctk-kit'], false)

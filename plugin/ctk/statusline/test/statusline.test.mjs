@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -205,6 +205,53 @@ test('control characters from HEAD and input are stripped', t => {
 
 test('missing model prints a dash', () => {
   assert.equal(render({ model: {} }).split(' · ')[0], '–')
+})
+
+test('inherited GIT_DIR cannot redirect the dirty check', t => {
+  const current = makeRepo(t)
+  const other = makeRepo(t)
+  git(other, 'checkout', '-q', '-b', 'other')
+  writeFileSync(join(other, 'a.txt'), 'changed\n')
+  git(other, 'add', 'a.txt')
+  const marker = join(tempDir(t, 'ctk-sl-marker-'), 'PWNED')
+  const r = spawnSync(process.execPath, [SCRIPT], {
+    input: JSON.stringify(withDir(current)),
+    encoding: 'utf8',
+    env: { ...process.env, GIT_DIR: join(other, '.git'), GIT_EXTERNAL_DIFF: `touch ${marker}` },
+  })
+  assert.equal(r.status, 0)
+  assert.equal(r.stdout, 'Opus 5.5 · ctx 42% · 5h 24% · 7d 61% · $1.23 · 12m · main\n')
+  assert.equal(existsSync(marker), false)
+})
+
+test('system autocrlf (Git for Windows default) does not make a clean worktree look dirty', t => {
+  // A global config would override the system one, so both layers are pinned to scratch files.
+  const cfgDir = tempDir(t, 'ctk-sl-sys-')
+  const sys = join(cfgDir, 'system.gitconfig')
+  const global = join(cfgDir, 'global.gitconfig')
+  writeFileSync(sys, '[core]\n\tautocrlf = true\n')
+  writeFileSync(global, '')
+  const cfgEnv = { ...process.env, GIT_CONFIG_SYSTEM: sys, GIT_CONFIG_GLOBAL: global }
+  const sysGit = (cwd, ...args) =>
+    execFileSync('git', ['-c', 'user.name=ctk-test', '-c', 'user.email=ctk-test@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
+      cwd,
+      stdio: 'ignore',
+      env: cfgEnv,
+    })
+  const dir = tempDir(t)
+  sysGit(dir, 'init', '-q', '-b', 'main')
+  writeFileSync(join(dir, 'a.txt'), 'a\n')
+  sysGit(dir, 'add', 'a.txt')
+  sysGit(dir, 'commit', '-q', '-m', 'init')
+  const wt = join(tempDir(t, 'ctk-sl-wt-'), 'wt')
+  sysGit(dir, 'worktree', 'add', '-q', '-b', 'feature-wt', wt)
+  assert.ok(readFileSync(join(wt, 'a.txt'), 'utf8').includes('\r'), 'autocrlf must have converted the checkout')
+  const r = spawnSync(process.execPath, [SCRIPT], {
+    input: JSON.stringify(withDir(wt)),
+    encoding: 'utf8',
+    env: cfgEnv,
+  })
+  assert.equal(r.stdout, 'Opus 5.5 · ctx 42% · 5h 24% · 7d 61% · $1.23 · 12m · feature-wt\n')
 })
 
 test('process latency well under the 300 ms debounce', t => {

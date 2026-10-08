@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { test } from 'node:test'
 
 import { createBackup, JsonParseError, listFiles, readJsonIfExists, verifyBackup, writeFileAtomic } from '../src/core/fsx.ts'
@@ -84,9 +84,9 @@ test('backup records absent files and verifies restorable copies', () => {
 })
 
 test('paths: config dir precedence, device and profile names, posix paths', () => {
-  assert.equal(resolveConfigDir('/x/y', { CLAUDE_CONFIG_DIR: '/env' }), '/x/y')
-  assert.equal(resolveConfigDir(undefined, { CLAUDE_CONFIG_DIR: '/env' }), '/env')
-  assert.match(resolveConfigDir(undefined, {}), /\.claude$/)
+  assert.equal(resolveConfigDir('/x/y', { CLAUDE_CONFIG_DIR: '/env' }), resolve('/x/y'))
+  assert.equal(resolveConfigDir(undefined, { CLAUDE_CONFIG_DIR: '/env' }), resolve('/env'))
+  assert.match(resolveConfigDir(undefined, {}), /[\\/]\.claude$/)
   assert.equal(resolveDevice('My-Mac.local'), 'my-mac')
   assert.equal(resolveDevice('../etc/passwd'), 'etc-passwd')
   assert.ok(isValidProfileName('work_1') && !isValidProfileName('../x') && !isValidProfileName('A'))

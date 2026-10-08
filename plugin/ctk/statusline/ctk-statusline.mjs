@@ -74,7 +74,8 @@ const repoConfigSafe = dotGit => {
 }
 
 const gitEnv = () => {
-  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', GIT_TERMINAL_PROMPT: '0' }
+  // System and global config are honoured on purpose (Git for Windows ships core.autocrlf=true in the system config). Only repo-local config is distrusted, see repoConfigSafe.
+  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', GIT_TERMINAL_PROMPT: '0' }
   for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_EXTERNAL_DIFF']) delete env[k]
   return env
 }

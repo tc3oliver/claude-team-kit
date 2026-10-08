@@ -192,17 +192,23 @@ test('record refuses a config dir that is missing or inside ~/.claude*', t => {
   const home = tmp(t)
   mkdirSync(join(home, '.claude'))
   mkdirSync(join(home, 'scratch'))
-  symlinkSync(join(home, '.claude'), join(home, 'scratch', 'link'))
+  let linked = true
+  try {
+    symlinkSync(join(home, '.claude'), join(home, 'scratch', 'link'), 'dir')
+  } catch {
+    linked = false // Windows without symlink privilege
+  }
   assert.throws(() => assertScratchConfigDir(undefined, home), /must be set/)
   assert.throws(() => assertScratchConfigDir(join(home, '.claude'), home), /must not be inside ~\/\.claude/)
   assert.throws(() => assertScratchConfigDir(join(home, '.claude', 'nested', 'new'), home), /must not be inside/)
   assert.throws(() => assertScratchConfigDir(join(home, '.claude-local'), home), /must not be inside/)
-  assert.throws(() => assertScratchConfigDir(join(home, 'scratch', 'link'), home), /must not be inside/)
+  if (linked) assert.throws(() => assertScratchConfigDir(join(home, 'scratch', 'link'), home), /must not be inside/)
   assert.throws(() => assertScratchConfigDir(home, home), /home directory/)
   assert.doesNotThrow(() => assertScratchConfigDir(join(home, 'scratch', 'cfg'), home))
 
   const out = join(home, 'x.frames.jsonl')
-  const env = { PATH: process.env.PATH ?? '' }
+  const env = { ...process.env }
+  delete env.CLAUDE_CONFIG_DIR
   const none = spawnSync(process.execPath, [RECORD, '--out', out, '--', 'true'], { encoding: 'utf8', env })
   assert.equal(none.status, 2)
   assert.match(none.stderr, /CLAUDE_CONFIG_DIR must be set/)
@@ -212,14 +218,18 @@ test('record refuses a config dir that is missing or inside ~/.claude*', t => {
   assert.equal(existsSync(out), false)
 })
 
-const hasTmux = spawnSync('tmux', ['-V']).status === 0
-test('record captures a real tmux session, types scripted keys and stops on a match', { skip: !hasTmux && 'tmux not installed' }, t => {
+// The recorder needs tmux, /bin/sh and /usr/bin/env: skip cleanly anywhere they are missing (Windows).
+const hasTmux = process.platform !== 'win32' && spawnSync('tmux', ['-V']).status === 0 && existsSync('/bin/sh') && existsSync('/usr/bin/env')
+test('record captures a real tmux session, types scripted keys and stops on a match', { skip: !hasTmux && 'tmux (or /bin/sh) not available' }, t => {
   const dir = tmp(t)
   const script = join(dir, 'script.json')
   const out = join(dir, 'out.frames.jsonl')
-  writeFileSync(script, JSON.stringify([{ waitForLine: '\\$$', keys: 'echo typed-ok\n', typed: 5 }]))
-  const r = spawnSync(process.execPath, [RECORD, '--out', out, '--script', script, '--until', '\\ntyped-ok\\n\\S*\\$$', '--limit', '20000', '--interval', '100', '--cols', '60', '--rows', '10', '--home', dir, '--path', '/usr/bin:/bin', '--claude-bin', 'false', '--', '/bin/sh'], {
+  // the delay lets the shell finish starting before it is typed at
+  writeFileSync(script, JSON.stringify([{ waitForLine: '\\$$', delay: 300, keys: 'echo typed-ok\n', typed: 5 }]))
+  // --idle and --limit are far above the time the run needs: only a missed match can reach them
+  const r = spawnSync(process.execPath, [RECORD, '--out', out, '--script', script, '--until', '\\ntyped-ok\\n\\S*\\$$', '--idle', '30000', '--limit', '60000', '--interval', '100', '--cols', '60', '--rows', '10', '--home', dir, '--path', '/usr/bin:/bin', '--claude-bin', 'false', '--', '/bin/sh'], {
     encoding: 'utf8',
+    timeout: 90_000,
     env: { PATH: process.env.PATH ?? '', CLAUDE_CONFIG_DIR: join(dir, 'cfg') },
   })
   assert.equal(r.status, 0, r.stderr)

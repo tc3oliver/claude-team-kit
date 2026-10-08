@@ -12,7 +12,7 @@ import { deepEqual, flatten, isObject, unflatten, type Json } from '../core/json
 import { isValidProfileName } from '../core/paths.ts'
 import { loadEffective, loadUserLayer, saveUserLayer } from '../core/profilestore.ts'
 import { parseLayer, PROFILE_SCHEMA_VERSION, type Profile, type ProfileLayer } from '../core/schema.ts'
-import { collectSkill, isPlainPath, isSafeRelPath, MANAGED_MARKER, stripControl, symlinkOnPath } from './files.ts'
+import { collectSkill, isPlainPath, isSafeRelPath, MANAGED_MARKER, pathProblem, stripControl } from './files.ts'
 import { git, gitOk, SyncError } from './git.ts'
 import { merge3, type Conflict, type Flat } from './merge3.ts'
 import { formatFinding, scanFiles, scanText, type Finding } from './secrets.ts'
@@ -84,10 +84,10 @@ const requireClean = async (ctx: Ctx) => {
   if (r.trim() !== '') throw new SyncError(`the profile clone ${repoOf(ctx)} has uncommitted changes; CTK does not touch it until it is clean`)
 }
 
-/** Refuse a repo path that reaches through a symlink: reads and writes must stay inside the clone. */
+/** Refuse a repo path that reaches through a symlink or a file: reads and writes must stay inside the clone. */
 const requirePlain = (root: string, rel: string) => {
-  const seg = symlinkOnPath(root, rel)
-  if (seg !== null) throw new SyncError(`refusing ${stripControl(rel)}: "${stripControl(seg)}" is a symlink in the profile repo`)
+  const problem = pathProblem(root, rel)
+  if (problem !== null) throw new SyncError(`refusing ${stripControl(rel)}: ${stripControl(problem)} in the profile repo`)
 }
 
 const hasCommits = async (ctx: Ctx) => (await run(ctx, ['rev-parse', '-q', '--verify', 'HEAD'])).code === 0

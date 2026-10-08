@@ -89,18 +89,25 @@ export const isPlainPath = (root: string, rel: string): boolean => {
 }
 
 /**
- * Null when every EXISTING component of `rel` under `root` is a regular directory or file.
- * A missing component is fine (the caller will create it); a symlink anywhere on the way is not.
+ * Null when every EXISTING component of `rel` under `root` is what it should be: a directory on the
+ * way, anything but a symlink at the end. A missing component is fine (the caller will create it).
+ * Otherwise returns what is wrong, e.g. `"profiles" is a symlink`. A plain file where a directory
+ * belongs (a symlink checked out without symlink support, or a hostile repo) is refused too, so it
+ * never surfaces as a raw ENOTDIR.
  */
-export const symlinkOnPath = (root: string, rel: string): string | null => {
+export const pathProblem = (root: string, rel: string): string | null => {
   let cur = root
-  for (const seg of rel.split('/')) {
+  const segs = rel.split('/')
+  for (const [i, seg] of segs.entries()) {
     cur = join(cur, seg)
+    let st
     try {
-      if (lstatSync(cur).isSymbolicLink()) return seg
+      st = lstatSync(cur)
     } catch {
       return null
     }
+    if (st.isSymbolicLink()) return `"${seg}" is a symlink`
+    if (i < segs.length - 1 && !st.isDirectory()) return `"${seg}" is not a directory`
   }
   return null
 }

@@ -227,8 +227,8 @@ const explain = (e: unknown): string => {
   return message
 }
 
-const undoLines = (r: { reverted: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }): string[] => [
-  ...r.reverted.map(k => `  restored ${k}`),
+const undoLines = (r: { reverted: string[]; removed: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }): string[] => [
+  ...r.reverted.map(k => (r.removed.includes(k) ? `  removed ${k}` : `  restored ${k}`)),
   ...r.conflicts.map(c => `  conflict: ${c.key}: ${c.reason}`),
   ...r.notes.map(n => `  note: ${n}`),
 ]

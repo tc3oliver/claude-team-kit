@@ -11,7 +11,8 @@ import { loadDeviceLayer, loadUserLayer } from '../core/profilestore.ts'
 import { readSettings, writeSettings } from '../core/settings.ts'
 import { deleteLeaf, profilePathFor, pruneContainers } from './apply.ts'
 
-export type UndoReport = { reverted: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }
+/** `reverted` is everything put back to its earlier state; `removed` is the part of it that was deleted (nothing earlier to restore). */
+export type UndoReport = { reverted: string[]; removed: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }
 
 const priorEq = (cur: Json | undefined, p: Prior): boolean => ('absent' in p ? cur === undefined : cur !== undefined && deepEqual(cur, p.value))
 
@@ -42,7 +43,7 @@ export const undoChanges = async (
   backup: BackupManifest | null,
   opBackupId: string | null = null,
 ): Promise<UndoReport> => {
-  const rep: UndoReport = { reverted: [], conflicts: [], notes: [] }
+  const rep: UndoReport = { reverted: [], removed: [], conflicts: [], notes: [] }
   const live = !ctx.dryRun
 
   // `claude plugin uninstall` deletes the plugin's whole pluginConfigs entry, so a user-edited option
@@ -62,8 +63,10 @@ export const undoChanges = async (
       if (priorEq(cur, c.valueBefore)) {
         if (live) setEntry(ledger, 'settings-key', c.pointer, c.before)
       } else if (priorEq(cur, c.valueAfter)) {
-        if ('absent' in c.valueBefore) deleteLeaf(data, c.pointer)
-        else pointerSet(data, c.pointer, structuredClone(c.valueBefore.value))
+        if ('absent' in c.valueBefore) {
+          deleteLeaf(data, c.pointer)
+          rep.removed.push(c.pointer)
+        } else pointerSet(data, c.pointer, structuredClone(c.valueBefore.value))
         modified = true
         rep.reverted.push(c.pointer)
         if (live) setEntry(ledger, 'settings-key', c.pointer, c.before)
@@ -89,6 +92,7 @@ export const undoChanges = async (
       if (live) setEntry(ledger, 'file', c.path, null)
     } else if (c.after.priorSha256 === null && c.before === null) {
       rep.reverted.push(c.path)
+      rep.removed.push(c.path)
       if (live) {
         rmSync(c.path, { recursive: true, force: true })
         setEntry(ledger, 'file', c.path, null)
@@ -115,10 +119,12 @@ export const undoChanges = async (
     try {
       if (dropPlugin && (await listPlugins(ctx)).some(p => p.id === PLUGIN_ID)) {
         rep.reverted.push('plugin ctk@ctk-kit')
+        rep.removed.push('plugin ctk@ctk-kit')
         if (live) await pluginCommands.uninstall(ctx)
       }
       if (dropMarketplace && (await listMarketplaces(ctx)).some(m => m.name === MARKETPLACE_NAME)) {
         rep.reverted.push(`marketplace ${MARKETPLACE_NAME}`)
+        rep.removed.push(`marketplace ${MARKETPLACE_NAME}`)
         if (live) await pluginCommands.marketplaceRemove(ctx)
       }
       if (live) setEntry(ledger, 'plugin', 'plugin', c.before)
@@ -175,7 +181,7 @@ export type UndoResult = { code: number; undone: string[]; report: UndoReport }
 
 /** Undo the latest undoable transaction, or (with `to`) that transaction and every later one. */
 export const rollback = async (ctx: Ctx, to?: string): Promise<UndoResult & { error?: string }> => {
-  const none: UndoReport = { reverted: [], conflicts: [], notes: [] }
+  const none: UndoReport = { reverted: [], removed: [], conflicts: [], notes: [] }
   readSettings(ctx.paths.settings) // refuse early if it is not valid JSON
   const ledger = loadLedger(ctx)
   const open = ledger?.transactions.filter(t => !t.undoneAt) ?? []
@@ -189,10 +195,11 @@ export const rollback = async (ctx: Ctx, to?: string): Promise<UndoResult & { er
     targets = ledger.transactions.slice(i).filter(t => !t.undoneAt).reverse()
   }
   const opBackupId = ctx.dryRun ? null : createBackup(ctx.paths.backupsDir, 'rollback', backupSet(ctx)).id
-  const report: UndoReport = { reverted: [], conflicts: [], notes: [] }
+  const report: UndoReport = { reverted: [], removed: [], conflicts: [], notes: [] }
   for (const tx of targets) {
     const r = await undoChanges(ctx, ledger, [...tx.entryChanges].reverse(), readManifest(ctx, tx.backupId), opBackupId)
     report.reverted.push(...r.reverted)
+    report.removed.push(...r.removed)
     report.conflicts.push(...r.conflicts)
     report.notes.push(...r.notes)
     if (!ctx.dryRun) tx.undoneAt = new Date().toISOString()
@@ -218,7 +225,7 @@ export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: bo
   readSettings(ctx.paths.settings)
   const ledger = loadLedger(ctx)
   if (!ledger) {
-    return { code: 0, undone: [], removedDir: false, report: { reverted: [], conflicts: [], notes: ['no ledger: CTK owns nothing here'] } }
+    return { code: 0, undone: [], removedDir: false, report: { reverted: [], removed: [], conflicts: [], notes: ['no ledger: CTK owns nothing here'] } }
   }
   const changes: EntryChange[] = []
   const inCtkDir: FileEntry[] = []

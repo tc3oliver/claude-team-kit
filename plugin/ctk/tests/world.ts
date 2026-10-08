@@ -15,6 +15,8 @@ export type World = {
   registeredTools: string[]
   registeredCommands: string[]
   usage: Record<string, unknown>
+  /** Every path $.fs.write received, as received. */
+  rawPaths: string[]
   /** While true, $.fs.write rejects. */
   failWrites: boolean
   /** Teammates the roster does not list yet: id -> list calls left before it appears. */
@@ -50,11 +52,18 @@ export const fresh = (): World => ({
   registeredTools: [],
   registeredCommands: [],
   usage: { startedAt: 0, context: { window: 200000 }, rateLimits: [] },
+  rawPaths: [],
   failWrites: false,
   lag: new Map(),
 })
 
+// The test kit may hand a path on as the platform resolves it (`/cfg/x` becomes
+// `C:\cfg\x` on Windows), so the fake disk keys files by a platform-neutral form.
+export const norm = (path: string): string => path.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '')
+
 export type EngineOptions = {
+  /** Environment the plugin sees; defaults to CLAUDE_CONFIG_DIR=/cfg. */
+  env?: Record<string, string>
   listFails?: boolean
   lateReturn?: number
   /** Answer spawns without agentId / teammateId (an accepted-looking but unstarted spawn). */
@@ -64,13 +73,15 @@ export type EngineOptions = {
   writeFails?: boolean
   /** Roster list calls before a new teammate shows up in agent.list (Infinity: never). */
   rosterLag?: number
+  /** Microtasks agent.list takes to answer; the roster is read when asked, then held back. */
+  listDelay?: number
 }
 
 // agent.list answers the roster; agent.spawn yields `delay` microtasks (simulating
 // startup) before the teammate appears in the roster. Returns the mocked clock.
 export const engine = (on: On, w: World, delay: (i: number) => number = () => 3, opts: EngineOptions = {}) => {
   const clock = mock.clock(on, { now: 1_000_000 })
-  mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg' })
+  mock.env(on, opts.env ?? { CLAUDE_CONFIG_DIR: '/cfg' })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }) as never)
   on('classic.TaskCreated', () => ({}))
@@ -78,7 +89,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.complete', (_$, e) => ({ text: e.answer }))
   on('session.id', () => ({ value: 'sess/1' }) as never)
-  on('agent.list', () => {
+  on('agent.list', async () => {
     if (opts.listFails) throw new Error('roster unavailable')
     const seen = w.agents.filter(a => {
       const left = a.teammateId === undefined ? undefined : w.lag.get(a.teammateId)
@@ -87,19 +98,22 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
       w.lag.set(a.teammateId as string, left - 1)
       return false
     })
-    return { value: seen.map(a => ({ ...a })) } as never
+    const value = seen.map(a => ({ ...a }))
+    for (let k = 0; k < (opts.listDelay ?? 0); k++) await Promise.resolve()
+    return { value } as never
   })
   on('session.usage', () => ({ value: w.usage }) as never)
   on('tool.register', (_$, e) => (w.registeredTools.push(e.name), { value: { tool: `mcp__ctk__${e.name}` } }) as never)
   on('command.register', (_$, e) => (w.registeredCommands.push(e.name), { value: { command: e.name } }) as never)
   on('fs.read', (_$, e) => {
-    const text = w.files.get(e.path)
+    const text = w.files.get(norm(e.path))
     if (text === undefined) throw new Error('ENOENT')
     return { value: text } as never
   })
   on('fs.write', (_$, e) => {
     if (opts.writeFails || w.failWrites) throw new Error('disk full')
-    w.files.set(e.path, e.text)
+    w.rawPaths.push(e.path)
+    w.files.set(norm(e.path), e.text)
     return { value: undefined } as never
   })
   on('agent.spawn', async (_$, e) => {

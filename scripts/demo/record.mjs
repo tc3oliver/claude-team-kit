@@ -169,6 +169,7 @@ async function main() {
   let lastChange = 0
   let plain = ''
   let scriptDone = steps.length === 0
+  let scriptDoneAt = 0
   let scriptError = null
   let stop = null
   const onSignal = () => { stop ??= 'signal' }
@@ -217,7 +218,7 @@ async function main() {
       await sleep(o.interval * 1.5)
     }
   }
-  const scriptRun = runScript().then(() => { scriptDone = true }, e => { scriptError = e; stop ??= 'script-error' })
+  const scriptRun = runScript().then(() => { scriptDone = true; scriptDoneAt = now() }, e => { scriptError = e; stop ??= 'script-error' })
 
   try {
     for (;;) {
@@ -233,7 +234,9 @@ async function main() {
       if (snap.dead) { stop ??= 'exit'; meta.exitStatus = Number(tmux('display-message', '-p', '-t', target, '#{pane_dead_status}').stdout.trim()) }
       else if (t >= o.limit) stop ??= 'limit'
       else if (scriptDone && until?.test(plain)) stop ??= 'until'
-      else if (scriptDone && t - lastChange >= o.idle) stop ??= 'idle'
+      // idle counts from the later of the last change and the end of the script, so a script
+      // that finishes long after the last change still gets a full idle window to see its effect
+      else if (scriptDone && t - Math.max(lastChange, scriptDoneAt) >= o.idle) stop ??= 'idle'
       if (stop) break
       await sleep(Math.max(0, o.interval - (now() - t)))
     }

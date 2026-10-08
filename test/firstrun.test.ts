@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { chmodSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { main } from '../src/cli/index.ts'
 import { runInstall } from '../src/install/install.ts'
 import { runUpdate } from '../src/install/update.ts'
-import { makeEnv, snapshot } from './helpers.ts'
+import { makeEnv, mutating, snapshot } from './helpers.ts'
 
 const flags = { statusline: true, enableTeams: true }
 const NEXT = ['Restart Claude Code (or run /reload-plugins).', 'Try: /ctk:team <goal>   (status: /ctk-stats)', 'Undo any time: ctk uninstall']
@@ -72,13 +72,28 @@ test('a failing `claude plugin` command shows Claude\'s stderr and says re-runni
   }
 })
 
-test('config dir not writable: names the path, exit 1', { skip: process.getuid?.() === 0 ? 'root ignores permissions' : false }, async t => {
+const unwritableMsg = (e: ReturnType<typeof makeEnv>) => `the Claude config dir ${e.ctx.configDir} is not writable`
+
+test('config dir that cannot be created or written (a file is in the way): names the path, exit 1', async t => {
+  const e = makeEnv(t)
+  rmSync(e.ctx.configDir, { recursive: true })
+  writeFileSync(e.ctx.configDir, 'not a directory') // portable: no chmod semantics involved
+  const r = await cli(e, ['install'])
+  assert.equal(r.code, 1)
+  assert.ok(r.err.join('\n').includes(unwritableMsg(e)), r.err.join('\n'))
+  noStack(r.err)
+  assert.deepEqual(mutating(e.log()), [], 'no claude command changed anything')
+  assert.equal(readFileSync(e.ctx.configDir, 'utf8'), 'not a directory')
+})
+
+// chmod only restricts directories on POSIX; on Windows the behaviour above is the one that applies.
+test('config dir without write permission: names the path, exit 1', { skip: process.platform === 'win32' ? 'chmod does not restrict directories on Windows' : process.getuid?.() === 0 ? 'root ignores permissions' : false }, async t => {
   const e = makeEnv(t)
   chmodSync(e.ctx.configDir, 0o500)
   try {
     const r = await cli(e, ['install'])
     assert.equal(r.code, 1)
-    assert.ok(r.err.join('\n').includes(`the Claude config dir ${e.ctx.configDir} is not writable`))
+    assert.ok(r.err.join('\n').includes(unwritableMsg(e)))
     noStack(r.err)
   } finally {
     chmodSync(e.ctx.configDir, 0o700)
