@@ -206,5 +206,5 @@ key already has a value, and [ROLLBACK](ROLLBACK.md) for undoing changes.
 -h, --help           -v, --version
 ```
 
-`--dry-run` prints the plan and writes nothing. `--yes` is accepted for scripts; the current
+`--dry-run` prints the plan. CTK writes nothing; Claude Code itself may still create `.claude.json` and `backups/` in the config directory or normalize `settings.json` (for example `"opus"` becoming `"opus[1m]"`) when CTK runs its `claude` commands. `--yes` is accepted for scripts; the current
 commands do not prompt.

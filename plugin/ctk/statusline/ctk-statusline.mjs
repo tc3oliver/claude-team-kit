@@ -3,7 +3,7 @@
 // stdin and prints one line. Reads only .git/HEAD and the repo's git config
 // files, and runs one `git status` for the dirty marker. No network, no
 // credentials, no transcript.
-// Works where Mods do not render (WSL, `-p`, older builds).
+// Intended for builds where Mods do not render (older builds; WSL is reported unsupported for mods but untested).
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'

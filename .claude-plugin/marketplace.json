@@ -1,6 +1,6 @@
 {
   "name": "ctk-kit",
-  "owner": { "name": "oliver" },
+  "owner": { "name": "Claude Team Kit contributors" },
   "description": "Claude Team Kit marketplace.",
   "plugins": [
     {

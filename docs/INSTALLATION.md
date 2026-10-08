@@ -32,7 +32,7 @@ node dist/src/cli/bin.js --version
 ```
 
 Use `node /path/to/claude-team-kit/dist/src/cli/bin.js` wherever this page says `ctk`, or make
-yourself an alias or a wrapper script. (`npm link` should also expose `ctk`; I did not test it.)
+yourself an alias or a wrapper script. (`npm link` should also expose `ctk`; it was not tested.)
 
 **Keep the checkout where it is.** `ctk install` registers the checkout directory with
 Claude Code as a plugin marketplace named `ctk-kit`. If you move or delete it, the plugin
@@ -50,7 +50,7 @@ npm install -g ./claude-team-kit-0.1.0.tgz
 ctk --version
 ```
 
-I verified the same tarball with a local prefix instead of `-g`:
+The same tarball was also installed with a local prefix instead of `-g`:
 `npm install --prefix <dir> ./claude-team-kit-0.1.0.tgz`, then `<dir>/node_modules/.bin/ctk`.
 That `ctk install` registered `<dir>/node_modules/claude-team-kit` as the marketplace and the
 plugin loaded from it. The same directory-must-stay-put rule applies, so install into a
@@ -139,11 +139,11 @@ checkout (next section).
 
 ## First launch and approval prompts
 
-A config directory Claude Code has never run in starts with its onboarding. What I observed in
-a fresh directory (`claude` 2.1.294): a text-style (theme) choice, then the login method
-screen. I stopped there, because going further needs a login.
+A config directory Claude Code has never run in starts with its onboarding. In a fresh
+directory (`claude` 2.1.294) the interactive session showed a text-style (theme) choice, then the
+login method screen. The check went no further, because that needs a login.
 
-What I did not observe: whether the interactive session asks you to approve or trust the
+Not tested: whether the interactive session asks you to approve or trust the
 plugin or its mod the first time it loads. In non-interactive mode
 (`claude -p "/ctk-stats"`) no prompt appeared and the mod loaded. If you are asked, approve
 the `ctk` plugin; then confirm the mod is live as described under [Verify](#verify).
@@ -314,7 +314,7 @@ the installed plugin were both 0.1.0); a real version bump was not.
 ## Moving or deleting the install directory
 
 Claude Code copies the plugin into its cache at install time, but the marketplace it keeps
-refers to the original directory. After I moved that directory, Claude Code reported:
+refers to the original directory. After that directory was moved, Claude Code reported:
 
 ```
   ctk@ctk-kit
@@ -356,16 +356,16 @@ What the code does for Windows, and what has and has not been tested:
   quote.
 - On Windows the status line command is written with forward slashes and both paths in double
   quotes, because Claude Code runs it through Git Bash, which eats backslashes. A path containing
-  `"`, `$`, a backtick or `%` is refused. This is from the code and its comments; I did not run
-  it on Windows.
-- CTK's unit tests run on `windows-latest` in the CI workflow; I have not seen that workflow
-  run.
+  `"`, `$`, a backtick or `%` is refused. This is from the code and its comments; it was not run
+  on Windows.
+- CTK's unit tests are configured to run on `windows-latest` in the CI workflow. The CI
+  workflows have never been run.
 - **Not verified:** a real `ctk install`, the mod, or `/ctk:team` on native Windows, Windows
   Terminal, VS Code's terminal, or WSL.
 - WSL: install CTK and Claude Code inside the Linux distribution and keep
   `CLAUDE_CONFIG_DIR` on the Linux filesystem. `ctk doctor` warns when it is under `/mnt/`.
-  The project documents that mods do not render in WSL sessions, so there the cap and band are
-  not active and the status line script is the HUD; I could not test WSL on this machine.
+  Mods are reported unsupported in WSL sessions, so there the cap and band would not be
+  active and the status line script would be the HUD; WSL was not tested.
   `ctk install` does not detect this: it checks only the Claude Code version and still
   reports "mods supported" in WSL.
 

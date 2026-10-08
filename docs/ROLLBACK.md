@@ -170,7 +170,7 @@ uninstall incomplete
   note: <config>/ctk was kept (ledger included); resolve the conflicts above and run "ctk uninstall" again
 ```
 
-After I deleted the edited script and ran `ctk uninstall` again, it finished (exit `0`,
+After the edited script was deleted, a second `ctk uninstall` finished (exit `0`,
 `<config>/ctk/` left with `backups/` only).
 
 ### User-edited plugin options go with the plugin
@@ -247,7 +247,7 @@ A ledger that does not parse or validate is never silently replaced. `install`, 
 `uninstall` stop with `error: <config>/ctk/ledger.json is not valid JSON (invalid ledger: ...);
 refusing to modify it`, and `ctk doctor` reports `ledger: FAIL` with the fix "move
 ctk/ledger.json aside and run ctk install". A `settings.json` that is not valid JSON stops
-`install`, `update`, `rollback` and `uninstall` the same way (I ran `uninstall`; the others call the same
+`install`, `update`, `rollback` and `uninstall` the same way (`uninstall` was run; the others call the same
 reader); fix the file first.
 
 ## Not verified
@@ -258,8 +258,8 @@ reader); fix the file first.
 - A rollback of an `update` that bumped the plugin version: not tested. Only same-version
   updates were run.
 - Rolling back an `install` where the plugin or marketplace was registered before CTK ran: the
-  plugin is only uninstalled if CTK installed it, per the code. I ran this case for `uninstall`
+  plugin is only uninstalled if CTK installed it, per the code. This case was run for `uninstall`
   (the plugin was removed, the marketplace kept), not for `rollback`.
 - Concurrent writes: Claude Code rewrites `settings.json` while it runs. Run `ctk rollback`
-  and `ctk uninstall` with Claude Code closed. CTK writes `settings.json` atomically, but I did not
-  stress-test it against a running Claude Code.
+  and `ctk uninstall` with Claude Code closed. CTK writes `settings.json` atomically, but it was not
+  stress-tested it against a running Claude Code.

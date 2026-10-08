@@ -14,9 +14,9 @@ environments](#unsupported-or-unverified-environments) before relying on it.
 
 ## Core values
 
-1. **Lightweight.** No extra processes, no MCP server, no shell hooks. The plugin's runtime
-   part is one in-process Claude Code mod. `claude plugin details ctk@ctk-kit` lists
-   `Hooks (0)` and `MCP servers (0)`.
+1. **Lightweight.** No resident processes and no MCP server. The plugin's runtime part is one
+   in-process Claude Code mod. The status line fallback runs a short-lived `node` and `git` per
+   refresh. `claude plugin details ctk@ctk-kit` lists `Hooks (0)` and `MCP servers (0)`.
 2. **Token-efficient.** The always-on context is about 187 tokens (measured, see
    [below](#differences-from-oh-my-claude-code)). Skill details are read only when needed, and
    workers get pointers (spec path, task id, file list, commit sha) instead of pasted text.
@@ -37,12 +37,14 @@ From a checkout of this repository:
 ```bash
 npm install
 npm run build
-node dist/src/cli/bin.js install --dry-run   # print the plan, write nothing
+node dist/src/cli/bin.js install --dry-run   # print the plan; CTK writes nothing (see note)
 node dist/src/cli/bin.js install
 node dist/src/cli/bin.js doctor
 ```
 
-(`ctk` is the package's `bin` name; the examples below use it.) Then restart Claude Code or
+(`ctk` is the package's `bin` name; the examples below use it.)
+
+Note on `--dry-run`: CTK writes nothing; Claude Code itself may still create `.claude.json` and `backups/` in the config directory or normalize `settings.json` (for example `"opus"` becoming `"opus[1m]"`) when CTK runs its `claude` commands. Then restart Claude Code or
 run `/reload-plugins`. In a session:
 
 ```
@@ -96,17 +98,23 @@ When a teammate spawn would exceed `maxWorkers` (default 3, maximum 12), the mod
 `TEAM_CAPACITY_REACHED: live=N starting=M max=K ...`, and the `team` skill keeps that task
 pending. If the cap cannot be checked, the spawn is denied (`TEAM_GUARD_FAILED`) rather than
 allowed. A spawn counts as started only if Claude Code returns an agent id and a teammate id.
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Without mods (older Claude Code or WSL
-sessions) the cap is not enforced.
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Without mods (older Claude Code) the cap
+is not enforced; WSL is reported unsupported for mods and has not been tested.
+
+Evidence: the cap was observed live on Claude Code 2.1.294 in the project's proof of concept
+(6 concurrent teammate spawns: 3 started, 3 refused). In this repository it has been
+re-verified only with simulated-host tests and mutation checks.
 
 ## Differences from Oh My Claude Code
 
 CTK is not a drop-in replacement for Oh My Claude Code (OMC). It is a thin layer over native
-Agent Teams.
+Agent Teams. The statements about OMC in the table below are per the maintainers' analysis of
+OMC 5.3.0 and have not been re-verified in this repository; the CTK column is checked against
+this repository.
 
 | | OMC | CTK |
 |---|---|---|
-| Orchestration | Its own phase-based workflow | None: no phase state machine; Claude Code's Agent Teams do the work |
+| Orchestration | Phase-based workflow state machine | None: no phase state machine; Claude Code's Agent Teams do the work |
 | Extra hooks and Node processes | Provides them | None: one in-process mod, `Hooks (0)`, `MCP servers (0)` |
 | Codex / Gemini workers in tmux | Supported | Not provided |
 | HUD data sources | Includes OAuth / Usage API access | None: the status line reads only the JSON Claude Code passes it; the mod uses the host's session API |
@@ -115,9 +123,11 @@ Agent Teams.
 All figures come from the same command, `claude plugin details <plugin>`, which prints
 "Projected token cost / Always-on". Treat them with care:
 
-- OMC 5.3.0 was measured twice: ~3,174 tokens on the maintainer's main install (an earlier
+- The OMC figures are as measured by the maintainers on OMC 5.3.0 on two installs, and have not
+  been independently reproduced: ~3,174 tokens on the maintainers' main install (an earlier
   proof of concept), and ~2,093 tokens in a fresh scratch config directory next to CTK. The
-  two OMC figures were taken on different installs; the cause of the gap was not determined. CTK is ~187 tokens: the names and
+  cause of the gap was not determined. The CTK figure is verified with the same command
+  (`claude plugin details`): ~187 tokens, the names and
   descriptions of its skills (`team` is `disable-model-invocation`, so it adds little) and
   four agents. That is a reduction of roughly 91% to 94% of fixed context (187 against
   2,093 to 3,174), not 99%. An earlier 26-token CTK figure came from a proof of concept with
@@ -151,15 +161,16 @@ CTK's central features rest on parts of Claude Code that can change.
 
 ## Unsupported or unverified environments
 
-- **WSL.** Mods are not supported in WSL sessions, so there only the status line fallback
-  works and the cap is not enforced. `ctk doctor` reports when it is running under WSL.
+- **WSL.** Mods are reported unsupported in WSL; this has not been tested. If so, only the
+  status line fallback would work there and the cap would not be enforced. `ctk doctor`
+  reports when it is running under WSL.
 - **Windows Terminal, VS Code and WSL end to end.** The UI behavior of the band and status
   line in these has **not** been verified.
 - **Tested.** macOS with Claude Code 2.1.294 and Node 24.
 - **Linux and Windows.** Covered by a CI configuration (`.github/workflows/ci.yml`: Ubuntu,
   macOS and Windows; Node 22 and 24) that has not been run.
-- Not tested: Claude Code versions other than 2.1.294, Node 20 (supported by `engines` for the
-  compiled CLI, but tests need a newer Node), any remote or shared home directory.
+- Not tested: Claude Code versions other than 2.1.294, Node 20 (declared in `engines`; not
+  tested; tests pass on Node 22.19 and 24.21), any remote or shared home directory.
 
 More in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 

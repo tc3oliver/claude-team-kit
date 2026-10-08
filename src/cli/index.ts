@@ -29,7 +29,7 @@ Global options:
   --config-dir <dir>   Claude config dir (default: $CLAUDE_CONFIG_DIR, then ~/.claude)
   --profile <name>     Profile name in the profile repo (default: default)
   --device <name>      Device name for device-local overrides (default: hostname)
-  --dry-run            Print the plan; write nothing
+  --dry-run            Print the plan; CTK writes nothing (Claude Code may still touch its own files)
   --json               Print one JSON document
   --yes                Accept prompts
   -h, --help           Show this help

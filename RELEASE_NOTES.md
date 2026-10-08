@@ -29,7 +29,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Not published
 
-This tarball and tag are local. Nothing has been published to npm, GitHub
+The tarball is built locally; no git tag has been created. Nothing has been published to npm, GitHub
 Releases or a plugin marketplace. The release workflow builds and attaches a
 tarball only when a `v*` tag is pushed; `npm publish` is a manual step after
 review.

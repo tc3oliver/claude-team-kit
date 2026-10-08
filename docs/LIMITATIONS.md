@@ -5,7 +5,10 @@ has not been verified. Read it before you depend on CTK for something expensive.
 
 Evidence levels used below:
 
-- **Live**: run against a real Claude Code (2.1.294) with a scratch config directory.
+- **Live**: run against a real Claude Code (2.1.294) with a scratch config directory, in this
+  documentation pass.
+- **Reported**: observed live by the project's maintainers (for example in the proof of
+  concept) but not reproduced here.
 - **Tests**: covered by CTK's automated tests (stub `claude`, simulated host, temporary
   directories), not against real agents.
 - **Code only**: read in the source, never executed.
@@ -15,22 +18,23 @@ Evidence levels used below:
 
 | Limit | Detail |
 |---|---|
-| Agent Teams are experimental | They are enabled by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` and Claude Code allows **one team per session**. Behaviour can change in any Claude Code release. |
-| There is no official worker cap | Claude Code has no setting that limits live teammates. CTK's cap is a **mod** (a function hook on `agent.spawn`) shipped in the plugin. |
+| Agent Teams are experimental | They are enabled by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. Claude Code allows **one team per session** (Reported). Behaviour can change in any Claude Code release. |
+| There is no official worker cap | Claude Code has no setting that limits live teammates (Reported). CTK's cap is a **mod** (a function hook on `agent.spawn`) shipped in the plugin. |
 | Mods are early access | The mod API and the version floor (`2.1.287`) can change. A Claude Code update can break the cap, the band or `/ctk-stats` without any change to CTK. |
-| Mods do not exist everywhere | On Claude Code builds older than 2.1.287, and in WSL sessions, the mod is not available: the cap and the band are inactive. Skills, agents and the status line script still work. `ctk install` and `ctk doctor` decide this from the Claude Code **version only**; they do not detect WSL for this purpose and print "mods supported" there. Status: WSL **not verified**. |
+| Mods do not exist everywhere | On Claude Code builds older than 2.1.287 the mod is not available: the cap and the band are inactive, while skills, agents and the status line script still work. Mods are also reported unsupported in WSL sessions; that was not tested. `ctk install` and `ctk doctor` decide this from the Claude Code **version only**; they do not detect WSL for this purpose and print "mods supported" there. |
 | `doctor` does not prove the mod is running | "mods supported" is a version comparison, not a check that the mod loaded. `doctor` does fail when `claude plugin list --json` reports load errors (Live: after the install directory was moved, Claude Code reported `failed to load`, `/ctk-stats` disappeared and `ctk doctor` failed). Confirm with `claude -p "/ctk-stats"`. If that command is unknown, **the cap is not enforced**. |
 | The cap is by teammate, not by plugin | It gates every teammate spawn in the session, including ones another plugin (for example OMC) starts. See [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md). Code only for the other-plugin case. |
 
 ## The hard cap
 
-- **Live**: on Claude Code 2.1.294, six concurrent teammate spawns with the cap at 3 resulted in
-  three started and three refused. That run was made by the project's maintainers and
-  I did not repeat it.
+- **Reported**: observed live on Claude Code 2.1.294 in the project's proof of concept (six
+  concurrent teammate spawns with the cap at 3: three started, three refused). Not reproduced in
+  the independent verification, which covered the cap with simulated-host tests and mutation
+  checks only.
 - **Tests**: the same logic against a simulated host: reservation of slots before the first
   `await`, refusal text, fail-closed behaviour, and an accepted spawn that lacks ids not being
   counted.
-- A refused spawn can still be drawn as **"Done"** in the transcript. That is why the mod
+- A refused spawn can still be drawn as **"Done"** in the transcript (Reported). That is why the mod
   answers with `TEAM_CAPACITY_REACHED: live=N starting=M max=K ...` and the `/ctk:team` skill
   treats that text, a missing teammate id, or a bare "Done" row as **not started** and keeps the
   task `pending`. A model can still misread it; the skill reduces that risk, it cannot remove it.
@@ -70,14 +74,15 @@ Evidence levels used below:
 
 | Platform | Status |
 |---|---|
-| macOS | Live: install, update, rollback, uninstall, doctor, the mod in `claude -p`, npm tarball install. |
-| Linux | Tests in CI configuration; not run by me. |
-| Windows native, Windows Terminal, VS Code terminal | Not verified end to end. Unit tests are configured to run on `windows-latest`; the `.cmd`/`.exe` handling and the forward-slash status line command are code only. |
-| WSL | Not verified. The mod is documented as unavailable there; the status line script is the fallback. |
+| macOS | Live: install, rollback, uninstall, doctor, a same-version `update`, the mod in `claude -p`, npm tarball install. |
+| Linux | CI configuration only; not run. |
+| Windows native, Windows Terminal, VS Code terminal | Not verified end to end. CI is configured to run unit tests on `windows-latest`; the `.cmd`/`.exe` handling and the forward-slash status line command are code only. |
+| WSL | Not tested. Mods are reported unsupported there; the status line script is the fallback. |
+| CI workflows (`.github/workflows`) | They have never been run, on any platform. Treat the Linux and Windows rows above as untested. |
 
 In an interactive session, whether Claude Code asks you to approve the plugin or its mod on
-first load is **not verified** (login was the furthest I could go without credentials). In `-p`
-mode no prompt appeared.
+first load was not tested: the interactive check went as far as the login screen, which needs
+credentials. In `-p` mode no prompt appeared.
 
 ## Files CTK edits
 

@@ -9,7 +9,7 @@ and how to turn OMC off yourself when you are ready.
 listed in [INSTALLATION](INSTALLATION.md#what-install-changes). Turning OMC off is a step you
 take with Claude Code's own commands (below).
 
-What I checked and what I did not is at the end. OMC facts come from reading OMC 5.3.0's
+What was checked and what was not is at the end. OMC facts come from reading OMC 5.3.0's
 plugin files (skills, hooks, docs) in a local plugin cache, not from running OMC tasks.
 
 ## Running both at once
@@ -34,10 +34,10 @@ Things to know:
 
 | Topic | What happens |
 |---|---|
-| Skill names | Both define `team`, `review`, `debug`. Use the full names: `/ctk:team`, `/oh-my-claudecode:team`. I did not test how Claude Code resolves a bare `/team` when two plugins define it. |
+| Skill names | Both define `team`, `review`, `debug`. Use the full names: `/ctk:team`, `/oh-my-claudecode:team`. How Claude Code resolves a bare `/team` when two plugins define it was not tested. |
 | `statusLine` | OMC's HUD is a `statusLine` command. CTK sets `statusLine` only when the key is absent, so it keeps OMC's and prints `note: statusLine: your own status line is kept; the HUD runs via the mod band only`. You then get CTK's team band (from the mod) but not CTK's status line script. |
 | Agent Teams flag | Both use `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. If it is already `"1"`, CTK records it as not its own and never removes it. |
-| Team cap | **CTK's cap is not limited to CTK's agents.** The mod gates every teammate spawn in the session (a spawn that Claude Code marks as starting a teammate), whoever asked for it. With CTK enabled, an OMC `/team 5:executor` is held to `team.maxWorkers` (default 3): the extra spawns are refused with `TEAM_CAPACITY_REACHED`. This is from the code and Claude Code's type definitions; I did not run an OMC team against the cap. OMC's skill does not know that code, and a refused spawn can still show as "Done" in the transcript. Raise the cap (`ctk config set team.maxWorkers 8`) or disable CTK while you run OMC teams. |
+| Team cap | **CTK's cap is not limited to CTK's agents.** The mod gates every teammate spawn in the session (a spawn that Claude Code marks as starting a teammate), whoever asked for it. With CTK enabled, an OMC `/team 5:executor` is held to `team.maxWorkers` (default 3): the extra spawns are refused with `TEAM_CAPACITY_REACHED`. This is from the code and Claude Code's type definitions; No OMC team was run against the cap. OMC's skill does not know that code, and a refused spawn can still show as "Done" in the transcript. Raise the cap (`ctk config set team.maxWorkers 8`) or disable CTK while you run OMC teams. |
 | Model routing | CTK changes the model only for `ctk:*` agents that give no model. OMC's agents are not routed. |
 | Always-on context | `claude plugin details` estimates the cost added to every session: OMC about 2,093 tokens, CTK about 187. That excludes the instructions OMC's setup may have written into your `CLAUDE.md`. |
 | Uninstalling CTK | `ctk uninstall` leaves OMC alone. With OMC installed (and disabled) in the same directory, its plugin entry, marketplace and disabled state were unchanged afterwards. |
@@ -76,7 +76,7 @@ them, keep OMC for those or use Claude Code's own features.
 
 CTK-only: the hard cap with explicit `TEAM_CAPACITY_REACHED` refusals, model routing by role,
 `ctk sync` for a portable profile through a git repo you own, and the ledger with
-`ctk rollback`. I did not check which of these OMC offers in some other form.
+`ctk rollback`. Whether OMC offers any of these in some other form was not checked.
 
 ## Turn OMC off yourself
 
@@ -90,7 +90,7 @@ Do these deliberately, in this order of how reversible they are. CTK does none o
    DISABLE_OMC=1 claude
    ```
 
-   I did not test this. It disables hooks, not the skills or the always-on skill list.
+   This was not tested. It disables hooks, not the skills or the always-on skill list.
 
 2. **Disable the plugin.** Verified in a scratch directory:
 
@@ -117,7 +117,7 @@ Do these deliberately, in this order of how reversible they are. CTK does none o
    active`. Skip this to keep any other status line; the mod band does not depend on it.
 
 5. **Last: uninstall OMC** with `claude plugin uninstall oh-my-claudecode@omc`, only after you
-   are sure. I did not test that command.
+   are sure. That command was not tested.
 
 ## Checklist before switching
 
@@ -139,12 +139,12 @@ Do these deliberately, in this order of how reversible they are. CTK does none o
      shows;
    - wall time, review findings that survive verification, and whether the team stayed under
      the cap.
-   I have not run `/ctk:team` on a full real task with live agents, so the comparison of
+   `/ctk:team` has not been run on a full real task with live agents, so the comparison of
    quality and cost on real work is yours to make.
 7. **Trial with OMC disabled** (step 2 above) before removing anything.
 8. **Only then** clean up the leftovers (step 3) and decide about the status line (step 4).
 
-## What I verified and what I did not
+## What was verified and what was not
 
 Verified here, on Claude Code 2.1.294 in scratch config directories: both plugins installed and
 enabled together; the CTK mod loading beside OMC; `ctk install` keeping a pre-existing
@@ -154,4 +154,4 @@ key was removed; `ctk uninstall` leaving OMC untouched; the token estimates quot
 Not verified: any OMC workflow actually running (team, review, debug, HUD) with or without
 CTK; the cap acting on OMC's teammates; `DISABLE_OMC=1`; how a bare `/team` resolves with two
 plugins; what OMC's setup writes on your machine beyond what its skill files describe; OMC
-uninstall. I ran OMC's `statusLine` case with a placeholder command, not OMC's real HUD.
+uninstall. The OMC `statusLine` case used a placeholder command, not OMC's real HUD.

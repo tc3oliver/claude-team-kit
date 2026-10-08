@@ -37,7 +37,7 @@ the contents of your `settings.json`; redact them first.
 - Compromise of Claude Code itself, of git, of Node, or of the npm registry.
 - A malicious sync remote you chose to trust (see [A pulled profile is trusted
   input](#a-pulled-profile-is-trusted-input)).
-- Anything in the Mac mini / WSL / Windows host environment beyond the config directory.
+- Anything in the host environment (OS, WSL, other tools) beyond the config directory.
 
 ## What CTK reads
 

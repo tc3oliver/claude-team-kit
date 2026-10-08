@@ -2,7 +2,7 @@
   "name": "ctk",
   "version": "0.1.0",
   "description": "Token-light team companion: capped agent teams, risk-based review, disciplined debugging.",
-  "author": { "name": "oliver" },
+  "author": { "name": "Claude Team Kit contributors" },
   "license": "MIT",
   "userConfig": {
     "maxWorkers": {
