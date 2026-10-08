@@ -71,8 +71,8 @@ ctk rollback
 
 ```
 $ ctk rollback
-rolled back muzot141-825e6e
-  restored /model
+rolled back muzw1cw9-4b00f8
+  removed /model
   note: profile layer still sets portable.settings.model; run `ctk config unset portable.settings.model` or the next update/config will re-apply it
 ```
 
@@ -84,24 +84,31 @@ With nothing left it says `nothing to roll back`.
 A rollback is itself backed up (`<timestamp>-rollback-<suffix>`) so you can see what it changed.
 
 Rolling back an `install` undoes its keys and the status line script, then runs
-`claude plugin uninstall ctk@ctk-kit` and, only if `ctk install` added the marketplace itself,
-`claude plugin marketplace remove ctk-kit`. A conflict example (after setting `statusLine`
+`claude plugin uninstall ctk@ctk-kit` only if `ctk install` installed the plugin, and
+`claude plugin marketplace remove ctk-kit` only if `ctk install` added the marketplace itself. A conflict example (after setting `statusLine`
 to `echo mine` and `env.MY_VAR` by hand), exit code `2`:
 
 ```
-rolled back muzot11o-9eced7
-  restored /env/CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
-  restored /pluginConfigs/ctk@ctk-kit/options/recordStats
-  restored /pluginConfigs/ctk@ctk-kit/options/hudBand
+rolled back muzw1cue-a17385
+  removed /env/CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+  removed /pluginConfigs/ctk@ctk-kit/options/recordStats
+  removed /pluginConfigs/ctk@ctk-kit/options/hudBand
   ...
-  restored <config>/ctk/bin/ctk-statusline.mjs
-  restored plugin ctk@ctk-kit
-  restored marketplace ctk-kit
+  removed <config>/ctk/bin/ctk-statusline.mjs
+  removed plugin ctk@ctk-kit
+  removed marketplace ctk-kit
   conflict: /statusLine: changed since CTK wrote it; left as is
 ```
 
-"restored" is printed for every reversal, including deleting a key that did not exist
-before, so `restored /env/...` can mean "removed".
+Each reversal is printed as `removed` when the key, file, plugin or marketplace did not exist
+before CTK, and as `restored` when it held a previous value that was put back.
+
+**Over a native install, rollback leaves the plugin alone.** If the plugin was installed with
+Claude Code's own commands ([INSTALLATION](INSTALLATION.md#install-the-plugin-native)) and
+`ctk install` only adopted it, rolling that install back removes the keys and the status line
+script CTK wrote and nothing else: in a test, `settings.json` came back to exactly
+`extraKnownMarketplaces` (GitHub source) plus `enabledPlugins`, and `claude plugin list` still
+showed `ctk@ctk-kit` enabled.
 
 **Rollback reverts `settings.json`, not your profile.** `<config>/ctk/profile.json` and the
 device layer keep their values, so the next `ctk update` or `ctk config` applies them again.
@@ -119,19 +126,47 @@ ctk uninstall
 
 ```
 uninstalled ctk (backups kept in <config>/ctk/backups)
-  restored /statusLine
-  restored /env/CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
-  restored /pluginConfigs/ctk@ctk-kit/options/recordStats
+  removed /statusLine
+  removed /env/CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+  removed /pluginConfigs/ctk@ctk-kit/options/recordStats
   ...
-  restored plugin ctk@ctk-kit
-  restored marketplace ctk-kit
+  removed plugin ctk@ctk-kit
+  removed marketplace ctk-kit
 ```
 
 In order: reverse every key and file CTK owns under the ownership rule; run
-`claude plugin uninstall ctk@ctk-kit`; run `claude plugin marketplace remove ctk-kit` only
-when `ctk install` added it (a marketplace you registered yourself before is kept; the plugin
-itself is always uninstalled); then delete the CTK-owned files in `<config>/ctk/`. A backup
-named `<timestamp>-uninstall-<suffix>` is taken first.
+`claude plugin uninstall ctk@ctk-kit` **only if `ctk install` installed the plugin itself**; run
+`claude plugin marketplace remove ctk-kit` only when `ctk install` added it (a marketplace you
+registered yourself, or a native one from GitHub, is kept); then delete the CTK-owned files in
+`<config>/ctk/`. A backup named `<timestamp>-uninstall-<suffix>` is taken first.
+
+### Uninstall over a native install
+
+When the plugin came from `/plugin install` and `ctk install` only adopted it, `ctk uninstall`
+removes CTK's own keys and says what is left for you to do:
+
+```
+uninstalled ctk (backups kept in <config>/ctk/backups)
+  removed /statusLine
+  removed /pluginConfigs/ctk@ctk-kit/options/maxWorkers
+  ...
+  note: left plugin ctk@ctk-kit installed: ctk did not install it. Remove it in Claude Code with: /plugin uninstall ctk@ctk-kit (and /plugin marketplace remove ctk-kit)
+```
+
+Your own `env` flag stays (it was yours, or already set). With no ledger at all (a purely
+native install, CTK never ran), `ctk uninstall` changes nothing:
+
+```
+nothing to uninstall: ctk owns nothing here
+  note: no ledger: ctk owns nothing here and changed nothing
+  note: if you installed the plugin natively, remove it in Claude Code with: /plugin uninstall ctk@ctk-kit (and /plugin marketplace remove ctk-kit)
+  note: the mod's per-session counters in <config>/ctk/stats stay behind after a native uninstall; delete them with: rm -rf '<config>/ctk/stats'
+```
+
+(The last note is `no stats directory at ...` when the mod has written none.) The native removal
+commands themselves are in [INSTALLATION](INSTALLATION.md#update-and-remove-native). After them
+`settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
+`<config>/ctk/stats/` stays until you delete it.
 
 After a clean uninstall `<config>/ctk/` holds `backups/` and, if they existed, `devices/` and
 `sync/`. Those two hold things you made (your device overrides, the profile repo clone), so
@@ -165,10 +200,10 @@ ledger**, so you can fix the cause and run it again. Example: you edited
 
 ```
 uninstall incomplete
-  restored /statusLine
+  removed /statusLine
   ...
-  restored plugin ctk@ctk-kit
-  restored marketplace ctk-kit
+  removed plugin ctk@ctk-kit
+  removed marketplace ctk-kit
   conflict: <config>/ctk/bin/ctk-statusline.mjs: edited since CTK wrote it; kept
   note: <config>/ctk was kept (ledger included); resolve the conflicts above and run "ctk uninstall" again
 ```
@@ -260,9 +295,6 @@ reader); fix the file first.
   version, `ctk install`.
 - A rollback of an `update` that bumped the plugin version: not tested. Only same-version
   updates were run.
-- Rolling back an `install` where the plugin or marketplace was registered before CTK ran: the
-  plugin is only uninstalled if CTK installed it, per the code. This case was run for `uninstall`
-  (the plugin was removed, the marketplace kept), not for `rollback`.
 - Concurrent writes: Claude Code rewrites `settings.json` while it runs. Run `ctk rollback`
   and `ctk uninstall` with Claude Code closed. CTK writes `settings.json` atomically, but it was not
-  stress-tested it against a running Claude Code.
+  stress-tested against a running Claude Code.

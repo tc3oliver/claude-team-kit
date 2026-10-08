@@ -48,7 +48,8 @@ scratch config directory; it is not an audit.
 | The packaged plugin directory | To copy the status line script and compare versions. |
 | Claude Code's status line JSON on stdin | The status line script only: model, effort, context %, rate-limit %, cost, duration, directory. |
 | `.git/HEAD` and the git config files of your working directory's repository, and one `git status --porcelain -uno` | The status line script only, for the branch and a dirty marker (250 ms timeout; any failure shows nothing). The config files are read to decide whether it is safe to run `git status` at all (see Process execution). |
-| The mod's host API | Roster (`agent.list`), session id and usage, clock, its own stats file (`fs.read`, to continue counters), and the env vars `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE`. `claude plugin validate` reports the exact list. |
+| The mod's host API | Roster (`agent.list`), session id and usage, clock, its own stats file (`fs.read`, to continue counters), and the env vars `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. `claude plugin validate` reports the exact list. |
+| `/ctk-doctor` and the status tool: the settings the mods API exposes (`$.settings.read`), the tool names (`$.tool.list`) and the teams flag | To report whether the teams flag is set, whether a plugin option sets the cap, whether `statusLine` is configured, and whether `TaskCreate` is listed. The report is read-only: nothing is written. The call hands the mod the whole settings object, which can include `env` values you keep there; only the derived yes/no facts are kept or printed. |
 
 ## What CTK writes
 
@@ -76,6 +77,13 @@ CTK created and that still match what CTK wrote; `backups/` is never deleted.
 - Any setting outside the whitelist above, including `env` entries other than
   `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 - The network, apart from the two cases below.
+
+**The native install never edits settings.** Installing with Claude Code's own commands
+(`/plugin marketplace add`, `/plugin install`) writes only what Claude Code writes for any
+plugin (`extraKnownMarketplaces`, `enabledPlugins`). The plugin's mod has no settings-write
+call: `claude plugin validate plugins/ctk --strict` lists `$.settings.read` and no write. The
+`team` skill can edit `settings.json` to add the Agent Teams flag only when you answer yes, and
+then through the Edit tool, which asks you to approve the change.
 
 **Network use.** The mod and the status line make no network calls. The CLI contacts the
 network only when you run `ctk sync`, and then only through `git` to the remote you configured

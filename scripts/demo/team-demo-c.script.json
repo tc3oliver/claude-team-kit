@@ -1,0 +1,6 @@
+[
+  { "waitFor": "accept edits on", "timeout": 60000, "delay": 2500, "keys": "/ctk:team Add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.\n", "typed": 30 },
+  { "waitFor": "· done \\d[\\s\\S]*team 0 busy|team 0 busy[\\s\\S]*· done \\d", "stable": 12000, "timeout": 580000, "delay": 3000, "keys": "/ctk-stats\n", "typed": 30 },
+  { "waitFor": "elapsed: \\d", "timeout": 60000, "delay": 3000, "keys": "/ctk-doctor\n", "typed": 30 },
+  { "waitFor": "stats recording: [\\s\\S]*ready", "timeout": 60000, "delay": 3000, "keys": "/exit\n", "typed": 30 }
+]

@@ -10,6 +10,11 @@
 # (`ctk config set claude.enableTaskTools true`); its files are docs/assets/team-demo-b.*. Without it the
 # files are docs/assets/team-demo.* (Run A, task tools left at Claude Code's default).
 #
+# CTK_DEMO_RUN=c reproduces "Run C": the plugin installed the native way, with no ctk CLI at all
+# (`claude plugin marketplace add tc3oliver/claude-team-kit`, `claude plugin install ctk@ctk-kit`), the two
+# one-time settings in settings.json, and a recording that ends with /ctk-stats and /ctk-doctor. Its files are
+# docs/assets/team-demo-c.*. `prepare` for run c needs the real HOME for git over ssh while it adds the marketplace.
+#
 # The recorder kills the session if more than 3 teammates are busy or the status line shows a cost of
 # $2.00 or more (test/demo-render.test.ts checks the pattern).
 #
@@ -26,7 +31,7 @@ CLAUDE_REAL=${CTK_DEMO_CLAUDE:-$HOME/.local/bin/claude}   # the binary, never a 
 ASSETS=$ROOT/docs/assets
 STAGE=${1:-all}
 RUN=${CTK_DEMO_RUN:-a}
-if [ "$RUN" = b ]; then PREFIX=team-demo-b; else PREFIX=team-demo; fi
+case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; *) PREFIX=team-demo ;; esac
 CFG=$DEMO/config
 SESSION_PATH=$DEMO/bin:/usr/bin:/bin
 
@@ -45,8 +50,50 @@ require_inputs() {
 
 session_env() { env -i HOME="$DEMO/home" PATH="$SESSION_PATH" TERM=xterm-256color LANG=en_US.UTF-8 CLAUDE_CONFIG_DIR="$CFG" "$@"; }
 
+prepare_native() {
+  # Run C: nothing but Claude Code's own plugin commands touches the config, apart from two plain JSON edits.
+  local marketplace=${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit} real
+  mkdir -p "$DEMO"/{bin,home,out,work}
+  ln -sfn "$CTK_DEMO_CONFIG_DIR" "$CFG"
+  ln -sfn "$(command -v node)" "$DEMO/bin/node"
+  ln -sfn "$CLAUDE_REAL" "$DEMO/bin/claude"
+  for tool in npm npx; do
+    real=$(node -p 'require("fs").realpathSync(process.argv[1])' "$(command -v "$tool")")
+    printf '#!/bin/sh\nexec "%s" "$@"\n' "$real" > "$DEMO/bin/$tool"
+    chmod +x "$DEMO/bin/$tool"
+  done
+  rm -rf "$DEMO/wordkit"
+  cp -R "$ROOT/scripts/demo/fixture" "$DEMO/wordkit"
+  ( cd "$DEMO/wordkit" && git init -q && git add -A \
+    && git -c user.name=demo -c user.email=demo@example.invalid -c commit.gpgsign=false commit -q -m "wordkit: initial modules" )
+  session_env "$DEMO/bin/claude" auth status | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!d.loggedIn){console.error("team-demo: the demo config is not logged in");process.exit(1)}'
+
+  # fresh plugin state: remove ctk and its marketplace if present, and leftovers of the CLI's own directory
+  CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin uninstall ctk@ctk-kit >/dev/null 2>&1 || true
+  CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin marketplace remove ctk-kit >/dev/null 2>&1 || true
+  [ -d "$CTK_DEMO_CONFIG_DIR/ctk" ] && rm -r "$CTK_DEMO_CONFIG_DIR/ctk"
+  # the native flow; the real HOME is only used here, for git over ssh
+  ( cd "$DEMO/work" && CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin marketplace add "$marketplace" \
+    && CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin install ctk@ctk-kit )
+  # the installed copy must be the checkout's (the cache is keyed by version, so a stale one would pass unnoticed)
+  diff -q "$CFG/plugins/cache/ctk-kit/ctk/"*/skills/team/SKILL.md "$ROOT/plugins/ctk/skills/team/SKILL.md" \
+    || { echo "team-demo: the installed team skill differs from this checkout; reinstall or push first" >&2; exit 1; }
+
+  # the two one-time settings, a plain JSON edit, plus the allow rules; no statusLine from CTK
+  node -e '
+    const fs = require("fs"), p = process.argv[1] + "/settings.json"
+    const s = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}
+    delete s.statusLine
+    s.env = { ...(s.env || {}), CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" }
+    s.permissions = { ...(s.permissions || {}), defaultMode: "acceptEdits",
+      allow: ["Read", "Write", "Edit", "Bash(npm test:*)", "Bash(node --test:*)", "Bash(ls:*)", "Bash(cat:*)"] }
+    fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n")' "$CFG"
+  ( cd "$DEMO/wordkit" && session_env "$DEMO/bin/claude" -p "/ctk-doctor" )
+}
+
 prepare() {
   require_inputs
+  if [ "$RUN" = c ]; then prepare_native; return; fi
   mkdir -p "$DEMO"/{bin,home,out}
   ln -sfn "$CTK_DEMO_CONFIG_DIR" "$CFG"
   ln -sfn "$ROOT" "$DEMO/ctk-kit"
@@ -81,30 +128,36 @@ prepare() {
 
 record() {
   require_inputs
-  local masks=()
+  local masks=() extra=() script=team-demo.script.json
+  if [ "$RUN" = c ]; then script=team-demo-c.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
     --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows 34 \
     --cwd "$DEMO/wordkit" --home "$DEMO/home" --path "$SESSION_PATH" --claude-bin "$DEMO/bin/claude" \
-    --script "$ROOT/scripts/demo/team-demo.script.json" \
+    --script "$ROOT/scripts/demo/$script" \
     --model 'Sonnet 5.5 lead (claude --model sonnet); workers by ctk roles' \
-    --meta "attempts=${CTK_DEMO_ATTEMPTS:-1}" --meta "run=$RUN" \
+    --meta "attempts=${CTK_DEMO_ATTEMPTS:-1}" --meta "run=$RUN" "${extra[@]}" \
     --approve '❯ 1\. Yes' --abort-on '(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}' \
     --idle 180000 --limit 600000 --interval 250 --slow-interval 1000 \
     "${masks[@]}" -- "$DEMO/bin/claude" --model sonnet
 }
 
 render() {
-  local f=$ASSETS/$PREFIX.frames.jsonl
+  local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
   # the lead's closing words differ per run; pick the frame that shows them with the status line
-  local summary='Crunched for[\s\S]*team 0 busy'
+  local summary='Crunched for[\s\S]*team 0 busy' workers='team 3 busy .*\n[\s\S]*◯ w-roman'
   [ "$RUN" = b ] && summary='Run /ctk:review if you want[\s\S]*team 0 busy'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 40 --max-gap 2 --title 'ctk team: one real session'
+  node "$svg" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 40 --max-gap 2 --title 'ctk team: one real session'
   # key frames, picked from the real recording by what is on screen
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex 'team 3 busy .*\n[\s\S]*◯ w-roman' --title 'ctk team: workers running'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-approval.svg" --at-regex 'Do you want to proceed' --title 'ctk team: a worker asks to run a command'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-summary.svg" --at-regex "$summary" --title 'ctk team: the lead reports'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-stats.svg" --at-regex 'per-worker cost: not available' --title 'ctk team: /ctk-stats'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex "$workers" --title 'ctk team: workers running'
+  if [ "$RUN" = c ]; then
+    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'blocked by #3, #4, #5[\s\S]*tasks 2/6' --title 'ctk team: the task list and the HUD tasks segment'
+    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-doctor.svg" --at-regex 'stats recording: on[\s\S]*ready' --title 'ctk team: /ctk-doctor'
+  else
+    node "$svg" "$f" --static-out "$ASSETS/$PREFIX-approval.svg" --at-regex 'Do you want to proceed' --title 'ctk team: a worker asks to run a command'
+  fi
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-summary.svg" --at-regex "$summary" --title 'ctk team: the lead reports'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-stats.svg" --at-regex 'per-worker cost: not available' --title 'ctk team: /ctk-stats'
   node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video-$RUN" --gif "$ASSETS/$PREFIX.gif" --mp4 "$ASSETS/$PREFIX.mp4" --target-seconds 40 --title 'ctk team: one real session'
 }
 

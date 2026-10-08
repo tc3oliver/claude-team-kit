@@ -1,14 +1,37 @@
 # Architecture
 
 CTK is two things that share one repository: a Claude Code **plugin** that runs inside
-Claude Code, and a Node **CLI** (`ctk`) that installs and configures that plugin and keeps
-your settings consistent across machines. Neither one orchestrates agents. Claude Code's
+Claude Code, and an optional Node **CLI** (`ctk`) that adds what a plugin cannot do (a status
+line, a settings edit, profile sync, an undo ledger). The plugin is complete without the CLI.
+Neither one orchestrates agents. Claude Code's
 native Agent Teams do that; CTK adds a cap, model routing, three skills and a status
 display on top.
 
 Related documents: [CONFIGURATION](CONFIGURATION.md), [THREAT-MODEL](THREAT-MODEL.md),
 [INSTALLATION](INSTALLATION.md), [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md),
 [ROLLBACK](ROLLBACK.md), [LIMITATIONS](LIMITATIONS.md).
+
+## Two install paths
+
+```
+native:  /plugin marketplace add tc3oliver/claude-team-kit   ->  marketplace ctk-kit  (source: github)
+         /plugin install ctk@ctk-kit                          ->  plugin from plugins/ctk, mod with default options
+CLI:     ctk install  ->  claude plugin marketplace add <this directory>  (source: directory)
+                          claude plugin install ctk@ctk-kit  +  status line, settings keys, ledger
+```
+
+The repository root is itself the marketplace (`.claude-plugin/marketplace.json`, one plugin,
+`source: ./plugins/ctk`), so both paths install the same files. `ctk install` over a native
+install **adopts** it: it sees a marketplace with a GitHub source, leaves it as it is, does not
+reinstall the plugin, and writes only its own keys. `ctk update` then leaves the plugin to
+`/plugin update`, and `ctk uninstall` removes only what the ledger says CTK installed or wrote.
+The npm package and the marketplace checkout carry the same plugin files, except that the package
+leaves out `plugins/ctk/tests/**`, `plugins/ctk/statusline/test/**` and `plugins/ctk/tsconfig.json`
+(`test/packaging.test.ts` pins the list).
+
+A plugin cannot set `statusLine` (it may ship only `agent` and `subagentStatusLine`
+defaults), nor edit `settings.json`, so the status line and the Agent Teams flag are the two
+things only the CLI, or you by hand, can provide.
 
 ## Components
 
@@ -34,9 +57,9 @@ Related documents: [CONFIGURATION](CONFIGURATION.md), [THREAT-MODEL](THREAT-MODE
 |---|---|---|
 | Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the seven options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
-| Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. |
+| Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
 | Agents | `plugins/ctk/agents/*.md` | Four role definitions with a pinned `model` and `effort` in their frontmatter. |
-| Mod | `plugins/ctk/hooks/{register.tsx,team.ts,band.ts}` | Function hooks that Claude Code runs in-process (see below). |
+| Mod | `plugins/ctk/hooks/{register.tsx,team.ts,band.ts,doctor.ts}` | Function hooks that Claude Code runs in-process (see below). |
 | Shared types | `plugins/ctk/shared/{policy,stats}.ts` | Option defaults, role names and the stats record. Imported by both the mod and the CLI so defaults cannot drift. |
 | Status line | `plugins/ctk/statusline/ctk-statusline.mjs` | Dependency-free fallback; copied to `<config>/ctk/bin/` by `ctk install`. |
 | CLI | `src/cli`, `src/install`, `src/sync`, `src/core` | The `ctk` command. Only runtime dependency: `zod`. |
@@ -49,7 +72,7 @@ Everything Claude Code loads into context every turn is the frontmatter `descrip
 skills that allow model invocation and of the four agents. `team` sets
 `disable-model-invocation: true`, so it is only loaded when you invoke it. Skill bodies and
 `references/*.md` are loaded on demand. `claude plugin details ctk@ctk-kit` reports
-`~187 tok` always-on for this build; `node scripts/measure-context.mjs 500` checks the same
+`~187 tok` always-on for this build (invoking `team` costs about 850 tokens, `review` 330, `debug` 280); `node scripts/measure-context.mjs 500` checks the same
 text against a 500-token budget and runs in CI.
 
 | Skill | Invocation | Purpose |
@@ -78,10 +101,12 @@ hooks it registers and the host calls it makes; for this build that is:
 
 - Events: `agent.spawn`, `session.start`, `session.measure`, `turn.complete`, `session.end`,
   `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (only `ctk_team_status`),
-  `command.run` (only `ctk-stats`), `ui.render` (only `AbovePrompt`).
+  `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.read`, `fs.write`,
-  `session.id`, `session.usage`, `tool.register`, `ui.invalidate`, `ui.resolve`.
-- Environment reads: `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE`. Environment writes: none.
+  `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
+  `ui.resolve`.
+- Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
+  `USERPROFILE`. Environment writes: none.
 
 Only `fs.write` (stats file) mutates anything; `fs.read` reads that same stats file. There is no network call and no model call.
 
@@ -140,6 +165,18 @@ continue from that session's file instead of resetting. Fields are in [THREAT-MO
 `/ctk-stats` read them; both label figures as **counted** (events CTK saw) or **measured**
 (figures Claude Code reported). Claude Code exposes no per-worker cost, so none is shown or
 estimated.
+
+**Readiness (`/ctk-doctor`).** A read-only command (`plugins/ctk/hooks/doctor.ts`, pure logic;
+the host reads are in `register.tsx`) that answers from three reads: the teams flag
+(`env.get`, which also sees values from `settings.json` `env`), the settings object
+(`settings.read`) and the tool list (`tool.list`). It reports: the mod is active (it answered),
+the cap and whether a plugin option sets it, the teams flag (`ok`, `action` with the one exact
+fix, or `unknown` when the read failed), task tools (`ok` only when `TaskCreate` is listed,
+otherwise `unknown`, never `missing`: deferred tools are not listed, so absence proves nothing),
+whether `statusLine` is configured, and the band and stats options. The status tool
+`ctk_team_status` returns the same preflight facts (`cap`, `teamsEnabled`, `taskTools`), which
+the `team` skill's step 0 reads: tool absent means the mod is inactive; `teamsEnabled` false
+means spawn nothing and give the one-time setting.
 
 Every host call in the mod is wrapped so that a failure degrades (no band, no stats) without
 touching a spawn decision. The band, stats and counters can fail; the cap fails closed.

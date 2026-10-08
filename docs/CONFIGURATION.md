@@ -1,8 +1,12 @@
 # Configuration
 
-CTK is configured with a **profile**: a small JSON document. You never have to write one by
-hand; `ctk config` edits it and applies the result. This page lists every field, its default,
-where it ends up, and where CTK keeps its files.
+CTK has two configuration paths. A **native install** (`/plugin install ctk@ctk-kit`, see
+[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's seven options with
+`/plugin configure ctk@ctk-kit` or `claude plugin install ctk@ctk-kit --config KEY=VALUE`, and
+every option has a default. With the optional **`ctk` CLI** you configure a **profile**: a small
+JSON document. You never have to write one by hand; `ctk config` edits it and applies the
+result. This page lists every field of the profile, its default, where it ends up, and where CTK
+keeps its files.
 
 ## Layers
 
@@ -100,8 +104,11 @@ rejected. To use a different effort, edit or fork the agent files.
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `claude.enableAgentTeams` | boolean | `true` | Set `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` to `"1"` in `settings.json` when it is absent. An existing value is never replaced. |
+| `claude.enableTaskTools` | boolean | `false` | Set `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` to `"1"` when it is absent. On Claude 5.x models Claude Code omits the Task tools by default; without them `/ctk:team` coordinates by messages and the band shows no task counts. Enabling them adds tool definitions to every session, which is why it is off by default. |
 
-Agent Teams are an experimental Claude Code feature and need this flag.
+Agent Teams are an experimental Claude Code feature and need this flag. A native install never
+sets it: add it to `settings.json` yourself (see
+[INSTALLATION](INSTALLATION.md#one-time-setup-agent-teams)); `/ctk-doctor` reports whether it is set.
 `ctk install --no-enable-teams` stores `false` here (in the device layer);
 `ctk install --no-statusline` stores `hud.statusLine = "off"` there.
 
@@ -148,7 +155,10 @@ CTK writes the effective values to `settings.json`, one key each, under
 | `recordStats` | `stats.record` | `true` | boolean |
 
 The plugin defaults in `plugin.json` equal the CTK defaults (a test enforces this), so the
-plugin behaves the same if you install it without the CLI. The mod re-validates what it
+plugin behaves the same if you install it without the CLI. A native install writes the same
+keys when you configure it: `claude plugin install ctk@ctk-kit --config maxWorkers=2` produced
+`"pluginConfigs": { "ctk@ctk-kit": { "options": { "maxWorkers": 2 } } }`, and `/ctk-doctor`
+then reports the cap's source as `set in plugin options`. The mod re-validates what it
 receives: a missing or invalid value falls back to the default, and `maxWorkers` is clamped
 to 1-12.
 
@@ -158,6 +168,7 @@ to 1-12.
 |---|---|
 | `pluginConfigs["ctk@ctk-kit"].options.*` | always (the seven options above) |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | absent and `claude.enableAgentTeams` |
+| `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` | absent and `claude.enableTaskTools` (default off) |
 | `statusLine` | absent (or already CTK's) and `hud.statusLine = auto` |
 | `model`, `effortLevel`, `teammateMode`, `outputStyle`, `language` | set in `portable.settings` |
 
@@ -195,7 +206,8 @@ key already has a value, and [ROLLBACK](ROLLBACK.md) for undoing changes.
 | `CLAUDE_CONFIG_DIR` | Config directory when `--config-dir` is not given. Also read by the mod to find where to write stats. |
 | `CTK_COLOR=1` | Enable bold in the status line fallback (off by default). |
 | `COLUMNS` | The status line fallback truncates to this width. |
-| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Set by Claude Code's `env` block; required for Agent Teams. |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Set by Claude Code's `env` block; required for Agent Teams. The mod reads it (`/ctk-doctor`, the team skill's preflight). |
+| `CLAUDE_CODE_ENABLE_TODO_TOOLS` | Set to `1` to give Claude 5.x models the Task tools. Optional. |
 | `GIT_ALLOW_PROTOCOL` | `ctk sync` passes `file:git:http:https:ssh` unless you set it. |
 
 ## Global CLI options

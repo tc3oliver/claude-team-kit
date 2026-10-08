@@ -165,6 +165,103 @@ environment variable and the probe agree), but in this run it did not change wha
 with messages and worker reuse exactly as in Run A. One run says nothing about how often a lead would use the task
 list; it does show that turning the tools on is not enough to make a Sonnet lead follow the skill's task-list step.
 
+## Run C: native install, no CLI, and the strengthened team skill
+
+Run C is a third, separately authorised run. It exercises exactly the path the README teaches: the plugin installed
+with Claude Code's own commands and no `ctk` CLI anywhere near the demo config, plus the team skill as of commit
+`0aaa9a0`, which creates the task list before spawning anyone. Files: [`team-demo-c.svg`](assets/team-demo-c.svg),
+[`team-demo-c.gif`](assets/team-demo-c.gif), [`team-demo-c.mp4`](assets/team-demo-c.mp4),
+[`team-demo-c.frames.jsonl`](assets/team-demo-c.frames.jsonl) and the stills
+[task list and HUD](assets/team-demo-c-tasks.svg), [workers](assets/team-demo-c-workers.svg),
+[the lead's report](assets/team-demo-c-summary.svg), [`/ctk-stats`](assets/team-demo-c-stats.svg) and
+[`/ctk-doctor`](assets/team-demo-c-doctor.svg).
+
+**Setup.** The demo config was reset first: `claude plugin uninstall ctk@ctk-kit`, `claude plugin marketplace
+remove ctk-kit`, the CLI's leftover `ctk` directory deleted and its `statusLine` removed from `settings.json`
+(login kept). Then the native flow:
+
+```sh
+claude plugin marketplace add tc3oliver/claude-team-kit
+claude plugin install ctk@ctk-kit
+```
+
+The install printed `7 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass
+--config KEY=VALUE.` The defaults applied anyway (the cap showed as 3 and the band as on). The installed copy was
+checked against the checkout: the plugin cache recorded commit `0aaa9a0`, and `skills/team/SKILL.md` was identical
+to `plugins/ctk/skills/team/SKILL.md` (the cache lacks only development files such as `tsconfig.json`). The two
+one-time settings went into `settings.json` as a plain JSON edit, next to the allow rules from the other runs:
+
+```json
+{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" } }
+```
+
+Readiness check, `claude -p "/ctk-doctor"` before the recording (no model call):
+
+```text
+ctk: CTK readiness (read-only; nothing is changed):
+[ok]     mod: active (it answered this command)
+[ok]     cap: 3 live teammates (default)
+[ok]     agent teams: enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
+[ok]     task tools: TaskCreate is available
+[info]   statusLine: none configured (optional)
+[ok]     team band: on
+[ok]     stats recording: on
+ready
+```
+
+The recording typed the same prompt into `claude --model sonnet` on a fresh copy of the fixture, with the same masks (now
+including the promotion line, 59 replacements), allow rules, limits and a `PATH` that includes `npm`, from a clean
+tree (`ctkCommit` `0aaa9a0`, no `-dirty`). The metadata also says `install: native (marketplace add
+tc3oliver/claude-team-kit)`. The repository slug is the one deliberate exception to the personal-name grep. One
+attempt. At the end the recorder typed `/ctk-stats`, then `/ctk-doctor`, then `/exit`. The footer is Claude Code's own,
+with the CTK band as a line above the input box; no CTK status line was configured.
+
+**What the frames show.**
+
+- **Preflight failed.** At about 13 s the lead called `ctk_team_status`, as the skill's step 0 says. The call
+  failed: `Error: tool.call step resolved mcp__ctk__ctk_team_status with a result that does not match its output
+  shape`, with a schema error (`invalid_union … expected string, received object`). The lead said the check came back malformed, assumed the default cap of 3 and verified each
+  spawn through its Agent result. This is a defect in the plugin's MCP tool output, visible in the recording.
+- **Tasks were created, before any worker.** The status line showed `tasks 0/4` at 18 s, `tasks 0/6` at 19 s, and
+  the first worker started at about 22 s. The task list had six tasks: one per module (`Test src/caesar.js`,
+  `rle`, `roman`, `slugify`, `wordcount`) and a final `Run npm test and report`, shown as `blocked by #3, #4, #5`
+  at 33 s, `#4, #5` at 38 s, `#5` at 43 s, and unblocked at 49 s as the blockers finished (the list hides blockers
+  that are already done, and no sampled frame shows the full list of five). The final task was completed at 54 s,
+  after the lead's own verification. The tool calls themselves are collapsed on screen, so the recording shows
+  the `blocked by` marks but not the literal `addBlockedBy` arguments.
+- **HUD tasks segment.** `tasks 0/4`, `0/6`, `2/6` (33 s, matching two ticked tasks in the list), `3/6`, `4/6`, `5/6`
+  and `6/6` (54 s). The end state agrees with `/ctk-stats` (`tasks created/completed: 6/6`) and with the lead's
+  report ("Task #6 is already closed"). The teammate `done` count in the same line stayed 0, as in the other runs.
+- **Workers and cap.** Three workers (`w-caesar`, `w-rle`, `w-roman`, `ctk:implementer`, `claude-sonnet-5-5`)
+  started at 22 s to 24 s. The lead did not try a fourth: it gave slugify to `w-caesar` (at 38 s) and wordcount to
+  `w-rle` (at 43 s) when they finished. `/ctk-stats`: `teammate spawns: 3 accepted, 0 refused at capacity, 0 failed
+  closed`, `peak live teammates: 3 (cap 3); now 0`. **No refusal occurred in Run C.**
+- **Permission prompts.** None; `permissionApprovals` in the metadata is empty.
+- **Results.** The lead ran several of the test files itself and then the full suite: "All five test files are written
+  and npm test passes: 40 tests, 40 pass, 0 fail." Running `npm test` on the result afterwards gave the same: 40
+  tests, 40 pass, 0 fail, 0 todo. Nothing was committed.
+- **Cost and time.** 83 s of wall clock; `$0.91` on the status line and in `/ctk-stats`; context 6 %.
+- **Doctor at the end.** `/ctk-doctor` inside the session printed the same readiness list as before the run.
+
+**Oddities and fit with the skill.**
+
+- The preflight error above is the one thing that went wrong. The skill's step 0 does not say what to do when the
+  tool errors; the lead improvised sensibly.
+- The lead created the tasks before spawning and added a verification task blocked by the slices, as the skill's
+  unconditional rule asks. It closed the verification task only after running the suite itself.
+- The lead's last message asks "I haven't run /ctk:review on the change. Do you want me to?"; the skill says to
+  review the result with `/ctk:review`, and the lead left it to the user. The report is a single line of results
+  plus follow-up notes, not the tasks, files and checks list the skill's close step describes.
+- A few worker messages arrived after the lead had verified their work, including an echo of the lead's own
+  task assignment; the lead said they changed nothing. `w-caesar` had not confirmed shutdown when the lead
+  stopped waiting.
+
+**Reading.** With the native install, the two settings and the strengthened skill, the lead did create and use
+the shared task list, and the HUD tasks segment tracked it correctly from 0/6 to 6/6. Compared with Runs A and B
+that is the visible difference: those runs coordinated by messages alone. One run says nothing about how reliably a
+lead follows the rule, and the failing preflight call means the cap check in this run rested on the lead's
+assumption, not on the tool.
+
 ## Reproduce
 
 `scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config
@@ -175,6 +272,7 @@ dedicated config dir and a masks file, and it spends real money (this run cost u
 ```sh
 CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all
 CTK_DEMO_RUN=b CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run B
+CTK_DEMO_RUN=c CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run C, native install
 ```
 
 The model is not deterministic: another run will split the work differently, may spawn more or fewer workers,

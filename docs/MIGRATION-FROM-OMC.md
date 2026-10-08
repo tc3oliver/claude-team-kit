@@ -4,9 +4,10 @@ CTK is a much smaller tool than OMC. It does not replace all of it, and it does 
 This page says what maps to what, what has no CTK equivalent, how the two behave together,
 and how to turn OMC off yourself when you are ready.
 
-**CTK never modifies, disables or removes OMC.** Nothing in CTK's code refers to OMC, and
-`ctk install`, `ctk update`, `ctk rollback` and `ctk uninstall` only touch the keys and files
-listed in [INSTALLATION](INSTALLATION.md#what-install-changes). Turning OMC off is a step you
+**CTK never modifies, disables or removes OMC.** Nothing in CTK's code refers to OMC. A native
+install (`/plugin install ctk@ctk-kit`) writes only what Claude Code writes for any plugin, and
+the optional CLI's `ctk install`, `ctk update`, `ctk rollback` and `ctk uninstall` only touch the
+keys and files listed in [INSTALLATION](INSTALLATION.md#what-install-changes). Turning OMC off is a step you
 take with Claude Code's own commands (below).
 
 What was checked and what was not is at the end. OMC facts come from reading OMC 5.3.0's
@@ -36,7 +37,7 @@ Things to know:
 |---|---|
 | Skill names | Both define `team`, `review`, `debug`. Use the full names: `/ctk:team`, `/oh-my-claudecode:team`. How Claude Code resolves a bare `/team` when two plugins define it was not tested. |
 | `statusLine` | OMC's HUD is a `statusLine` command. CTK sets `statusLine` only when the key is absent, so it keeps OMC's and prints `note: statusLine: your own status line is kept; the HUD runs via the mod band only`. You then get CTK's team band (from the mod) but not CTK's status line script. |
-| Agent Teams flag | Both use `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. If it is already `"1"`, CTK records it as not its own and never removes it. |
+| Agent Teams flag | OMC's team skill and CTK use the same `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. A native CTK install never sets it; `/ctk-doctor` shows `enabled` if it is already `"1"` (whoever set it) and the one-line fix if not. The CLI's `ctk install` records an existing `"1"` as not its own and never removes it. |
 | Team cap | **CTK's cap is not limited to CTK's agents.** The mod gates every teammate spawn in the session (a spawn that Claude Code marks as starting a teammate), whoever asked for it. With CTK enabled, an OMC `/team 5:executor` is held to `team.maxWorkers` (default 3): the extra spawns are refused with `TEAM_CAPACITY_REACHED`. This is from the code and Claude Code's type definitions; No OMC team was run against the cap. OMC's skill does not know that code, and a refused spawn can still show as "Done" in the transcript. Raise the cap (`ctk config set team.maxWorkers 8`) or disable CTK while you run OMC teams. |
 | Model routing | CTK changes the model only for `ctk:*` agents that give no model. OMC's agents are not routed. |
 | Always-on context | `claude plugin details` estimates the cost added to every session: OMC about 2,093 tokens, CTK about 187. That excludes the instructions OMC's setup may have written into your `CLAUDE.md`. |
@@ -51,7 +52,7 @@ Things to know:
 | `/oh-my-claudecode:debug` | `/ctk:debug <symptom>` is **not the same thing** | OMC's `debug` diagnoses the current OMC or Claude Code *session* (logs, traces, state). CTK's `debug` is a method for a bug in your code: reproduce, minimize, hypotheses with one probe each, fix, regression test, and stop to ask after three refuted hypotheses. For session diagnosis, the CTK counterparts are `ctk doctor` and `/ctk-stats`. |
 | `/oh-my-claudecode:hud`, the OMC HUD | team band (mod) and the status line script | The band is one line above the prompt: `team 1 busy · 2 idle · 1 done / cap 3 · tasks 2/5 · rejected 1 · models haiku×1 sonnet×2 · $0.42 · 12m`. The status line script prints `Model effort · ctx 42% · 5h 24% · 7d 61% · $1.23 · 12m · branch*` and shows no worker data. Turn them off with `ctk config set hud.band false` and `ctk config set hud.statusLine off`. |
 | OMC agents such as `executor`, `explore`, `code-reviewer` | `ctk:implementer`, `ctk:explorer`, `ctk:reviewer`, `ctk:high-risk-reviewer` | Four agents, each with a fixed model and effort in its frontmatter (`haiku/medium`, `sonnet/medium`, `sonnet/medium`, `opus/high`). The model can be changed per role in the profile; the effort cannot. |
-| `omc-doctor` | `ctk doctor` | CTK checks only itself. |
+| `omc-doctor` | `/ctk-doctor` (in Claude Code, read-only) and `ctk doctor` (CLI) | CTK checks only itself. `/ctk-doctor` covers the mod, cap, teams flag, task tools and status line; `ctk doctor` also checks the plugin registry, ledger and backups. |
 | Cost and usage in the OMC HUD | `ctk stats`, `/ctk-stats`, the band | Figures are labelled counted (events CTK saw) or measured (Claude Code reported). Per-worker cost is not shown because Claude Code does not report it. |
 
 ## What has no CTK equivalent
@@ -126,10 +127,13 @@ Do these deliberately, in this order of how reversible they are. CTK does none o
    OMC, or to stay on both.
 2. **Snapshot your setup yourself.** Copy `settings.json` and `CLAUDE.md` from your config
    directory. CTK backs up only what it changes.
-3. **Dry run.** `ctk install --dry-run`. Read the `conflict:` and `note:` lines, especially
-   the `statusLine` note.
-4. **Install CTK next to OMC.** `ctk install`, restart Claude Code, then `ctk doctor` and
-   `claude -p "/ctk-stats"` ([Verify](INSTALLATION.md#verify)).
+3. **Install CTK next to OMC, natively.** `/plugin marketplace add tc3oliver/claude-team-kit`,
+   `/plugin install ctk@ctk-kit`, restart Claude Code, then run `/ctk-doctor` and `/ctk-stats`
+   ([Verify](INSTALLATION.md#verify)). Add the one-time Agent Teams setting if `/ctk-doctor`
+   asks for it. This touches no OMC file or setting.
+4. **Optionally add the CLI** for the status line, profiles and rollback: `ctk install --dry-run`
+   first, and read the `conflict:` and `note:` lines, especially the `statusLine` note. Over a
+   native install it adopts the plugin and writes only its own keys.
 5. **Decide the cap.** If you still run OMC teams, raise `team.maxWorkers` or expect refusals
    (see the table above).
 6. **Compare on a real task in a throwaway repository.** Measure, do not guess:
@@ -147,7 +151,8 @@ Do these deliberately, in this order of how reversible they are. CTK does none o
 ## What was verified and what was not
 
 Verified here, on Claude Code 2.1.294 in scratch config directories: both plugins installed and
-enabled together; the CTK mod loading beside OMC; `ctk install` keeping a pre-existing
+enabled together, with CTK installed natively from GitHub and OMC from a local copy; the CTK mod
+loading beside OMC (`/ctk-doctor` answered with both enabled); `ctk install` keeping a pre-existing
 `statusLine`; `claude plugin disable` on OMC; `ctk update` taking over the status line once the
 key was removed; `ctk uninstall` leaving OMC untouched; the token estimates quoted above.
 

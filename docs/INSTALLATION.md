@@ -1,24 +1,210 @@
 # Installation
 
-CTK is two things that install together: a Claude Code **plugin** (skills, agents, and a
-"mod" that enforces the team cap and draws the team band) and the **`ctk` command line tool**
-that installs, checks, updates and removes it. This page covers installing from a checkout or
-from an npm tarball. Nothing here needs a published package.
+CTK is a Claude Code **plugin** (skills, agents, and a "mod" that enforces the team cap and
+draws the team band). You can install it with Claude Code alone, with no build and no
+command line tool. An optional `ctk` **command line tool** adds a status line, edits the
+Agent Teams flag for you, syncs a profile between machines and keeps an undo ledger.
+
+| Path | You need | You get |
+|---|---|---|
+| [Native install](#install-the-plugin-native) (recommended) | Claude Code 2.1.287 or newer, and access to the GitHub repository | Skills (3), agents (4), the mod with default options (cap 3), `/ctk-doctor`, `/ctk-stats` |
+| [Optional CLI](#the-optional-ctk-cli) | Node 22 or newer and a checkout or tarball | Everything above registered from a local directory, plus the status line, the teams-flag edit, profiles and sync, rollback |
 
 ## Prerequisites
 
 | Need | Version | Check |
 |---|---|---|
-| Node.js | 22 or newer (CI tests 22 and 24) | `node --version` |
-| Claude Code | 2.1.287 or newer for the mod (the cap and the band). Older builds still get the skills, agents and status line. | `claude --version` |
-| `claude` on `PATH` | | `ctk` runs `claude plugin ...` for you |
-| git | only for `ctk sync` | |
+| Claude Code | 2.1.287 or newer for the mod (the cap and the band). Older builds still get the skills and agents. | `claude --version` |
+| git | for the native install (Claude Code clones the repository) and for `ctk sync` | `git --version` |
+| Node.js | only for the optional CLI: 22 or newer (CI tests 22 and 24) | `node --version` |
 
-`ctk` needs no login and no network to install: every command in this page was run against
-a logged-out Claude Code in a scratch config directory. You do need to log in to Claude Code
-to actually use a team.
+Installing needs no login: every command on this page was run against a logged-out Claude
+Code in a scratch config directory. You do need to log in to use a team.
 
-## Option A: from a checkout
+## Install the plugin (native)
+
+In Claude Code, three steps:
+
+1. `/plugin marketplace add tc3oliver/claude-team-kit`
+2. `/plugin install ctk@ctk-kit`
+3. `/reload-plugins` (or restart Claude Code)
+
+The same from a shell, which is what was run for this page:
+
+```sh
+claude plugin marketplace add tc3oliver/claude-team-kit
+claude plugin install ctk@ctk-kit
+```
+
+```
+Clone complete, validating marketplace…
+✔ Successfully added marketplace: ctk-kit (declared in user settings)
+Installing plugin "ctk@ctk-kit"...✔ Successfully installed plugin: ctk@ctk-kit (scope: user)
+7 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
+```
+
+The "7 userConfig options not yet set" line is harmless: every option has a default (cap 3,
+models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them later, see
+[Options](#options). The install writes only what Claude Code writes for any plugin:
+
+```json
+{
+  "extraKnownMarketplaces": { "ctk-kit": { "source": { "source": "github", "repo": "tc3oliver/claude-team-kit" } } },
+  "enabledPlugins": { "ctk@ctk-kit": true }
+}
+```
+
+The plugin cache for this install was about 160 KB (`du` of `<config>/plugins/cache/ctk-kit/ctk/0.1.0`).
+`claude plugin details ctk@ctk-kit` lists Skills (3) `debug, review, team`, Agents (4), and about
+187 tokens always-on.
+
+**The repository must be public for anyone but its owner.** It was private during testing; the
+add worked there through the tester's own git credentials over ssh. A native install of a public
+repository by someone else has **not been verified**.
+
+## One-time setup: Agent Teams
+
+Nothing in a native install turns Agent Teams on. They are experimental and are switched on
+by an environment variable that you add once to `settings.json` (`~/.claude/settings.json`, or
+`$CLAUDE_CONFIG_DIR/settings.json` if you use that variable), then restart Claude Code:
+
+```json
+{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+```
+
+Optional: on Claude 5.x models Claude Code omits the Task tools by default, so `/ctk:team`
+coordinates by messages and the band shows no task counts. To get the shared task list, also
+add `"CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"` to the same `env` object. It adds tool definitions to
+every session, which is why it is off by default.
+
+If you run `/ctk:team` before this, the skill checks first (its preflight): if the status tool
+`ctk_team_status` is missing it says the mod is inactive and that the cap, band and stats are
+off; if teams are not enabled it spawns nothing and prints the line above. It edits
+`settings.json` only if you say yes, and then through the Edit tool, so you approve the change.
+
+## Verify
+
+Run `/ctk-doctor` in Claude Code. It is read-only and prints one exact fix for the only thing
+that needs action. Before the setting above:
+
+```
+$ claude -p "/ctk-doctor"
+ctk: CTK readiness (read-only; nothing is changed):
+[ok]     mod: active (it answered this command)
+[ok]     cap: 3 live teammates (default)
+[action] agent teams: not enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to 1)
+         fix: Add {"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}} to ~/.claude/settings.json, then restart Claude Code.
+[info]   task tools: unknown (TaskCreate is not in the listed tools; deferred tools are not listed)
+[info]   statusLine: none configured (optional)
+[ok]     team band: on
+[ok]     stats recording: on
+1 action(s) needed
+```
+
+After it:
+
+```
+[ok]     agent teams: enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
+...
+ready
+```
+
+- A command that answers at all proves the mod loaded. If `/ctk-doctor` is not recognised, the mod
+  is not active and **the team cap is not enforced**.
+- Task tools are reported `ok` or `unknown`, never "missing": Claude Code lists only the tools
+  that are not deferred, so absence from that list proves nothing.
+- The `statusLine` row is information. A plugin cannot install a status line (see below).
+
+`/ctk-stats` prints the counters of the current session:
+
+```
+ctk: CTK session 59a4292c-7b66-44e8-9f98-c71f8700beba
+counted by CTK:
+  teammate spawns: 0 accepted, 0 refused at capacity, 0 failed closed
+  peak live teammates: 0 (cap 3); now 0
+  worker models: –
+  tasks created/completed: – (no task event seen)
+measured (reported by Claude Code):
+  cost: $0.00  context: –  5h limit: –  7d limit: –
+  elapsed: 0s
+  per-worker cost: not available from Claude Code
+```
+
+## Options
+
+The mod reads seven options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
+run for this page) or at install time with `--config KEY=VALUE`:
+
+```sh
+claude plugin install ctk@ctk-kit --config maxWorkers=2
+```
+
+That wrote `"pluginConfigs": { "ctk@ctk-kit": { "options": { "maxWorkers": 2 } } }` and the
+cap became 2 (Claude Code then reports `6 userConfig options not yet set`). Names, defaults and
+limits are in [CONFIGURATION](CONFIGURATION.md#how-fields-reach-the-plugin). `/ctk-doctor`
+labels the cap's source `default` or `set in plugin options`.
+
+## Update and remove (native)
+
+- Update: `/plugin update ctk@ctk-kit` (shell: `claude plugin update ctk@ctk-kit`). Only
+  same-version behaviour was exercised; a real version bump through the plugin manager was not.
+- Remove: `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`.
+
+```
+$ claude plugin uninstall ctk@ctk-kit
+✔ Successfully uninstalled plugin: ctk (scope: user)
+$ claude plugin marketplace remove ctk-kit
+✔ Successfully removed marketplace: ctk-kit
+```
+
+Two things stay behind, both Claude Code's or the mod's, neither CTK's: empty `enabledPlugins`
+and `extraKnownMarketplaces` objects in `settings.json`, and the mod's per-session counters in
+`<config>/ctk/stats/`. Delete the counters with `rm -rf <config>/ctk/stats` (Windows:
+`rmdir /s /q <config>\ctk\stats`). Your own `env` settings are untouched.
+
+## The optional `ctk` CLI
+
+The CLI is not needed for the plugin. It adds what a plugin cannot do:
+
+- **A status line.** A plugin may ship only `agent` and `subagentStatusLine` defaults, so it
+  cannot set `statusLine`. The CLI copies a status line script to a stable path and sets
+  `statusLine` to it, if you have none.
+- **The Agent Teams flag**, written for you instead of by hand (and, if you ask, the task tools flag).
+- **Profiles and sync** between machines through a git repository you own.
+- **An undo ledger**: backups before every change, `ctk rollback`, `ctk uninstall`.
+
+`ctk install` over a native install **adopts** it: no reinstall, a marketplace registered from
+GitHub is never re-pointed or removed, and it writes only its own keys:
+
+```
+$ ctk install
+install: darwin, Claude Code 2.1.294, config /Users/you/.claude
+  marketplace ctk-kit: already registered from github tc3oliver/claude-team-kit (a native install; kept as is)
+  plugin ctk@ctk-kit: already installed
+  status line script: copy
+  settings.json: 8 key(s): /pluginConfigs/ctk@ctk-kit/options/maxWorkers, ... /statusLine
+installed.
+```
+
+Afterwards `ctk update` says `installed natively: update it with /plugin update ctk@ctk-kit`
+and leaves the plugin alone, and `ctk uninstall` removes only the keys and files CTK wrote:
+
+```
+uninstalled ctk (backups kept in <config>/ctk/backups)
+  removed /statusLine
+  removed /pluginConfigs/ctk@ctk-kit/options/maxWorkers
+  ...
+  note: left plugin ctk@ctk-kit installed: ctk did not install it. Remove it in Claude Code with: /plugin uninstall ctk@ctk-kit (and /plugin marketplace remove ctk-kit)
+```
+
+On a native install with no ledger at all, `ctk uninstall` changes nothing and prints how to remove the
+plugin by hand and the `rm -rf` line for `<config>/ctk/stats` (see Known issues in
+[REVIEW](REVIEW.md#8-unresolved-issues) for its head line). `ctk doctor` reports such an install as
+`installed natively (no ctk ledger)` and `ledger: info`, not as a failure.
+
+The rest of this page covers the CLI; Windows and WSL at the end apply to both paths.
+
+### From a checkout
 
 ```sh
 cd claude-team-kit          # your checkout of this repository
@@ -36,11 +222,11 @@ From the checkout, `npm run ctk -- <args>` runs the built CLI (`npm run ctk -- d
 `node /path/to/claude-team-kit/dist/src/cli/bin.js` wherever this page says `ctk`, or make
 yourself an alias or a wrapper script. (`npm link` should also expose `ctk`; it was not tested.)
 
-**Keep the checkout where it is.** `ctk install` registers the checkout directory with
-Claude Code as a plugin marketplace named `ctk-kit`. If you move or delete it, the plugin
+**Keep the checkout where it is.** `ctk install` on a machine with no native install registers
+the checkout directory with Claude Code as a plugin marketplace named `ctk-kit`. If you move or delete it, the plugin
 stops loading. See [Moving or deleting the install directory](#moving-or-deleting-the-install-directory).
 
-## Option B: from an npm tarball
+### From an npm tarball
 
 Build once, pack, then install the tarball anywhere:
 
@@ -62,7 +248,7 @@ Once the package is published to npm, `npm install -g claude-team-kit` replaces 
 step. It is not published yet, which is why CTK's own hints say to clone the repository and
 build it.
 
-## Install
+### Install with the CLI
 
 Always look first:
 
@@ -112,7 +298,7 @@ output. Running it again changes nothing:
 already installed; nothing to change.
 ```
 
-### Help
+#### Help
 
 ```sh
 ctk --help               # all commands and the global options
@@ -123,7 +309,7 @@ ctk sync --help          # sync prints its own usage
 
 Each command's help states what it changes and its options.
 
-### If install cannot start
+#### If install cannot start
 
 These are the messages for the failures a first run can hit. Each one stops before CTK
 changes anything (exit `1`):
@@ -189,10 +375,9 @@ including the ones `ctk install` and `ctk update` run, creates that file, so aft
 the check passes even if you have never launched `claude`. Launch `claude` yourself and log in;
 do not rely on that line.
 
-## Enabling agent teams
+## Agent Teams flag through the CLI
 
-Claude Code's Agent Teams are experimental and are switched on by an environment variable.
-`ctk install` sets it for you in `settings.json`:
+`ctk install` writes the flag from [One-time setup](#one-time-setup-agent-teams) for you:
 
 ```json
 "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" }
@@ -200,9 +385,11 @@ Claude Code's Agent Teams are experimental and are switched on by an environment
 
 Only if the key is absent. A value you already set is never replaced. Skip it with
 `ctk install --no-enable-teams`, or set the flag yourself. `ctk doctor` reports it
-("agent teams flag set" counts either `settings.json` or your shell environment).
+("agent teams flag set" counts either `settings.json` or your shell environment). The task tools
+flag (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`) is written only when you opt in:
+`ctk config set claude.enableTaskTools true`.
 
-## Verify
+## Verify with `ctk doctor`
 
 ```sh
 ctk doctor
@@ -280,7 +467,8 @@ into `<config>/ctk/backups/<timestamp>-install/`.
 **Claude Code's own registry** (written by `claude plugin ...`, which CTK runs, not by CTK):
 
 - marketplace `ctk-kit` pointing at the CTK directory, plugin `ctk@ctk-kit` installed at user
-  scope;
+  scope (skipped when a native install is already there: the GitHub-sourced marketplace is
+  adopted and left as it is);
 - as a result Claude Code adds `extraKnownMarketplaces.ctk-kit` and
   `enabledPlugins["ctk@ctk-kit"]` to `settings.json`, and writes `<config>/plugins/*`.
 
@@ -290,6 +478,7 @@ into `<config>/ctk/backups/<timestamp>-install/`.
 |---|---|
 | `pluginConfigs["ctk@ctk-kit"].options.{maxWorkers, explorerModel, implementerModel, reviewerModel, highRiskModel, hudBand, recordStats}` | each one absent. Defaults are in [CONFIGURATION](CONFIGURATION.md). |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` = `"1"` | absent, and `claude.enableAgentTeams` is true |
+| `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` = `"1"` | absent, and `claude.enableTaskTools` is true (default false) |
 | `statusLine` = `'<node>' '<config>/ctk/bin/ctk-statusline.mjs'` on macOS and Linux (each path single-quoted) | absent, and `hud.statusLine` is `auto` |
 
 **Files under `<config>/ctk/`**: `ledger.json`, `bin/ctk-statusline.mjs`, `backups/`; later
@@ -340,7 +529,9 @@ ctk update --dry-run
 ctk update
 ```
 
-`ctk update` refreshes the marketplace and plugin when the packaged plugin version differs,
+On a native install, `ctk update` leaves the plugin alone and prints
+`installed natively: update it with /plugin update ctk@ctk-kit`. Otherwise it
+refreshes the marketplace and plugin when the packaged plugin version differs,
 re-copies the status line script if it changed, and re-applies your profile. A plugin you
 disabled stays disabled. It never changes the `ctk` package itself. Its closing hint, because
 the package is not published to npm yet, is `To upgrade ctk itself, pull the latest checkout and
@@ -410,6 +601,7 @@ What the code does for Windows, and what has and has not been tested:
 
 ## Uninstall
 
+Native install: see [Update and remove (native)](#update-and-remove-native). For the CLI,
 `ctk uninstall` and `ctk rollback` remove only what CTK caused. `settings.json` returns to its
 original content, and a fresh config directory returns to `{}`: the `enabledPlugins` and
 `extraKnownMarketplaces` objects that `claude plugin` creates are removed again when they did not

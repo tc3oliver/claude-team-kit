@@ -25,6 +25,39 @@ Evidence levels used below:
 | `doctor` does not prove the mod is running | "mods supported" is a version comparison, not a check that the mod loaded. `doctor` does fail when `claude plugin list --json` reports load errors (Live: after the install directory was moved, Claude Code reported `failed to load`, `/ctk-stats` disappeared and `ctk doctor` failed). Confirm with `claude -p "/ctk-stats"`. If that command is unknown, **the cap is not enforced**. |
 | The cap is by teammate, not by plugin | It gates every teammate spawn in the session, including ones another plugin (for example OMC) starts. See [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md). Code only for the other-plugin case. |
 
+## The native install
+
+The plugin installs with `/plugin marketplace add tc3oliver/claude-team-kit` and
+`/plugin install ctk@ctk-kit` and needs no CLI ([INSTALLATION](INSTALLATION.md)). What that means
+in practice:
+
+- **A stranger installing from a public GitHub repository is not verified.** The repository was
+  private during testing, and the install worked through the tester's own ssh git credentials,
+  from a scratch config directory (Live). Nobody else has tried it. A local-directory marketplace
+  is also covered by the integration test `test/native-install.integration.test.ts`.
+- **Nothing in a native install turns Agent Teams on.** You add
+  `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to `settings.json` once. Until then
+  `/ctk:team` spawns nothing and says so; `/ctk-doctor` shows the one exact fix (Live for
+  `/ctk-doctor`; the skill's preflight is skill text, not run with a live model).
+- **A plugin cannot install a status line or edit settings.** The status line, the flag edit,
+  profiles and sync are CLI-only. The skill edits `settings.json` only if you say yes, through the
+  Edit tool, so you approve it.
+- **Task tools cannot be detected reliably.** On Claude 5.x models Claude Code omits the Task
+  tools by default, and a deferred tool is not in the mod's tool list. `/ctk-doctor` therefore
+  reports them as `ok` or `unknown`, never `missing`. The team skill creates the task list whenever
+  `TaskCreate` exists; the maintainers report a recorded run in which a lead skipped it while the wording allowed, which
+  is why the wording is now unconditional (Reported). Whether a lead model now always follows it is
+  not verified.
+- **Options are defaults until you configure them.** `claude plugin install` prints
+  `7 userConfig options not yet set`; that is harmless. `/plugin configure ctk@ctk-kit` was not run
+  (it is interactive); `--config KEY=VALUE` at install was (Live).
+- **Updating** is `/plugin update ctk@ctk-kit`. A real version bump through it was not run.
+- **Removal leaves traces.** After `/plugin uninstall` and `/plugin marketplace remove`,
+  `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
+  counters stay in `<config>/ctk/stats/` until you delete them (Live).
+- **`/team` costs more than the always-on estimate.** Always-on is about 187 tokens; invoking `team`
+  adds about 850, `review` 330, `debug` 280 (`claude plugin details`, estimates).
+
 ## The hard cap
 
 - **Reported**: observed live on Claude Code 2.1.294 in the project's proof of concept (six
@@ -94,14 +127,17 @@ credentials. In `-p` mode no prompt appeared.
   its own (Live, fresh directory: `"model": "opus"` became `"opus[1m]"` after `claude plugin list`
   alone).
 - **A key CTK wrote and Claude Code later changed** is treated as yours from then on.
-- **The install directory must stay in place.** The marketplace `ctk-kit` points at it, and
-  the plugin stops loading if it is moved or deleted (Live). Fix a move by running `ctk install`
+- **With the CLI's local-directory install, the directory must stay in place.** The marketplace
+  `ctk-kit` points at it, and the plugin stops loading if it is moved or deleted (Live). A native
+  install from GitHub has no such directory. Fix a move by running `ctk install`
   (or `ctk update`) from the new location; CTK re-points a marketplace it added in one
   transaction (Live). Claude Code removes the plugin and its options along with the
   marketplace, so CTK reinstalls it, and a plugin you had disabled comes back enabled. A
   marketplace registered by another tool is not moved: CTK exits `2` and prints the manual
   command (Live).
-- **`uninstall` deletes `stats/` and `profile.json`** (the latter is in the uninstall backup,
+- **`uninstall` removes the plugin only if `ctk install` installed it** and the marketplace only if
+  `ctk install` added it; a native install is left in place with the command to remove it
+  (Live). It deletes `stats/` and `profile.json` (the latter is in the uninstall backup,
   `stats/` is not). It keeps `devices/` and `sync/`. A value you edited under
   `pluginConfigs["ctk@ctk-kit"]` is removed by Claude Code with the plugin; CTK names the backup
   that holds it. Details: [ROLLBACK](ROLLBACK.md#uninstall).

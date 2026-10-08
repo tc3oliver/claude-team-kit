@@ -12,9 +12,9 @@ and written, secrets), [LIMITATIONS](LIMITATIONS.md) (evidence levels), [ROLLBAC
 ## 1. Architecture on one screen
 
 ```
-ctk (Node CLI)                          Claude Code
-src/cli      router, help, exit codes     plugin ctk@ctk-kit  (plugins/ctk)
-src/install  install update undo apply      hooks/register.tsx + team.ts + band.ts   the mod
+ctk (optional Node CLI)                 Claude Code
+src/cli      router, help, exit codes     plugin ctk@ctk-kit  (plugins/ctk)  <- installable with no CLI
+src/install  install update undo apply      hooks/register.tsx + team.ts + band.ts + doctor.ts   the mod
              marketplace statusline txn     shared/policy.ts stats.ts format.ts      option defaults, stats record
 src/core     claude.ts (only spawner of     skills/{team,review,debug}  agents/*.md  prompts, no code
              `claude`) ledger settings      statusline/ctk-statusline.mjs            fallback HUD, copied out
@@ -26,7 +26,12 @@ src/sync     engine git files secrets     <config> = Claude config dir
                                             ctk/stats/*.json   written by the mod
 ```
 
-Data flow for options: profile (defaults, user layer, device layer) is resolved by
+Two install paths: native (`/plugin marketplace add tc3oliver/claude-team-kit`, `/plugin install
+ctk@ctk-kit`: a GitHub-sourced marketplace, no build, no CLI, options at their defaults) and the CLI
+(`ctk install`: a local-directory marketplace, plus status line, settings keys and a ledger). The CLI
+adopts a native install instead of replacing it. See [ARCHITECTURE](ARCHITECTURE.md#two-install-paths).
+
+Data flow for options with the CLI: profile (defaults, user layer, device layer) is resolved by
 `src/core/schema.ts`, written by `src/install/apply.ts` to `settings.json` under
 `/pluginConfigs/ctk@ctk-kit/options`, and read by the mod through `register(on, options)` and
 `readOptions` in `plugins/ctk/shared/policy.ts`. The mod never reads the profile files.
@@ -51,7 +56,10 @@ client in CTK's code (`grep` for `node:http`, `node:https`, `node:net`, `fetch(`
 | Sync is git only, with a whitelist and a scanner that has no override flag | No server to run or trust; publishing a secret is not recoverable. |
 | One runtime dependency (`zod`) | Small install surface; everything else is `node:` built-ins. |
 | Always-on context under 500 tokens | Measured by `scripts/measure-context.mjs` (CI budget argument 500). |
-| The marketplace is the package directory itself | `claude plugin marketplace add <dir>` is the only registration path that needs no hosting. Cost: moving the directory breaks the plugin; `ctk install` re-points it. |
+| The plugin is complete without the CLI; the CLI is optional | A plugin cannot set `statusLine` or edit `settings.json`, so those are CLI-only (or by hand). Everything that enforces or reports (cap, band, stats, `/ctk-doctor`) lives in the mod, so the native install is not a reduced mode. |
+| `/ctk-doctor` is read-only and reports task tools as `ok` or `unknown`, never `missing` | Deferred tools are not in the mod's tool list, so the absence of `TaskCreate` from it proves nothing. A wrong "missing" would send users to fix something that is fine. |
+| The `team` skill does a preflight and spawns nothing while teams are off | A spawn with teams off cannot be capped or tracked; stopping early with the one-time setting is cheaper than a half-started team. The skill edits `settings.json` only if the user says yes, through the Edit tool. |
+| With the CLI, the marketplace may be the package directory itself | `claude plugin marketplace add <dir>` is the only registration path that needs no hosting. Cost: moving the directory breaks the plugin; `ctk install` re-points it. |
 
 ## 3. Risks, stated plainly
 
@@ -76,6 +84,7 @@ npm run typecheck          # tsc -p tsconfig.json --noEmit
 npm test                   # node --test test/**/*.test.ts and the status line .mjs tests
 npm run test:plugin        # claude plugin test plugins/ctk
 npm run validate:plugin    # claude plugin validate plugins/ctk --strict, and the marketplace
+                           # (npm test also runs test/packaging.test.ts and test/native*.test.ts)
 npm run check              # all four of the above, in order
 node scripts/measure-context.mjs 500    # always-on text budget; exit 1 above 500 tokens
 npm run build && npm pack --dry-run     # package contents (prepack also builds)
@@ -167,7 +176,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   no stats) and the cap stays fail-closed; on Claude Code older than 2.1.287 `ctk install` still
   installs skills, agents and the status line and says what is inactive; `claude plugin validate
   --strict` passes for the build in use.
-- **Tests:** `claude plugin test plugins/ctk` (76 tests) and `validate:plugin` (both pass);
+- **Tests:** `claude plugin test plugins/ctk` (94 tests) and `validate:plugin` (both pass);
   `test/firstrun.test.ts` "Claude Code older than 2.1.287: says what is unavailable and which
   version is needed, then installs the rest" (stub `claude`); `test/doctor.test.ts` ("old Claude
   Code warns about mods").
@@ -176,7 +185,7 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **What happens on an unsupported build:** version below the floor: stub-tested as above. A build
   at or above the floor where the API changed: **not tested**; the mod would fail to load, and
   `ctk doctor` would still pass its "mods supported" check because that check compares versions
-  only. `claude -p "/ctk-stats"` is the real check.
+  only. `claude -p "/ctk-stats"` or `/ctk-doctor` is the real check.
 - **Mutation:** not mutation-tested.
 
 ### 5.4 HUD permissions and data sources
@@ -184,15 +193,18 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **Read:** `claude plugin validate plugins/ctk --strict` output, `plugins/ctk/hooks/register.tsx`
   (`statsPath`, `persist`, `boot`), `plugins/ctk/hooks/band.ts`, `plugins/ctk/statusline/ctk-statusline.mjs`.
 - **Invariant:** the mod calls only read-only host APIs plus `$.fs.write` for its own stats file,
-  `$.fs.read` for that same file, `$.tool.register` and `$.command.register`; it reads only the
-  environment variables `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE`, writes none; no network, no
+  `$.fs.read` for that same file, `$.tool.register` and `$.command.register`; `/ctk-doctor` and the
+  status tool additionally call `$.settings.read` and `$.tool.list` and read the teams flag, and
+  keep only derived yes/no facts; the mod reads only the environment variables
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE`, writes none; no network, no
   credentials, no transcript. The status line script reads the JSON on stdin, `.git/HEAD`, the
   repository's git config files (only to decide whether `git status` is safe to run), and runs one
   `git status`.
 - **Validator output (this tree):**
   `calls: $.agent.list, $.clock.now, $.command.register, $.env.get, $.fs.read, $.fs.write,
-  $.session.id, $.session.usage, $.tool.register, $.ui.invalidate, $.ui.resolve`;
-  `env reads: CLAUDE_CONFIG_DIR, HOME, USERPROFILE`; `env writes: nothing`.
+  $.session.id, $.session.usage, $.settings.read, $.tool.list, $.tool.register, $.ui.invalidate,
+  $.ui.resolve`; `env reads: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, CLAUDE_CONFIG_DIR, HOME,
+  USERPROFILE`; `env writes: nothing`. Hooks include `command.run{command=ctk-doctor}`.
 - **Tests:** `plugins/ctk/tests/hud.test.tsx` (band content, 80-column truncation, missing
   figures as dashes, hidden when `hudBand` is false, yields to the survey prompt), stats tests in
   `cap.test.ts`/`policy.test.ts` (file content, throttling, a failing write never affects a spawn,
@@ -260,10 +272,15 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   - uninstall keeps `backups/`, `devices/`, `sync/`, and keeps the whole `ctk/` directory with its
     ledger when any step conflicts or fails, so a re-run can finish;
   - `claude plugin uninstall` deletes the whole `pluginConfigs["ctk@ctk-kit"]` entry; CTK reports
-    user-edited options as removed with the plugin, naming the backup that holds them.
+    user-edited options as removed with the plugin, naming the backup that holds them;
+  - a marketplace with a GitHub source (the native install) is adopted: never re-pointed, removed
+    or reinstalled; `ctk uninstall` and the rollback of an install remove the plugin only if
+    `pluginInstalledByCtk` and the marketplace only if `marketplaceAddedByCtk`; with no ledger,
+    `ctk uninstall` changes nothing and prints the native removal commands.
 - **Tests:** `test/apply.test.ts`, `test/undo.test.ts` (21), `test/install.test.ts` (21),
   `test/update.test.ts`, `test/firstrun.test.ts`, `test/doctor.test.ts`,
-  `test/install.integration.test.ts` (real `claude` in a scratch directory, skipped when absent).
+  `test/install.integration.test.ts` and `test/native-install.integration.test.ts` (real `claude`
+  in a scratch directory, skipped when absent), `test/native.test.ts` (8, adoption), `test/packaging.test.ts`.
   Examples: "uninstall restores settings, removes plugin/marketplace/ctk dir, keeps backups and
   foreign keys", "rollback refuses to overwrite a value the user changed after the transaction",
   "a crash between the ledger save and the settings write is finished by the next run", "a failed
@@ -275,12 +292,55 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   - prune removes non-empty containers: KILLED (5);
   - uninstall removes the ledger despite conflicts: KILLED (3);
   - containers never recorded as absent before: KILLED (8);
-  - `pending` marker ignored on recovery: KILLED (1).
+  - `pending` marker ignored on recovery: KILLED (1);
+  - uninstall removes a plugin CTK did not install: KILLED (1);
+  - a GitHub-source marketplace re-pointed instead of adopted: KILLED (4);
+  - `ctk update` touches a native plugin: KILLED (1);
+  - the stats leftover note dropped from a no-ledger uninstall: KILLED (1).
 - **Live evidence:** install, idempotent re-install, doctor, rollback, uninstall, marketplace
   re-point, disabled plugin, edited script and edited options were each run against the real
-  `claude` 2.1.294 in scratch config directories on macOS.
+  `claude` 2.1.294 in scratch config directories on macOS. So were the native flows: install from
+  GitHub, `ctk install` over it, `ctk update`, `ctk uninstall`, the rollback of an install over a
+  native install (`settings.json` came back to exactly the native state), and the no-ledger uninstall.
 - **Not tested:** a real interruption (kill -9) of `ctk` between the ledger save and the settings
   write; only the simulated crash. Concurrent writes by a running Claude Code. `UNVERIFIED`.
+
+### 5.6a Native install, `/ctk-doctor` and the team preflight
+
+- **Read:** `plugins/ctk/hooks/doctor.ts` (`factsFrom`, `doctorRows`, `formatDoctor`),
+  `gatherFacts` and the `ctk_team_status` handler in `plugins/ctk/hooks/register.tsx`,
+  `plugins/ctk/skills/team/SKILL.md` (step 0 and step 2), `.claude-plugin/marketplace.json`,
+  `src/install/marketplace.ts` (`planMarketplace`), `test/packaging.test.ts`.
+- **Invariants:**
+  - the marketplace at the repository root points at `./plugins/ctk`, whose `plugin.json` version
+    equals `package.json`; the npm package carries exactly the plugin files that are in the repository,
+    except `plugins/ctk/tests/**`, `plugins/ctk/statusline/test/**` and `plugins/ctk/tsconfig.json`;
+  - `/ctk-doctor` writes nothing; a state it could not read is reported `unknown`, not guessed; a flag
+    set to `0` is still an action; task tools are `ok` only when `TaskCreate` is listed, otherwise
+    `unknown`, never `missing`; the cap source is `set in plugin options` only when
+    `pluginConfigs["ctk@..."].options.maxWorkers` exists;
+  - the status tool returns `cap`, `teamsEnabled` and `taskTools` besides the roster; the team skill
+    stops before spawning when `teamsEnabled` is false, and says the cap is off when the tool is absent.
+- **Tests:** `plugins/ctk/tests/doctor.test.ts` (16, simulated host: "teams flag unset is an action row
+  with the exact fix", "a flag set to 0 is still an action", "teams state is unknown, not guessed, when
+  the environment cannot be read", "task tools: not listed is unknown ...", "cap source: set in plugin
+  options", "a flat maxWorkers under the plugin id is not the settings shape and does not count", "it is
+  read-only: nothing is written"); `test/native-install.integration.test.ts` (real `claude`, local
+  directory as the source); `test/packaging.test.ts` ("npm pack ships the marketplace and exactly the
+  plugin files that are in the repo, minus the excluded set").
+- **Mutations:** unreadable flag guessed as "not enabled": KILLED (2); cap source read from the wrong
+  settings shape: KILLED (2); flag value `0` counted as enabled: KILLED (1); `TaskCreate` treated as
+  always listed: KILLED (4).
+- **Not mutation-tested:** the skill text (step 0). No test executes it; it is checked only for the
+  refusal codes and size budgets by `test/contract.test.ts`. The preflight with a live model is
+  `UNVERIFIED`; the maintainers report one recorded run in which a lead skipped the task list while the
+  wording allowed it, and the wording was made unconditional afterwards (Reported; not reproduced here).
+- **Live evidence:** `/ctk-doctor` and `/ctk-stats` through `claude -p` in scratch directories, with and
+  without the teams flag, on a native install from the GitHub repository.
+- **Not verified:** a native install by someone other than the owner from a *public* repository. The
+  repository was private during testing and the add worked through the tester's own ssh credentials.
+  The `/ctk-doctor` cap-source label was verified from the working tree with `--plugin-dir`, not from a
+  GitHub install, because the GitHub copy installed during testing predates that fix.
 
 ### 5.7 Windows and WSL fallback
 
@@ -354,16 +414,20 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 324 tests (31 of them the status line tests), 324 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
-| Plugin tests | PASS | `npm run test:plugin`: 76 pass, 0 fail |
+| Unit and integration tests | PASS | `npm test`: 345 tests (31 of them the status line tests), 345 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Plugin tests | PASS | `npm run test:plugin`: 94 pass, 0 fail (4 files, including `doctor.test.ts`) |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |
 | Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |
 | Real `claude` 2.1.294, macOS: install, idempotent re-install, doctor, rollback, uninstall, re-point, disabled plugin, edited script/options | PASS | run in scratch config directories (see section 4 to repeat) |
 | Mod loads in `claude -p "/ctk-stats"` | PASS | output printed; also with OMC installed beside it |
+| Native install from the GitHub repository (private, via the tester's ssh credentials) in a scratch config: marketplace add, plugin install, `/ctk-doctor`, `/ctk-stats`, `ctk install` over it, `ctk update`, `ctk uninstall`, native removal | PASS | commands and output in [INSTALLATION](INSTALLATION.md) and [ROLLBACK](ROLLBACK.md); plugin cache about 160 KB |
+| Native install with the local repository directory as the marketplace | PASS | `test/native-install.integration.test.ts` (real `claude`) |
+| Native install of a **public** repository by someone other than the owner | **UNVERIFIED** | until the repository is public |
+| `/plugin configure ctk@ctk-kit` (interactive) and a real version bump through `/plugin update` | UNVERIFIED | `--config KEY=VALUE` at install was run |
 | npm tarball install (`--prefix`) and install from it | PASS | `npm pack`, `npm install --prefix`, `ctk install`, plugin loaded |
 | Documentation consistency | PASS | `test/docs.test.ts`, part of `npm test` |
-| Mutation checks | PARTIAL | 30 single-line mutations: 28 KILLED, 2 SURVIVED (5.8: the `GIT_EXTERNAL_DIFF` half of the scrub, a guard that cannot be observed; the `core.fsmonitor=false` override, defence in depth behind the repo-config gate). Three earlier survivors (5.1 early reservation, 5.5 `ext` transport, 5.8 `GIT_DIR` scrub) were pinned by new tests and re-run: now killed. |
+| Mutation checks | PARTIAL | 38 single-line mutations: 36 KILLED, 2 SURVIVED (5.8: the `GIT_EXTERNAL_DIFF` half of the scrub, a guard that cannot be observed; the `core.fsmonitor=false` override, defence in depth behind the repo-config gate). Three earlier survivors (5.1 early reservation, 5.5 `ext` transport, 5.8 `GIT_DIR` scrub) were pinned by new tests and re-run: now killed. |
 | CI on GitHub, commit f4b9a13: tests on ubuntu, macos and windows x Node 22 and 24; plugin validate `--strict` and plugin test on ubuntu, macos and windows; pack audit | PASS (10 of 10 jobs, 2026-10-08 UTC) | [https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991). Earlier runs failed on Windows and found real bugs (section 5a). The repository was private during these runs; they used GitHub-hosted runners only, with Claude Code from npm `latest` at the time. |
 | Hard cap against real concurrent spawns | UNVERIFIED (independently) | Reported by the maintainers: 6 concurrent, 3 started, 3 refused, on 2.1.294; simulated-host tests pass |
 | `/ctk:team` on a real task with live agents | UNVERIFIED | skill text and cap checked separately |
@@ -381,18 +445,21 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 ## 7. Known limitations
 
 See [LIMITATIONS](LIMITATIONS.md) for the full list with evidence levels. The ones that change a
-decision: the cap exists only while the mod loads (check with `claude -p "/ctk-stats"`); Agent Teams
-are experimental and one team per session; effort cannot be set from a profile; there is no
-per-worker cost; the install directory must stay in place.
+decision: the cap exists only while the mod loads (check with `/ctk-doctor` or `claude -p "/ctk-stats"`);
+Agent Teams are experimental, one team per session, and a native install does not turn them on; effort
+cannot be set from a profile; there is no per-worker cost; with the CLI's local install the directory
+must stay in place.
 
 ## 8. Unresolved issues
 
 - Two mutation survivors (section 5.8) have no test, for the reasons given there.
+- The CI run in section 6 is for commit f4b9a13. It predates the move to `plugins/ctk`, the native install
+  and this round of changes; a later run is not recorded here.
 - `ctk doctor`'s onboarding check passes after `ctk install` on a directory where `claude` was
   never launched (any `claude plugin` command creates `.claude.json`).
 - The next-step lines (`Try: /ctk:team <goal>`) print after a no-change install even when the
   plugin was left disabled.
-- Undo output says `restored <key>` for a key it deleted because it did not exist before.
-- Backups are never pruned and `stats/` is deleted by uninstall without a copy.
-- `test/demo-render.test.ts` failed once in this session with a tmux timing mismatch.
-- The CI row in section 6 is unfilled until the first GitHub Actions run.
+- Backups are never pruned. `stats/` is deleted by `ctk uninstall` without a copy, and survives a native uninstall.
+- After a native uninstall, `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects.
+- The `team` skill's preflight and task-list wording are not exercised by any automated test.
+- `test/demo-render.test.ts` failed once in an earlier session with a tmux timing mismatch.
