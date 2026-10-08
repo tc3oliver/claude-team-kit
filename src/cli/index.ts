@@ -202,9 +202,14 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
         }
         default: {
           const r = await uninstall(ctx)
-          const head = ctx.dryRun ? 'would uninstall ctk' : r.removedDir ? `uninstalled ctk (backups kept in ${ctx.paths.backupsDir})` : 'uninstall incomplete'
+          const head = {
+            nothing: 'nothing to uninstall: ctk owns nothing here',
+            planned: 'would uninstall ctk',
+            removed: `uninstalled ctk (backups kept in ${ctx.paths.backupsDir})`,
+            incomplete: 'uninstall incomplete',
+          }[r.status]
           const lines = [head, ...undoLines(r.report)]
-          return { code: r.code, data: { ...r.report, removedDir: r.removedDir }, lines }
+          return { code: r.code, data: { ...r.report, removedDir: r.removedDir, status: r.status }, lines }
         }
       }
     })()

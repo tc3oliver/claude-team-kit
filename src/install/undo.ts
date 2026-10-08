@@ -236,11 +236,14 @@ const noLedgerNotes = (ctx: Ctx): string[] => {
   ]
 }
 
-export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: boolean }> => {
+/** nothing = no ledger, ctk owns nothing; removed = done; incomplete = a step failed or conflicts remain (ledger kept); planned = dry-run. */
+export type UninstallStatus = 'nothing' | 'removed' | 'incomplete' | 'planned'
+
+export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: boolean; status: UninstallStatus }> => {
   readSettings(ctx.paths.settings)
   const ledger = loadLedger(ctx)
   if (!ledger) {
-    return { code: 0, undone: [], removedDir: false, report: { reverted: [], removed: [], conflicts: [], notes: noLedgerNotes(ctx) } }
+    return { code: 0, undone: [], removedDir: false, status: 'nothing', report: { reverted: [], removed: [], conflicts: [], notes: noLedgerNotes(ctx) } }
   }
   const changes: EntryChange[] = []
   const inCtkDir: FileEntry[] = []
@@ -265,13 +268,13 @@ export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: bo
     const cur = currentHash(e.path)
     if (cur !== null && cur !== e.sha256) report.conflicts.push({ key: e.path, reason: 'edited since CTK wrote it; kept' })
   }
-  if (ctx.dryRun) return { code: report.conflicts.length > 0 ? 2 : 0, undone: [], report, removedDir: false }
+  if (ctx.dryRun) return { code: report.conflicts.length > 0 ? 2 : 0, undone: [], report, removedDir: false, status: 'planned' }
   if (report.conflicts.length > 0) {
     // Keep the ledger so a re-run can finish what failed or was left for the user to resolve.
     saveLedger(ctx, ledger)
     report.notes.push(`${ctx.paths.ctk} was kept (ledger included); resolve the conflicts above and run "ctk uninstall" again`)
-    return { code: 2, undone: [], report, removedDir: false }
+    return { code: 2, undone: [], report, removedDir: false, status: 'incomplete' }
   }
   for (const kept of wipeCtkDir(ctx)) report.notes.push(`kept ${kept} (your device overrides / sync clone); delete it by hand if you no longer need it`)
-  return { code: 0, undone: [], report, removedDir: true }
+  return { code: 0, undone: [], report, removedDir: true, status: 'removed' }
 }

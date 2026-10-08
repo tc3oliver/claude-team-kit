@@ -9,7 +9,7 @@ export const TEAMS_FIX = `Add {"env":{"${TEAMS_FLAG}":"1"}} to ~/.claude/setting
 
 export type Facts = {
   maxWorkers: number
-  /** Whether a plugin option for the cap is set in settings; null when settings could not be read. */
+  /** Whether settings hold /pluginConfigs/ctk@…/options/maxWorkers; null when settings could not be read. */
   capFromSettings: boolean | null
   /** Null when neither the process environment nor settings could be read. */
   teamsEnabled: boolean | null
@@ -44,7 +44,9 @@ export const factsFrom = ({ opts, envFlag, settings, toolNames }: Inputs): Facts
     capFromSettings:
       settings === null
         ? null
-        : Object.entries(pluginConfigs ?? {}).some(([k, v]) => (k === 'ctk' || k.startsWith('ctk@')) && record(v)?.maxWorkers !== undefined),
+        : Object.entries(pluginConfigs ?? {}).some(
+            ([k, v]) => (k === 'ctk' || k.startsWith('ctk@')) && record(record(v)?.options)?.maxWorkers !== undefined,
+          ),
     teamsEnabled: raw !== undefined ? truthy(raw) : envFlag !== null ? false : null,
     taskTools: toolNames?.includes('TaskCreate') ? true : null,
     toolListRead: toolNames !== null,

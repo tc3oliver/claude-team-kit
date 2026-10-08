@@ -265,7 +265,9 @@ export const register: Register = (on, options) => {
       teamsEnabled: facts.teamsEnabled,
       taskTools: facts.taskTools,
     }
-    return { result: { content: [{ type: 'text', text: JSON.stringify(status) }], isError: false } }
+    // Claude Code validates a registered tool's result as a string or an array of content
+    // blocks; an MCP-style { content, isError } object is rejected (verified on 2.1.294).
+    return { result: JSON.stringify(status) }
   })
 
   on('command.run', { command: 'ctk-stats' }, async ($, e, next) => {

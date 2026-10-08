@@ -114,6 +114,8 @@ test('ctk uninstall without a ledger says ctk owns nothing, how to remove a nati
   const code = await main(['uninstall', '--config-dir', e.ctx.configDir], { out: l => out.push(l), err: l => out.push(l), env: e.ctx.env, cwd: e.dir, claudeBin: e.stub })
   assert.equal(code, 0)
   const text = out.join('\n')
+  assert.equal(out[0], 'nothing to uninstall: ctk owns nothing here')
+  assert.ok(!/incomplete/.test(text))
   assert.match(text, /no ledger: ctk owns nothing here and changed nothing/)
   assert.match(text, /\/plugin uninstall ctk@ctk-kit \(and \/plugin marketplace remove ctk-kit\)/)
   assert.ok(text.includes(e.ctx.paths.statsDir))

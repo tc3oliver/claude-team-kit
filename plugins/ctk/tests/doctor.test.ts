@@ -4,7 +4,7 @@ import type { Engine } from 'claude-code/testing'
 
 import { TEAMS_FIX } from '../hooks/doctor.ts'
 import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh } from './world.ts'
+import { engine, fresh, statusOf } from './world.ts'
 import type { EngineOptions, World } from './world.ts'
 
 const FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
@@ -62,13 +62,18 @@ describe('ctk-doctor', () => {
   })
 
   test('cap source: set in plugin options', async ($, on) => {
-    setup(on, { settings: { pluginConfigs: { 'ctk@ctk-kit': { maxWorkers: 3 } } } })
+    setup(on, { settings: { pluginConfigs: { 'ctk@ctk-kit': { options: { maxWorkers: 3 } } } } })
     expect(row(await doctor($), 'cap')).toBe('[ok]     cap: 3 live teammates (set in plugin options)')
   })
 
   test('cap in force is the configured value', { options: { maxWorkers: 5 } }, async ($, on) => {
-    setup(on, { settings: { pluginConfigs: { other: { maxWorkers: 9 } } } })
+    setup(on, { settings: { pluginConfigs: { other: { options: { maxWorkers: 9 } }, 'ctk@ctk-kit': { options: { hudBand: false } } } } })
     expect(row(await doctor($), 'cap')).toBe('[ok]     cap: 5 live teammates (default)')
+  })
+
+  test('a flat maxWorkers under the plugin id is not the settings shape and does not count', async ($, on) => {
+    setup(on, { settings: { pluginConfigs: { 'ctk@ctk-kit': { maxWorkers: 3 } } } })
+    expect(row(await doctor($), 'cap')).toBe('[ok]     cap: 3 live teammates (default)')
   })
 
   test('cap source is not checked when settings cannot be read', async ($, on) => {
@@ -112,7 +117,7 @@ describe('ctk-doctor', () => {
 })
 
 describe('ctk_team_status preflight fields', () => {
-  const status = async ($: Engine) => JSON.parse(((await $.tool.call({ tool: STATUS_TOOL })) as any).result.content[0].text)
+  const status = async ($: Engine) => statusOf(await $.tool.call({ tool: STATUS_TOOL }))
 
   test('teamsEnabled and taskTools are true when both are readable and present', async ($, on) => {
     setup(on, { tools: ['TaskCreate'] }, { env: { [FLAG]: '1' } })

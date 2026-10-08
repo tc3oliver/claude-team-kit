@@ -158,3 +158,17 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
   })
   return clock
 }
+
+/**
+ * Parses a tool.call answer of the status tool the way the engine accepts it. The test kit
+ * does not validate a hook's result, but Claude Code rejects anything but a string or an
+ * array of content blocks for a registered tool (checked on 2.1.294 against the real
+ * engine), so the shape is asserted here.
+ */
+export const statusOf = (r: unknown): any => {
+  const result = (r as { result?: unknown }).result
+  const isBlock = (b: unknown) => typeof b === 'object' && b !== null && typeof (b as { type?: unknown }).type === 'string'
+  const valid = typeof result === 'string' || (Array.isArray(result) && result.every(isBlock))
+  if (!valid) throw new Error(`status tool result is not a string or content blocks: ${JSON.stringify(result)}`)
+  return JSON.parse(typeof result === 'string' ? result : String((result as { text?: unknown }[])[0]?.text))
+}

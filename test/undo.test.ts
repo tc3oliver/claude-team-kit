@@ -350,3 +350,40 @@ test('uninstall and rollback remove the task-tools key and the env container ctk
     if (how === 'rollback') assert.ok(r.report.notes.some(n => n.startsWith('profile layer still sets claude.enableTaskTools')))
   }
 })
+
+test('uninstall headlines: removed, would uninstall, nothing to uninstall, and incomplete only for a failed step', async t => {
+  const e = makeEnv(t)
+  const none = await router(e, ['uninstall'])
+  assert.equal(none.code, 0)
+  assert.equal(none.out[0], 'nothing to uninstall: ctk owns nothing here')
+  assert.ok(!none.out.join('\n').includes('incomplete'))
+  assert.equal((await router(e, ['uninstall', '--dry-run'])).out[0], 'nothing to uninstall: ctk owns nothing here')
+
+  await runInstall(e.ctx, flags, e.root)
+  const dry = await router(e, ['uninstall', '--dry-run'])
+  assert.equal(dry.out[0], 'would uninstall ctk')
+  const done = await router(e, ['uninstall'])
+  assert.equal(done.code, 0)
+  assert.match(done.out[0] as string, /^uninstalled ctk \(backups kept in /)
+
+  const f = makeEnv(t, {}, { STUB_FAIL: 'uninstall' })
+  await runInstall(f.ctx, flags, f.root)
+  const failed = await router(f, ['uninstall'])
+  assert.equal(failed.code, 2)
+  assert.equal(failed.out[0], 'uninstall incomplete')
+  const json = JSON.parse((await router(f, ['uninstall', '--json'])).out.join('\n'))
+  assert.equal(json.status, 'incomplete')
+})
+
+test('rollback with nothing to roll back says so, exits 0, and claims no rollback', async t => {
+  const e = makeEnv(t)
+  for (const setup of [false, true]) {
+    if (setup) {
+      await runInstall(e.ctx, flags, e.root)
+      assert.equal((await router(e, ['rollback'])).code, 0)
+    }
+    const r = await router(e, ['rollback'])
+    assert.equal(r.code, 0)
+    assert.deepEqual(r.out, ['nothing to roll back'])
+  }
+})

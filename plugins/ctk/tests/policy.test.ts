@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, norm, spawnInput } from './world.ts'
+import { engine, fresh, norm, spawnInput, statusOf } from './world.ts'
 
 const STATS = '/cfg/ctk/stats/sess_1.json'
 
@@ -240,7 +240,7 @@ describe('status tool and command', () => {
     for (let i = 0; i < 4; i++) await $.agent.spawn(spawnInput(i))
     w.agents[0]!.status = 'idle'
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
-    const status = JSON.parse(r.result.content[0].text)
+    const status = statusOf(r)
     expect(status).toEqual({
       live: 3,
       max: 3,
@@ -261,7 +261,7 @@ describe('status tool and command', () => {
     const w = fresh()
     engine(on, w, undefined, { listFails: true })
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
-    expect(JSON.parse(r.result.content[0].text)).toMatchObject({ live: null, workers: [] })
+    expect(statusOf(r)).toMatchObject({ live: null, workers: [] })
   })
 
   test('ctk-stats labels counted vs measured and admits no per-worker cost', async ($, on) => {
@@ -277,5 +277,22 @@ describe('status tool and command', () => {
     expect(out.text).toContain('cost: $0.42  context: 42%  5h limit: –  7d limit: –')
     expect(out.text).toContain('worker models: sonnet×1')
     expect(out.text).toContain('per-worker cost: not available from Claude Code')
+  })
+})
+
+describe('status tool result shape', () => {
+  test('the result is a plain string of JSON, never an MCP-style object', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    const r: any = await $.tool.call({ tool: STATUS_TOOL })
+    expect(typeof r.result).toBe('string')
+    expect(Object.keys(JSON.parse(r.result)).sort()).toEqual(
+      ['accepted', 'cap', 'live', 'max', 'rejected', 'taskTools', 'teamsEnabled', 'workers'],
+    )
+  })
+
+  test('statusOf rejects the shape Claude Code refused', () => {
+    const mcpStyle = { result: { content: [{ type: 'text', text: '{}' }], isError: false } }
+    expect(() => statusOf(mcpStyle)).toThrow(/not a string or content blocks/)
   })
 })
