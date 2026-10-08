@@ -23,7 +23,7 @@ a frame-by-frame capture of the real terminal. Four still frames come from the s
 
 The recorder was told to watch and not to intervene, with two exceptions: it presses Enter on a
 permission prompt (and lists each press in the metadata line), and it kills the session if more than
-three workers are busy or the status line shows a cost of $10 or more. Neither guard triggered.
+three workers are busy or the status line shows a cost of $10 or more (the recipe has since been tightened to $2; Runs A and B and attempt 1 all stayed under $1). Neither guard triggered.
 
 ## What the recording shows
 
@@ -67,7 +67,7 @@ with idle gaps capped at 2 s, so the playback is about 40 s.
 - **Input box suggestions.** The grey text in the input box (`fix the rle digit bug`, `/ctk:review`, `run npm test`)
   is Claude Code's own prompt suggestion. The recorder typed only the three inputs listed above, plus `/exit`.
 - **Masks.** Account name, email, organisation id, login name and plan name were replaced at capture time
-  (68 replacements); the metadata line lists these categories, not the strings. The plan name appears as `Claude plan`.
+  (68 replacements); the metadata line lists these categories, not the strings. The recorder's cost guard in `team-demo.sh` stops a session at `$2.00` or more, or when more than three teammates are busy. The plan name appears as `Claude plan`.
 - **Frames.** The frames file keeps only screens that changed. Playback caps idle gaps (and the GIF and MP4 merge
   frames closer than 100 ms); no frame is invented or edited.
 - **After the result.** The recorder waited 3 s after the lead's report (once the status line had shown no busy
@@ -105,6 +105,66 @@ metadata line was extended to say it is not the published run), and
 The two attempts therefore differ in more than the cap: the same prompt gave 44 tests with one `todo` in one run
 and 51 tests with four failing in the other. The model's choices vary from run to run.
 
+## Run B: the same session with the task list enabled
+
+Run A had no task events because Claude Code leaves the task tools out on Sonnet 5.5 by default. Run B is a
+new, separately authorised run (not a retry) that turns them on through CTK's own opt-in, then repeats Run A.
+Files: [`team-demo-b.svg`](assets/team-demo-b.svg), [`team-demo-b.gif`](assets/team-demo-b.gif),
+[`team-demo-b.mp4`](assets/team-demo-b.mp4), [`team-demo-b.frames.jsonl`](assets/team-demo-b.frames.jsonl) and
+the stills [workers](assets/team-demo-b-workers.svg), [permission prompt](assets/team-demo-b-approval.svg),
+[lead's report](assets/team-demo-b-summary.svg) and [`/ctk-stats`](assets/team-demo-b-stats.svg).
+
+**Setup.** `ctk config set claude.enableTaskTools true` on the dedicated config dir; `ctk doctor` then reported
+`task-tools: Task tools are on (CLAUDE_CODE_ENABLE_TODO_TOOLS is set)` and `settings.json` contained
+`CLAUDE_CODE_ENABLE_TODO_TOOLS=1` next to the agent teams flag. Everything else is as in Run A: a fresh copy of the
+fixture, the same typed prompt, `claude --model sonnet`, the same masks and allow rules, and the same limits
+(10 minutes, kill above 8 teammates). Two differences: `npm` is on the session's `PATH` this time, and the
+recording was made from a clean tree, commit `ee0a69c` (the metadata line has no `-dirty`). The plugin sources
+were still at `plugin/ctk` then; the directory was renamed to `plugins/ctk` in a later commit, after the recording.
+One attempt, so no attempt was discarded.
+
+**What the frames show.**
+
+- **Task tools: enabled, but not used.** The lead did not use the task tools even though they were enabled. No `TaskCreate`, `TaskUpdate` or `blockedBy` appears anywhere on screen. The status line
+  never showed a tasks segment, and `/ctk-stats` printed `tasks created/completed: – (no task event seen)`, as in Run A.
+  The lead's text mentions only "five independent module slices with no dependencies between them" and "queue
+  slugify and wordcount"; the word "task" does not otherwise come up in its messages.
+- **Were the tools available?** A probe run after the recording, with the same config (Sonnet, `-p`, asked to list
+  tools named `Task…` or `SendMessage`), returned `TaskCreate`, `TaskGet`, `TaskList`, `TaskStop`, `TaskUpdate` and
+  `SendMessage`. So with the opt-in on, the tools exist for a Sonnet session. The probe ran after the plugin
+  directory had been moved in the working tree, and it no longer listed `mcp__ctk__ctk_team_status`, so the
+  plugin may not have loaded in the probe; treat it as indicative, not as proof about the recorded session.
+- **Against the skill text.** The `team` skill at that commit says: if `TaskCreate` is in the tool list, create one
+  task per slice and add real dependencies with `addBlockedBy`; otherwise say so in one line and keep a numbered
+  list. The recording shows the lead doing neither visibly: no task creation, and no one-line statement about the
+  task list. This contradicts the skill text as written.
+- **Workers and cap.** Three workers started at 16 s to 18 s (`w-caesar`, `w-rle`, `w-roman`, all `ctk:implementer`
+  on `claude-sonnet-5-5`); the status line peaked at `team 3 busy`. The lead did not try to start a fourth: it gave
+  `slugify` to `w-caesar` and `wordcount` to `w-roman` through messages as they finished. `/ctk-stats`:
+  `teammate spawns: 3 accepted, 0 refused at capacity, 0 failed closed`, `peak live teammates: 3 (cap 3); now 0`.
+  **No refusal occurred in Run B**, so there is no refusal frame; the only live refusal is in attempt 1 above.
+- **Permission prompt.** One worker asked to run `node --test test/rle.test.js …; node -e "…"`, not covered by the
+  allow rules; the recorder pressed Enter once, at 42.2 s ("1. Yes", once). It is in the metadata.
+- **Results.** The lead ran the full suite itself and reported "npm test ran 49 tests: 48 pass and 0 fail", the 49th
+  being the `rle` digit round-trip test marked `todo`. Per file: caesar 9, rle 10 (9 pass, 1 todo), roman 10,
+  slugify 9, wordcount 11. Running `npm test` on the result afterwards gave the same: 49 tests, 48 pass, 0 fail, 1 todo.
+  The lead also listed things the tests left unasserted (`fromRoman` accepting `IIII` and `IC` and giving `NaN`
+  for other input, apostrophes counted as word characters in `wordcount`, Japanese text slugifying to an empty
+  string) and shut the workers down. Nothing was committed.
+- **Cost and time.** 89 s of wall clock; `$0.78` on the status line and in `/ctk-stats`, context 5 %.
+- **Oddities.** The input box shows Claude Code's own prompt suggestions (`spawn the remaining two workers`,
+  `/ctk:review`), not recorder input. The `done` count in the status line stayed 0 again.
+- **Post-capture mask.** The banner of this run carried an account promotion line ("guest passes", on 60 frames).
+  It was not in the mask list at capture time, so it was removed afterwards with `scripts/demo/mask-frames.mjs`: the
+  line is blank in every frame, and the metadata line says `maskedAfterCapture: ["promotional banner line"]`.
+  Frame count, timing and every other line are unchanged, and the SVG, GIF and MP4 were rendered again from the
+  masked frames. The line does not appear in Run A or in attempt 1, so those files were not touched.
+
+**Reading.** Enabling the task tools through the opt-in works at the configuration level (the doctor check, the
+environment variable and the probe agree), but in this run it did not change what the lead did: it coordinated
+with messages and worker reuse exactly as in Run A. One run says nothing about how often a lead would use the task
+list; it does show that turning the tools on is not enough to make a Sonnet lead follow the skill's task-list step.
+
 ## Reproduce
 
 `scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config
@@ -114,6 +174,7 @@ dedicated config dir and a masks file, and it spends real money (this run cost u
 
 ```sh
 CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all
+CTK_DEMO_RUN=b CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run B
 ```
 
 The model is not deterministic: another run will split the work differently, may spawn more or fewer workers,

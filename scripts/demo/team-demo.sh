@@ -6,6 +6,13 @@
 #
 #   CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh [prepare|record|render|all]
 #
+# CTK_DEMO_RUN=b reproduces "Run B": the same session with the task list enabled through CTK's opt-in
+# (`ctk config set claude.enableTaskTools true`); its files are docs/assets/team-demo-b.*. Without it the
+# files are docs/assets/team-demo.* (Run A, task tools left at Claude Code's default).
+#
+# The recorder kills the session if more than 3 teammates are busy or the status line shows a cost of
+# $2.00 or more (test/demo-render.test.ts checks the pattern).
+#
 # One-time, by hand (first-run screens cannot be scripted safely): run
 #   CLAUDE_CONFIG_DIR=<dedicated config dir> claude
 # in /tmp/ctk-demo/wordkit (after `prepare`), log in, pick a theme, press Enter on the security
@@ -18,6 +25,8 @@ DEMO=${CTK_DEMO_DIR:-/tmp/ctk-demo}          # short paths keep personal paths o
 CLAUDE_REAL=${CTK_DEMO_CLAUDE:-$HOME/.local/bin/claude}   # the binary, never a shell alias
 ASSETS=$ROOT/docs/assets
 STAGE=${1:-all}
+RUN=${CTK_DEMO_RUN:-a}
+if [ "$RUN" = b ]; then PREFIX=team-demo-b; else PREFIX=team-demo; fi
 CFG=$DEMO/config
 SESSION_PATH=$DEMO/bin:/usr/bin:/bin
 
@@ -59,6 +68,7 @@ prepare() {
 
   session_env "$DEMO/bin/claude" auth status | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!d.loggedIn){console.error("team-demo: the demo config is not logged in");process.exit(1)}'
   ( cd "$DEMO/work" 2>/dev/null || { mkdir -p "$DEMO/work"; cd "$DEMO/work"; }; session_env "$DEMO/bin/ctk" install )
+  if [ "$RUN" = b ]; then ( cd "$DEMO/work" && session_env "$DEMO/bin/ctk" config set claude.enableTaskTools true && session_env "$DEMO/bin/ctk" doctor | grep task-tools ); fi
   # Allow rules so the lead and its workers are not stopped by prompts; CTK's own keys stay untouched.
   node -e '
     const fs = require("fs"), p = process.argv[1] + "/settings.json"
@@ -74,25 +84,28 @@ record() {
   local masks=()
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
-    --out "$ASSETS/team-demo.frames.jsonl" --cols 120 --rows 34 \
+    --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows 34 \
     --cwd "$DEMO/wordkit" --home "$DEMO/home" --path "$SESSION_PATH" --claude-bin "$DEMO/bin/claude" \
     --script "$ROOT/scripts/demo/team-demo.script.json" \
     --model 'Sonnet 5.5 lead (claude --model sonnet); workers by ctk roles' \
-    --meta "attempts=${CTK_DEMO_ATTEMPTS:-1}" \
-    --approve '❯ 1\. Yes' --abort-on '(?:[4-9]|\d{2,}) busy|· \$\d{2,}\.\d\d' \
+    --meta "attempts=${CTK_DEMO_ATTEMPTS:-1}" --meta "run=$RUN" \
+    --approve '❯ 1\. Yes' --abort-on '(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}' \
     --idle 180000 --limit 600000 --interval 250 --slow-interval 1000 \
     "${masks[@]}" -- "$DEMO/bin/claude" --model sonnet
 }
 
 render() {
-  local f=$ASSETS/team-demo.frames.jsonl
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --out "$ASSETS/team-demo.svg" --target-seconds 40 --max-gap 2 --title 'ctk team: one real session'
+  local f=$ASSETS/$PREFIX.frames.jsonl
+  # the lead's closing words differ per run; pick the frame that shows them with the status line
+  local summary='Crunched for[\s\S]*team 0 busy'
+  [ "$RUN" = b ] && summary='Run /ctk:review if you want[\s\S]*team 0 busy'
+  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 40 --max-gap 2 --title 'ctk team: one real session'
   # key frames, picked from the real recording by what is on screen
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/team-demo-workers.svg" --at-regex 'team 3 busy .*\n[\s\S]*◯ w-roman' --title 'ctk team: workers running'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/team-demo-approval.svg" --at-regex 'Do you want to proceed' --title 'ctk team: a worker asks to run a command'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/team-demo-summary.svg" --at-regex 'Crunched for[\s\S]*team 0 busy' --title 'ctk team: the lead reports'
-  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/team-demo-stats.svg" --at-regex 'per-worker cost: not available' --title 'ctk team: /ctk-stats'
-  node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video" --gif "$ASSETS/team-demo.gif" --mp4 "$ASSETS/team-demo.mp4" --target-seconds 40 --title 'ctk team: one real session'
+  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex 'team 3 busy .*\n[\s\S]*◯ w-roman' --title 'ctk team: workers running'
+  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-approval.svg" --at-regex 'Do you want to proceed' --title 'ctk team: a worker asks to run a command'
+  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-summary.svg" --at-regex "$summary" --title 'ctk team: the lead reports'
+  node "$ROOT/scripts/demo/render-svg.mjs" "$f" --static-out "$ASSETS/$PREFIX-stats.svg" --at-regex 'per-worker cost: not available' --title 'ctk team: /ctk-stats'
+  node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video-$RUN" --gif "$ASSETS/$PREFIX.gif" --mp4 "$ASSETS/$PREFIX.mp4" --target-seconds 40 --title 'ctk team: one real session'
 }
 
 case $STAGE in

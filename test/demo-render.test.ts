@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import type { TestContext } from 'node:test'
 
+import { maskFramesText } from '../scripts/demo/mask-frames.mjs'
 import { assertScratchConfigDir } from '../scripts/demo/record.mjs'
 import { cellWidth, color256, escapeXml, findFrame, parseAnsiLine, parseFrames, plainText, renderAnimatedSvg, renderStaticSvg, wrapCells } from '../scripts/demo/render-svg.mjs'
 import type { Frame } from '../scripts/demo/render-svg.mjs'
@@ -267,4 +268,26 @@ test('record masks text at capture time, lists labels not patterns, and aborts o
   const aborted = run(['--abort-on', 'STOP-NOW'], 'echo STOP-NOW; sleep 20')
   assert.equal(aborted.r.status, 4, aborted.r.stderr)
   assert.equal(parseFrames(readFileSync(aborted.out, 'utf8')).meta.stopReason, 'abort')
+})
+
+test('team-demo.sh guard: aborts at a cost of $2.00 or more or more than 3 busy teammates, not at $0.78', () => {
+  const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
+  const pattern = /--abort-on '([^']+)'/.exec(script)?.[1]
+  assert.ok(pattern, 'team-demo.sh passes --abort-on')
+  const guard = new RegExp(pattern)
+  for (const hit of ['· $2.00', '· $12.40', 'team 4 busy · 0 idle', 'team 12 busy']) assert.match(hit, guard, hit)
+  for (const miss of ['· $0.78', '· $1.99 ·', 'team 3 busy · 0 idle · 0 done / cap 3 · models x×3 · $0.78 · 1m', 'team 0 busy']) assert.doesNotMatch(miss, guard, miss)
+})
+
+test('mask-frames applies masks after capture and says so in the meta line', () => {
+  const src = [JSON.stringify({ meta: { masked: ['email'] } }), JSON.stringify({ t: 0, text: 'a\nPROMO line here\nb' }), JSON.stringify({ t: 5, text: 'no match' })].join('\n') + '\n'
+  const out = maskFramesText(src, [{ match: '[^\\n]*PROMO[^\\n]*', replace: '', label: 'promotional banner line' }])
+  assert.ok(out)
+  const { meta, frames } = parseFrames(out)
+  assert.deepEqual(meta.maskedAfterCapture, ['promotional banner line'])
+  assert.equal(meta.maskedAfterCaptureReplacements, 1)
+  assert.deepEqual(meta.masked, ['email'])
+  assert.deepEqual(frames.map(f => f.t), [0, 5])
+  assert.equal(frames[0]?.text, 'a\n\nb', 'the line is blanked, the frame keeps its shape')
+  assert.equal(maskFramesText(src, [{ match: 'nothing-here', replace: 'x' }]), null)
 })

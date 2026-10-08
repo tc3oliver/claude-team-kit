@@ -116,6 +116,14 @@ function validateScript(steps) {
   return steps
 }
 
+/** Compiles mask specs [{match, replace, label}] into the form the recorder applies. */
+export function compileMasks(specs) {
+  return specs.map(s => {
+    if (typeof s.match !== 'string' || typeof s.replace !== 'string') throw new Error('mask needs string "match" and "replace"')
+    return { one: new RegExp(s.match), all: new RegExp(s.match, 'g'), replace: s.replace, label: s.label ?? 'masked text' }
+  })
+}
+
 /** Builds the capture-time masks from --mask and --mask-file. */
 function loadMasks(o) {
   const specs = o.mask.map(m => {
@@ -124,10 +132,7 @@ function loadMasks(o) {
     return { match: m.slice(0, at), replace: m.slice(at + 1), label: 'masked text' }
   })
   if (o.maskFile) specs.push(...JSON.parse(readFileSync(o.maskFile, 'utf8')))
-  return specs.map(s => {
-    if (typeof s.match !== 'string' || typeof s.replace !== 'string') throw new Error('mask needs string "match" and "replace"')
-    return { one: new RegExp(s.match), all: new RegExp(s.match, 'g'), replace: s.replace, label: s.label ?? 'masked text' }
-  })
+  return compileMasks(specs)
 }
 
 function gitInfo(root) {

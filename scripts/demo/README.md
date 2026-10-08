@@ -69,7 +69,10 @@ For a real, paid session (`team-demo.sh`) the recorder has a few more options:
   presses Enter, at most once every 2 s. Every approval is listed in the meta line as
   `permissionApprovals` with its time, so the recording discloses that a human-equivalent approval was needed.
 - `--abort-on REGEX`: kills the session at once if the screen matches, exit code 4 (a spend or
-  spawn-count guard, for example `(?:[4-9]|\d{2,}) busy|· \$\d{2,}\.\d\d`).
+  spawn-count guard, for example `(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}`, which is what `team-demo.sh` uses).
+- `mask-frames.mjs file.frames.jsonl --mask-file masks.json` applies masks to an existing recording when something
+  personal is noticed afterwards. The meta line then carries `maskedAfterCapture` (labels) and
+  `maskedAfterCaptureReplacements`; frame structure and timing are untouched. Re-render the SVG, GIF and MP4 afterwards.
 - `--slow-interval MS`: after the first 15 s, and whenever no key was sent for 3 s, sample at this
   slower rate. A ten-minute Claude Code session at 250 ms is tens of megabytes of frames.
 - Script steps accept `stable: ms` next to `waitFor`: the condition must hold without a break for that long.
