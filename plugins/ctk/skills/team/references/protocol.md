@@ -38,5 +38,18 @@ or `ctk:high-risk-reviewer`. Models come from plugin options; do not pass `model
 
 ## Conflicts
 
-Two workers touching one file: stop the second, narrow its scope, or rerun it with
-`isolation: worktree`. Merge worktree results yourself and rerun verification.
+Two workers touching one file: stop the second, narrow its scope, or hold it until the first is done
+(`addBlockedBy`). Do not use `isolation: worktree` for team workers: Claude Code starts a named agent that
+passes `isolation` as an ordinary subagent, not a teammate (seen live on 2.1.295), so it is outside the team
+and outside the cap, and `ctk_team_status` may not list it. If the user asks for worktree isolation anyway,
+say that those workers are not limited by CTK, and count them yourself.
+
+## Failures and retries
+
+| Situation | Action |
+|---|---|
+| Worker reports failure or an error | Read the report. One retry: same worker with the failure, or another idle worker |
+| Second failure of the same task | Stop. Mark it blocked; do it yourself or ask the user |
+| Worker silent for long | Message it once; if still silent, treat it as failed |
+| Spawn refused | Keep the task pending. Retry only after a teammate finishes or goes idle, never in a loop |
+| Task already has an owner | Do not assign it to another worker unless that owner failed or exited |

@@ -7,7 +7,7 @@ import type { StatsRecord } from '../shared/stats.ts'
 import { BAND_MARGIN, formatBand, formatSummary } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
-import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, measuredOf, routed, snapshotOf, STATUS_TOOL_NAME } from './team.ts'
+import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, measuredOf, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME } from './team.ts'
 import type { Snapshot } from './team.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
@@ -109,7 +109,7 @@ async function persist($: EngineInterface, c: Ctx, force = false) {
 }
 
 // Re-reads the roster and usage, then redraws the band and writes stats. Never throws.
-async function refresh($: EngineInterface, c: Ctx) {
+async function refresh($: EngineInterface, c: Ctx, write = true) {
   try {
     const [agents, usage, now, model] = await Promise.all([
       $.agent.list().catch(() => null),
@@ -127,7 +127,7 @@ async function refresh($: EngineInterface, c: Ctx) {
   } catch {
     // Band and stats are best effort.
   }
-  await persist($, c)
+  if (write) await persist($, c)
 }
 
 // Whether the CTK status line is the configured one (any settings level) and whether the Agent Teams
@@ -179,7 +179,10 @@ async function gatherFacts($: EngineInterface, c: Ctx): Promise<Facts> {
     $.settings.read().catch(() => null),
     $.tool.list().catch(() => null),
   ])
-  return factsFrom({ opts: c.opts, envFlag: value, settings, toolNames: tools === null ? null : tools.map(t => t.name) })
+  const base = factsFrom({ opts: c.opts, envFlag: value, settings, toolNames: tools === null ? null : tools.map(t => t.name) })
+  // The guard is judged from what this session saw, with the flag read just now; callers refresh the roster first.
+  const guard = guardOf(c.stats, c.snap, base.teamsEnabled, c.ready)
+  return { ...base, guard: { state: guard.state, why: guard.why }, outsideCap: c.stats.spawnsOutsideCap }
 }
 
 // A session.start that fires again (enable, worker respawn, reload) continues this
@@ -226,6 +229,7 @@ const missionOf = (c: Ctx) =>
 // Reads the readiness report for the Doctor view; a failure leaves a one-line reason.
 async function loadDoctor($: EngineInterface, c: Ctx) {
   try {
+    await refresh($, c, false)
     c.mc = { ...c.mc, doctorText: formatDoctor(await gatherFacts($, c)) }
   } catch {
     c.mc = { ...c.mc, doctorText: 'CTK readiness could not be read.' }
@@ -399,6 +403,10 @@ export const register: Register = (on, options) => {
   // spawn that has started but not yet released its reservation may be counted twice: the
   // cap errs toward refusing, never over. Only teammate spawns are gated.
   on('agent.spawn', async ($, e, next) => {
+    // Every spawn event counts: that this hook is reached at all is what "Guard ON" rests on.
+    c.stats.spawnsSeen += 1
+    c.dirty = true
+    if (startsOutsideCap(e, c.teamsEnabled)) c.stats.spawnsOutsideCap += 1
     if (e.isTeammate !== true) return next(routed(e, c.opts))
 
     // A confirmed option change is being written; the reload after it forgets reservations, so a
@@ -597,7 +605,10 @@ export const register: Register = (on, options) => {
     return r
   }).catch(($, e, next) => next(e))
 
-  on('command.run', { command: 'ctk-doctor' }, async ($, e, next) => ({ text: formatDoctor(await gatherFacts($, c)) }))
+  on('command.run', { command: 'ctk-doctor' }, async ($, e, next) => {
+    await refresh($, c, false)
+    return { text: formatDoctor(await gatherFacts($, c)) }
+  })
 
   // The whole band is one button: a click anywhere on it, or Enter once it has the focus (ctrl+x then Tab),
   // opens Mission Control. The line itself is laid out for the room left after the `CTK ▸` entry.

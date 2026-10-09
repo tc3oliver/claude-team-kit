@@ -150,6 +150,27 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
 - **Live evidence:** Reported by the maintainers (6 concurrent spawns on 2.1.294: 3 started,
   3 refused); not reproduced independently. `UNVERIFIED` live.
 
+#### Hard limit coverage probe
+
+Which Agent calls the cap sees was observed, not assumed. On Claude Code 2.1.295, in an isolated config
+directory, CTK (installed natively, `maxWorkers` 1, Agent Teams on) ran next to the logging probe in
+`scripts/probe/spawn-probe`; a Haiku lead made five Agent calls in order. Raw log: the probe's `agent.spawn` rows.
+
+| # | Call | `isTeammate` | Outcome |
+|---|---|---|---|
+| 1 | `name: probe-a`, `ctk:explorer` | true | started (teammate id `probe-a@session-…`) |
+| 2 | `name: probe-b`, `ctk:explorer`, `isolation: worktree` | **absent** | started as an ordinary subagent, no teammate id, **above the cap** |
+| 3 | `name: probe-c`, `ctk:explorer` | true | refused three times, `TEAM_CAPACITY_REACHED: live=1 starting=0 max=1`, also after probe-a went idle (idle counts as live) |
+| 4 | no name, `ctk:explorer` | absent | started, not counted |
+| 5 | `name: probe-d`, `general-purpose` | true | refused (a built-in agent type is capped like CTK's) |
+
+Findings: the team skill's old advice (`isolation: worktree` for overlapping scopes) made its own workers escape the
+cap, so the skill no longer says it and a test pins that. The spawn event carries no `isolation` field, so the guard
+cannot refuse such a call; it counts named non-teammate spawns while Agent Teams are on (`spawnsOutsideCap`, shown in
+Mission Control, `/ctk-doctor`, `/ctk-stats` and the status tool). The gate reads only `isTeammate`, so it does not
+matter which plugin defines the agent. Claude Code's documentation states the same rule ("a `name` ... unless the call
+is a fork or passes `isolation`"). One run on one version: repeat the probe after a Claude Code update.
+
 ### 5.2 Worker spawn refusal and capacity recovery
 
 - **Read:** `plugins/ctk/skills/team/SKILL.md` (sections 3 and 4), `plugins/ctk/skills/team/references/protocol.md`,
@@ -501,9 +522,8 @@ must stay in place.
 - A confirmed option change reloads the mod about 50 ms later; module memory (per-worker and per-task detail) is
   lost and rebuilds from new events, and the "Applied" notice does not survive the reload. The setting itself is
   persisted by Claude Code.
-- The cap gates spawns that Claude Code marks as teammates. Ordinary subagents are not counted. The team skill advises
-  `isolation: worktree` for overlapping scopes; whether such a spawn is marked as a teammate was not checked live, so
-  it may bypass the cap.
+- The cap gates spawns that Claude Code marks as teammates. Ordinary subagents, forks and named agents that pass
+  `isolation` are not counted (observed live; see the probe below). The team skill no longer advises `isolation`.
 - Model routing to different models on live teammates was not shown: the recorded lead and implementers were both Sonnet.
 - Natural-language activation of the skills is the model's decision; the eval pass rates were measured on the prompts the
   descriptions were tuned on.

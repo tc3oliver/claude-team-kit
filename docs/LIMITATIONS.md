@@ -145,9 +145,11 @@ in practice:
   marked done before the lead verified them.
 - **`/ctk:review` and `/ctk:debug`** have been validated as plugin components (frontmatter,
   size, description budget), not exercised on real changes.
-- **`isolation: worktree`:** the team skill advises it when file scopes may overlap. A spawn that
-  carries `isolation` may not be marked as a teammate, in which case the cap would not count it.
-  Not verified live.
+- **`isolation: worktree` and the cap exclude each other.** Observed live on 2.1.295: a named agent that passes
+  `isolation` is not a teammate, so the cap neither counts nor refuses it. The team skill never sets `isolation`;
+  overlapping file scopes are handled by ordering the slices (`addBlockedBy`) or narrowing them. A user who asks for
+  worktree workers gets workers CTK does not limit, and Mission Control shows how many started outside the cap.
+  Whether a later Claude Code changes which calls are teammates is not something CTK can know in advance.
 - **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
   runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),

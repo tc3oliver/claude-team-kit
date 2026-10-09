@@ -18,6 +18,7 @@ import {
   viewKey,
   workerKey,
 } from './mission.ts'
+import { guardWord } from './mission.ts'
 import type { HudMode, Mission, McState, TaskRow, WorkerRow } from './mission.ts'
 
 // Mission Control's body: a read-only view of what CTK observed. Every button here only changes
@@ -106,9 +107,10 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
   const back = <Box key="back">{button(BACK_KEY, 'Back')}</Box>
 
   const overview = () => [
-    field('guard', 'Guard', `${m.guard.state === 'active' ? 'ON' : m.guard.state} · ${m.guard.why}`, guardColor),
+    field('guard', 'Guard', `${guardWord(m.guard)} · ${m.guard.why}`, guardColor),
     field('workers', 'Workers', `${num(m.active)}/${m.cap} active · ${num(m.running)} running · ${num(m.idle)} idle · ${num(m.completed)} completed · ${num(m.failed)} failed`),
     field('refused', 'Refused', `${m.rejected} spawn(s) above the cap`),
+    ...(m.outsideCap > 0 ? [field('outside', 'Outside cap', `${m.outsideCap} named agent(s) started with isolation as ordinary subagents; the cap does not count them`, 'warning')] : []),
     field(
       'tasks',
       'Tasks',
@@ -209,7 +211,7 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
   ]
 
   const config = () => [
-    field('c-guard', 'Guard', `${m.guard.state === 'active' ? 'ON' : m.guard.state} · ${m.guard.why}`, guardColor, 26),
+    field('c-guard', 'Guard', `${guardWord(m.guard)} · ${m.guard.why}`, guardColor, 26),
     ...extras.options.map((o, i) => field(`c-o${i}`, o.label, o.value, undefined, 26)),
     hudButtons,
     ...(extras.notice === null ? [] : [line('c-notice', extras.notice, { color: extras.notice.startsWith('Applied') ? 'success' : 'warning' })]),
@@ -237,7 +239,7 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
     <Box flexDirection="column" width={props.bodyColumns}>
       <Box flexDirection="row" columnGap={2}>
         <Text bold>CTK Mission Control</Text>
-        <Text color={guardColor}>Guard {m.guard.state === 'active' ? 'ON' : m.guard.label}</Text>
+        <Text color={guardColor}>Guard {m.guard.state === 'active' ? 'ON' : m.guard.state === 'available' ? 'ready' : m.guard.label}</Text>
         <Text dimColor>read-only</Text>
       </Box>
       {tabs}

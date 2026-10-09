@@ -210,13 +210,30 @@ describe('guard', () => {
   const stats = emptyStats('s', 3, 0)
   const snap = snapshotOf([], null, NOW)
 
-  test('active, unavailable and error each say why', () => {
-    expect(guardOf(stats, snap, true, true)).toMatchObject({ state: 'active', label: 'ON' })
-    expect(guardOf(stats, snap, false, true)).toMatchObject({ state: 'unavailable', label: '–' })
-    expect(guardOf(stats, snap, null, true)).toMatchObject({ state: 'active' })
-    expect(guardOf(stats, snap, true, false)).toMatchObject({ state: 'unavailable' })
-    expect(guardOf(stats, snapshotOf(null, null, NOW), true, true)).toMatchObject({ state: 'error', label: 'ERR' })
-    expect(guardOf({ ...stats, spawnsFailedClosed: 1 }, snap, true, true)).toMatchObject({ state: 'error' })
+  const seen = { ...stats, spawnsSeen: 1 }
+
+  test('each state says why, and only evidence makes it active', () => {
+    // Armed but never reached: available, not active, whatever the Claude Code version supports.
+    expect(guardOf(stats, snap, true, true)).toMatchObject({ state: 'available', label: 'ready' })
+    expect(guardOf(stats, snap, true, true).why).toMatch(/no spawn has reached the guard yet/)
+    expect(guardOf(seen, snap, true, true)).toMatchObject({ state: 'active', label: 'ON' })
+    // The flag could not be read: even a reached guard is not called active.
+    expect(guardOf(seen, snap, null, true)).toMatchObject({ state: 'available' })
+    expect(guardOf(stats, snap, null, true).why).toMatch(/flag could not be read/)
+    expect(guardOf(seen, snap, false, true)).toMatchObject({ state: 'unavailable', label: '–' })
+    expect(guardOf(seen, snap, true, false)).toMatchObject({ state: 'unavailable' })
+    expect(guardOf(seen, snapshotOf(null, null, NOW), true, true)).toMatchObject({ state: 'error', label: 'ERR' })
+    expect(guardOf({ ...seen, spawnsFailedClosed: 1 }, snap, true, true)).toMatchObject({ state: 'error' })
+  })
+
+  test('more live teammates than the cap is an error that names both causes', () => {
+    const four = snapshotOf([agent('a1', 'w1', 'running'), agent('a2', 'w2', 'running'), agent('a3', 'w3', 'idle'), agent('a4', 'w4', 'running')], null, NOW)
+    const g = guardOf(seen, four, true, true)
+    expect(g).toMatchObject({ state: 'error', label: 'ERR' })
+    expect(g.why).toBe('4 teammates are live, above the cap of 3: they started before the cap was lowered, or outside the guard')
+    // exactly at the cap is fine
+    const three = snapshotOf(four.workers.slice(0, 3).map((w, i) => agent(`b${i}`, `x${i}`, 'running')), null, NOW)
+    expect(guardOf(seen, three, true, true).state).toBe('active')
   })
 })
 
@@ -264,7 +281,7 @@ describe('mission model', () => {
     expect(missionText(m)).toContain('workers:  1/3 active, 1 running, 0 idle, 0 completed, 0 failed; 0 refused')
     expect(missionText(m)).toContain('12 tool calls')
     expect(missionText(m)).toContain('unavailable')
-    expect(missionJson(m)).toMatchObject({ guard: { state: 'active' }, running: 1, usage: { toolCalls: 12 } })
+    expect(missionJson(m)).toMatchObject({ guard: { state: 'available' }, outsideCap: 0, running: 1, usage: { toolCalls: 12 } })
   })
 })
 

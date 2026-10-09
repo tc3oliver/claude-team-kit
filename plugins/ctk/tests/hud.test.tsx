@@ -213,7 +213,7 @@ describe('HUD band', () => {
       const m = await mount($, surface)
       const found = await m.find({ text: /Sonnet/ })
       expect(found?.text).toBe(
-        'CTK ▸ Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ON │ Ctx 42% │ $1.23 (12m)',
+        'CTK ▸ Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ready │ Ctx 42% │ $1.23 (12m)',
       )
       expect([...new Set(calls)].sort()).toEqual(['agent.list', 'session.model', 'session.usage'])
     })
@@ -287,6 +287,6 @@ describe('HUD band', () => {
     host(on, [], { startedAt: NOW - MIN, context: { window: 200000 }, rateLimits: [] })
     await measure($)
     const found = await (await mount($, 'terminal')).find({ text: /Agents/ })
-    expect(found?.text).toBe('CTK ▸ Sonnet 5.5 │ 5h – │ Wk – │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ON │ Ctx – │ –')
+    expect(found?.text).toBe('CTK ▸ Sonnet 5.5 │ 5h – │ Wk – │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ready │ Ctx – │ –')
   })
 })

@@ -30,4 +30,17 @@ All notable changes to this project are documented here. The format follows
   `stats` and `config`.
 - `ctk sync` for git-based profile sync, with a secrets scan before publish.
 
+### Fixed
+
+- The team skill no longer advises `isolation: worktree`. A live probe on Claude Code 2.1.295 showed that a named
+  agent that passes `isolation` is not a teammate, so the worker cap neither counted nor refused it: the skill's
+  own advice let workers escape the limit. The skill now says never to set `isolation` and to name every worker.
+- Guard health is judged from evidence: `ON` only after a spawn has reached the guard in the session and Agent
+  Teams are confirmed on; `ready` when loaded but not yet exercised (or the flag cannot be read); `unavailable` or
+  `error` otherwise, including when more teammates are live than the cap. Shown in the band, Mission Control,
+  `/ctk-doctor`, `/ctk-stats` and the status tool; the team skill's preflight reads it and asks before starting a
+  team without a confirmed cap. Named agents that start outside the cap are counted and shown.
+- The team skill bounds retries (one retry, then stop), keeps one owner per task, reuses idle teammates before
+  spawning, and says the goal is not complete when a task failed or was never verified.
+
 See RELEASE_NOTES.md for details and docs/LIMITATIONS.md for known limitations.

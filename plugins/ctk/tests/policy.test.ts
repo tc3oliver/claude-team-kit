@@ -89,7 +89,7 @@ describe('verified acceptance and stats', () => {
     const s = written(w)
     expect(s).toMatchObject({ spawnsAccepted: 3, spawnsRejected: 2, peakLive: 3, tasks: null })
     expect(Object.keys(s).sort()).toEqual(
-      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsRejected', 'startedAt', 'tasks', 'toolCalls', 'updatedAt', 'workerModels'],
+      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsOutsideCap', 'spawnsRejected', 'spawnsSeen', 'startedAt', 'tasks', 'toolCalls', 'updatedAt', 'workerModels'],
     )
     expect(JSON.stringify(s)).not.toMatch(/work item|worker-|\/w/)
   })
@@ -289,7 +289,7 @@ describe('status tool result shape', () => {
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
     expect(typeof r.result).toBe('string')
     expect(Object.keys(JSON.parse(r.result)).sort()).toEqual(
-      ['accepted', 'cap', 'completed', 'failed', 'guard', 'idle', 'live', 'max', 'rejected', 'running', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'usage', 'workers'],
+      ['accepted', 'cap', 'completed', 'failed', 'guard', 'idle', 'live', 'max', 'outsideCap', 'rejected', 'running', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'usage', 'workers'],
     )
   })
 

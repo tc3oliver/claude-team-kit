@@ -96,7 +96,7 @@ rejected. To use a different effort, edit or fork the agent files.
 | Field | Type | Default | Meaning | Plugin option |
 |---|---|---|---|---|
 | `hud.band` | boolean | `true` | Draw the one-line team band above the prompt (needs mods). The band is also the entry to [Mission Control](MISSION-CONTROL.md). | `hudBand` |
-| `hud.idle` | `full`, `minimal` or `hidden` | `full` | What the band shows until a teammate has started: everything, only `CTK ▸ Guard ON`, or nothing (then `/ctk-mission` opens Mission Control). Once a team has run, the band always shows. | `hudIdle` |
+| `hud.idle` | `full`, `minimal` or `hidden` | `full` | What the band shows until a teammate has started: everything, only `CTK ▸ Guard ready` (or `ON` once a spawn has reached it), or nothing (then `/ctk-mission` opens Mission Control). Once a team has run, the band always shows. | `hudIdle` |
 | `hud.statusLine` | `auto` or `off` | `auto` | `auto`: install the status line fallback and set `statusLine` if you have none. `off`: do not manage `statusLine`. | none |
 | `stats.record` | boolean | `true` | Write per-session counters to `<config>/ctk/stats/` for `ctk stats`. | `recordStats` |
 

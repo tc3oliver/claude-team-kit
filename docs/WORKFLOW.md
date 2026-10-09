@@ -70,10 +70,12 @@ What this is **not**:
 - **Not a scheduler.** The hook can allow or deny one spawn. It does not queue the refused work, retry it, pick the
   next task or move anything to a worker. The lead (a model following the skill) keeps a refused task pending and
   offers it again later; the skill says so, and a model can still misread a refusal.
-- **Not a limit on ordinary subagents.** The hook gates only spawns that Claude Code marks as teammates. Per
-  Claude Code's documentation a named `Agent` call becomes a teammate while Agent Teams are on, and an unnamed one
-  or one that passes `isolation` does not; CTK did not check that boundary live. The team skill advises
-  `isolation: worktree` when file scopes may overlap, so such a worker may sit outside the cap.
+- **Not a limit on ordinary subagents.** The hook gates only spawns that Claude Code marks as teammates. A named
+  `Agent` call becomes a teammate while Agent Teams are on; an unnamed one, a fork, and a named one that passes
+  `isolation` do not. That boundary was observed live (cap 1: the second named call, with `isolation: worktree`,
+  started above the cap without `isTeammate`; [REVIEW](REVIEW.md#hard-limit-coverage-probe)). So the team skill
+  never sets `isolation` and always names its workers, and Mission Control counts named agents that started
+  outside the cap. Worktree isolation and the cap cannot be had together: choose the cap for team workers.
 - **Not a limit on cost.** It limits how many teammates are alive, not what they spend.
 - **Not present without the mod.** On a Claude Code build without Mods (older than 2.1.287, mods disabled,
   reportedly WSL) there is no cap, and the team skill tells the lead to say so before starting.

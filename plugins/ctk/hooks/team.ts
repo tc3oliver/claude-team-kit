@@ -98,6 +98,15 @@ export const capacityDeny = (live: number, starting: number, max: number): strin
 export const guardDeny = (): string =>
   `${GUARD_CODE}: the teammate cap could not be checked. Do not treat this worker as started; leave its task pending and retry later.`
 
+/**
+ * A named agent that Claude Code started as an ordinary subagent while Agent Teams were on. Claude Code's
+ * documentation says a named call becomes a teammate unless it is a fork or passes `isolation`, and a
+ * live probe on 2.1.295 showed exactly that: the spawn carried no `isTeammate`. The cap cannot gate it
+ * (the event does not say why), so the guard only counts it, to keep "outside the cap" visible.
+ */
+export const startsOutsideCap = (e: Pick<AgentSpawnInput, 'isTeammate' | 'name' | 'fork' | 'workflow'>, teamsEnabled: boolean | null): boolean =>
+  teamsEnabled === true && e.isTeammate !== true && e.name !== undefined && e.fork !== true && e.workflow === undefined
+
 export const roleOf = (subagentType: string): Role | undefined => ROLES.find(r => AGENT_TYPES[r] === subagentType)
 
 /**

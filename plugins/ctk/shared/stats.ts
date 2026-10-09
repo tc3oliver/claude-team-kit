@@ -19,6 +19,10 @@ export type StatsRecord = {
   spawnsRejected: number
   /** Teammate spawns refused for any other CTK reason (guard failure). */
   spawnsFailedClosed: number
+  /** Every `agent.spawn` event the guard saw, teammate or not: proof that Claude Code reaches it. */
+  spawnsSeen: number
+  /** Named agents Claude Code started as ordinary subagents while Agent Teams were on (a call with `isolation` is one): outside the cap. */
+  spawnsOutsideCap: number
   /** Highest number of simultaneously live teammates seen at a spawn decision. */
   peakLive: number
   /** Resolved model per accepted spawn, as reported by Claude Code: counts by model id/alias. */
@@ -63,6 +67,8 @@ export const emptyStats = (sessionId: string, maxWorkers: number, now: number): 
   spawnsAccepted: 0,
   spawnsRejected: 0,
   spawnsFailedClosed: 0,
+  spawnsSeen: 0,
+  spawnsOutsideCap: 0,
   peakLive: 0,
   workerModels: {},
   tasks: null,
@@ -72,6 +78,8 @@ export const emptyStats = (sessionId: string, maxWorkers: number, now: number): 
 
 /** Session ids become file names; keep them to a safe charset. */
 export const safeSessionId = (id: string): string => id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64) || 'unknown'
+
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0)
 
 /** Narrow unknown JSON to a StatsRecord, or null. Used by the CLI on files it did not just write. */
 export const parseStats = (raw: unknown): StatsRecord | null => {
@@ -83,6 +91,8 @@ export const parseStats = (raw: unknown): StatsRecord | null => {
   return {
     ...(r as StatsRecord),
     toolCalls: typeof r.toolCalls === 'number' && r.toolCalls >= 0 ? r.toolCalls : 0,
+    spawnsSeen: count(r.spawnsSeen),
+    spawnsOutsideCap: count(r.spawnsOutsideCap),
     measured: { ...EMPTY_MEASURED(), ...(typeof r.measured === 'object' && r.measured !== null ? r.measured : {}) },
   }
 }

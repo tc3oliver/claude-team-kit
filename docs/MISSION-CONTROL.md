@@ -22,7 +22,7 @@ beside the transcript; on the main screen it opens above the prompt.
 
 | View | Contents | Source |
 |---|---|---|
-| Overview | Guard (`ON`, unavailable or error, with the reason), workers active/cap with running, idle, completed and failed, refused spawns, team time, usage line | the roster (`$.agent.list`), CTK's counters |
+| Overview | Guard (`ON`, `ready`, unavailable or error, with the reason; `ON` only after a spawn has reached the guard in this session) and, when any, named agents that started outside the cap, workers active/cap with running, idle, completed and failed, refused spawns, team time, usage line | the roster (`$.agent.list`), CTK's counters |
 | Workers | per worker: name, model, status, tool calls, last activity, idle time; select one for its current task | the spawn result (model), `tool.call` events carrying the worker's agent id, turn and `TeammateIdle` events |
 | Tasks | id, status, owner, dependencies, ready or blocked; select one for what it waits for and what waits for it | the `TaskCreate` and `TaskUpdate` calls CTK saw (their named fields only) |
 | Usage | model, context %, 5-hour and weekly usage with reset countdowns, session cost, tool calls | `$.session.usage()`, `$.session.model()`, CTK's tool-call count |

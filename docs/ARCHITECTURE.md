@@ -132,6 +132,37 @@ If the cap cannot be checked (the roster call fails), the spawn is denied with
 `TEAM_GUARD_FAILED` instead of being allowed (fail closed). Only teammate spawns are gated;
 ordinary subagents are not counted.
 
+**What the cap covers.** It reads one fact on each spawn event: `isTeammate`. Which Agent calls carry it was
+observed live on Claude Code 2.1.295 with a logging probe next to the cap (cap 1; see
+[REVIEW](REVIEW.md#hard-limit-coverage-probe)) and matches Claude Code's documentation:
+
+| Agent call (Agent Teams on, interactive session) | `isTeammate` | Counted and capped |
+|---|---|---|
+| Named, no `isolation`, any agent type (CTK's, built in, another plugin's) | true | yes |
+| Named, with `isolation: worktree` | absent | **no**; CTK only counts it as "outside the cap" |
+| Unnamed | absent | no |
+| Fork | absent | no |
+| Any call in `-p` / SDK mode, or with the flag off | absent | no (no teammate can start) |
+
+The gate does not look at who defines the agent, so a teammate from another plugin counts the same. It cannot
+see why a named agent is not a teammate (the event carries no `isolation` field), so it does not try to
+refuse it: that would block ordinary named subagents of other plugins. CTK's own team skill therefore never sets
+`isolation` and always names its workers. A later Claude Code may change which calls become teammates; the
+guard-health states below are how that would show up, and `scripts/probe/spawn-probe` repeats the observation.
+
+**Guard health.** The guard reports one of four states, judged from evidence and shown in the band, Mission
+Control, `/ctk-doctor`, `/ctk-stats` and the `ctk_team_status` tool (`guard.state` and `guard.why`):
+
+| State | Shown | Means |
+|---|---|---|
+| `active` | `ON` | Agent Teams are confirmed on, the roster was readable at the last refresh, and an `agent.spawn` event has reached the guard in this session (the count is `spawnsSeen`) |
+| `available` | `ready` | the mod is loaded and armed, but no spawn has reached it yet, or the Agent Teams flag could not be read |
+| `unavailable` | `–` | Agent Teams are off, or nothing has been read yet |
+| `error` | `ERR` | a spawn was refused because the cap could not be checked, the roster cannot be read, or more teammates are live than the cap (they started before the cap was lowered, or outside the guard) |
+
+A Claude Code version that supports Mods is not evidence. Nothing here polls: the state is computed from the
+refresh that already redraws the band, and `/ctk-doctor` reads the roster once.
+
 **Spawn verification.** After Claude Code accepts a spawn, CTK counts it as started only if
 the result carries both an agent id and a teammate id. A result without them is not counted.
 The `team` skill applies the same rule on the lead's side: a spawn exists only if the `Agent`

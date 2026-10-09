@@ -138,14 +138,22 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
 
 // --- View model --------------------------------------------------------------------------
 
-export type GuardState = 'active' | 'unavailable' | 'error'
+export type GuardState = 'active' | 'available' | 'unavailable' | 'error'
 
 export type Guard = { state: GuardState; label: string; why: string }
 
+/** The word shown for a guard state: `ON` for active, otherwise the state itself. */
+export const guardWord = (g: Guard): string => (g.state === 'active' ? 'ON' : g.state)
+
 /**
- * Whether the worker cap is doing its job. `error`: the roster could not be read at the last
- * refresh, or a spawn was refused because the cap could not be checked. `unavailable`: Agent Teams
- * are off, or nothing has been read yet, so there is nothing to guard or to say. Otherwise `active`.
+ * Whether the worker cap is doing its job, from evidence and in this order.
+ * `error`: a spawn was refused because the cap could not be checked, the roster could not be read at
+ * the last refresh, or more teammates are live than the cap allows (they started before the cap was
+ * lowered, or outside the guard). `unavailable`: nothing has been read yet, or Agent Teams are off, so
+ * no teammate can start. `active`: Agent Teams are confirmed on, the roster is readable, and the guard
+ * has been reached by at least one `agent.spawn` event this session. `available`: the mod is loaded and
+ * armed, but the guard has not been exercised yet, or the Agent Teams flag could not be read; nothing
+ * claims more than that. A Claude Code version that supports Mods is never evidence by itself.
  */
 export const guardOf = (stats: StatsRecord, snap: Snapshot, teamsEnabled: boolean | null, ready: boolean): Guard => {
   if (stats.spawnsFailedClosed > 0) {
@@ -154,7 +162,20 @@ export const guardOf = (stats: StatsRecord, snap: Snapshot, teamsEnabled: boolea
   if (!ready) return { state: 'unavailable', label: DASH, why: 'nothing has been read yet' }
   if (snap.live === null) return { state: 'error', label: 'ERR', why: 'the roster could not be read at the last refresh' }
   if (teamsEnabled === false) return { state: 'unavailable', label: DASH, why: 'Agent Teams are not enabled, so no teammate can start' }
-  return { state: 'active', label: 'ON', why: `a spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED` }
+  if (snap.live > stats.maxWorkers) {
+    return { state: 'error', label: 'ERR', why: `${snap.live} teammates are live, above the cap of ${stats.maxWorkers}: they started before the cap was lowered, or outside the guard` }
+  }
+  if (teamsEnabled === true && stats.spawnsSeen > 0) {
+    return { state: 'active', label: 'ON', why: `reached by ${stats.spawnsSeen} spawn(s) this session; a teammate spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED` }
+  }
+  return {
+    state: 'available',
+    label: 'ready',
+    why:
+      teamsEnabled === null
+        ? 'loaded, but the Agent Teams flag could not be read and no spawn has reached the guard yet'
+        : `loaded; no spawn has reached the guard yet. From the first teammate spawn it refuses one above ${stats.maxWorkers} live`,
+  }
 }
 
 export type TaskRow = {
@@ -238,6 +259,8 @@ export type Mission = {
   completed: number | null
   failed: number | null
   rejected: number
+  /** Named agents Claude Code started as ordinary subagents (a call with `isolation` is one): outside the cap, counted only. */
+  outsideCap: number
   /** Since the first teammate started; null before that. */
   teamElapsedMs: number | null
   tasks: {
@@ -297,6 +320,7 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
     completed: snap.done === null ? null : snap.workers.filter(w => w.status === 'completed').length,
     failed: snap.failed,
     rejected: stats.spawnsRejected,
+    outsideCap: stats.spawnsOutsideCap,
     teamElapsedMs: state.teamStartedAt === null || nowMs < state.teamStartedAt ? null : nowMs - state.teamStartedAt,
     tasks: {
       detailed,
@@ -439,7 +463,8 @@ export const missionText = (m: Mission): string => {
         : `${n(m.tasks.completed)}/${m.tasks.total} done (from task events; ${m.tasks.partial ? 'some tasks were created before CTK loaded' : 'no task detail observed'})`
   const lines = [
     'CTK Mission Control (read-only):',
-    `  guard:    ${m.guard.state === 'active' ? 'ON' : m.guard.state} - ${m.guard.why}`,
+    `  guard:    ${guardWord(m.guard)} - ${m.guard.why}`,
+    ...(m.outsideCap > 0 ? [`  outside the cap: ${m.outsideCap} named agent(s) started as ordinary subagents (with isolation); the cap does not count them`] : []),
     `  workers:  ${n(m.active)}/${m.cap} active, ${n(m.running)} running, ${n(m.idle)} idle, ${n(m.completed)} completed, ${n(m.failed)} failed; ${m.rejected} refused`,
     `  tasks:    ${tasks}`,
     `  team time: ${m.teamElapsedMs === null ? UNAVAILABLE : fmtSpan(m.teamElapsedMs)}`,
@@ -456,6 +481,7 @@ export const missionText = (m: Mission): string => {
 /** A small, serialisable summary for the status tool, so the model can answer "how is the team doing" from facts. */
 export const missionJson = (m: Mission) => ({
   guard: { state: m.guard.state, why: m.guard.why },
+  outsideCap: m.outsideCap,
   teamElapsedMs: m.teamElapsedMs,
   running: m.running,
   idle: m.idle,

@@ -22,6 +22,10 @@ export type Facts = {
   ctkStatusLine: boolean | null
   hudBand: boolean
   recordStats: boolean
+  /** The guard's state and the reason for it (see guardOf); null when it was not computed. */
+  guard: { state: 'active' | 'available' | 'unavailable' | 'error'; why: string } | null
+  /** Named agents started as ordinary subagents this session (outside the cap). */
+  outsideCap: number
 }
 
 export type Inputs = {
@@ -30,6 +34,8 @@ export type Inputs = {
   envFlag: { value: string | undefined } | null
   settings: Readonly<Record<string, unknown>> | null
   toolNames: string[] | null
+  guard?: Facts['guard']
+  outsideCap?: number
 }
 
 const record = (v: unknown): Record<string, unknown> | null =>
@@ -43,7 +49,7 @@ export const isCtkStatusLine = (settings: Readonly<Record<string, unknown>> | nu
   return typeof command === 'string' && command.includes('ctk-statusline')
 }
 
-export const factsFrom = ({ opts, envFlag, settings, toolNames }: Inputs): Facts => {
+export const factsFrom = ({ opts, envFlag, settings, toolNames, guard = null, outsideCap = 0 }: Inputs): Facts => {
   const settingsFlag = record(settings?.env)?.[TEAMS_FLAG]
   const raw = envFlag?.value ?? (typeof settingsFlag === 'string' ? settingsFlag : undefined)
   const pluginConfigs = record(settings?.pluginConfigs)
@@ -62,13 +68,23 @@ export const factsFrom = ({ opts, envFlag, settings, toolNames }: Inputs): Facts
     ctkStatusLine: settings === null ? null : isCtkStatusLine(settings),
     hudBand: opts.hudBand,
     recordStats: opts.recordStats,
+    guard,
+    outsideCap,
   }
 }
 
 type Row = { level: 'ok' | 'info' | 'action'; text: string; fix?: string }
 
+const guardRow = (f: Facts): Row => {
+  if (f.guard === null) return { level: 'info', text: 'guard: state not computed' }
+  const text = `guard: ${f.guard.state === 'active' ? 'ON' : f.guard.state} (${f.guard.why})`
+  if (f.guard.state === 'error') return { level: 'action', text, fix: 'Do not rely on the cap until this clears; /ctk-stats lists the counters, and a restart of Claude Code reloads the guard.' }
+  return { level: f.guard.state === 'active' ? 'ok' : 'info', text }
+}
+
 export const doctorRows = (f: Facts): Row[] => [
-  { level: 'ok', text: 'mod: active (it answered this command)' },
+  { level: 'ok', text: 'mod: loaded (it answered this command)' },
+  guardRow(f),
   {
     level: 'ok',
     text: `cap: ${f.maxWorkers} live teammates (${f.capFromSettings === null ? 'source not checked' : f.capFromSettings ? 'set in plugin options' : 'default'})`,
@@ -78,6 +94,9 @@ export const doctorRows = (f: Facts): Row[] => [
     : f.teamsEnabled === false
       ? { level: 'action', text: `agent teams: not enabled (${TEAMS_FLAG} is not set to 1)`, fix: TEAMS_FIX }
       : { level: 'info', text: `agent teams: unknown (${TEAMS_FLAG} could not be read)` },
+  f.outsideCap > 0
+    ? { level: 'info', text: `outside the cap: ${f.outsideCap} named agent(s) started as ordinary subagents this session (a call with isolation does that)` }
+    : { level: 'info', text: 'the cap counts teammates only: ordinary subagents, and named agents started with isolation, are not limited' },
   f.taskTools === true
     ? { level: 'ok', text: 'task tools: TaskCreate is available' }
     : {

@@ -144,6 +144,7 @@ export const formatSummary = (s: StatsRecord, snap: Snapshot, nowMs = 0): string
     `CTK session ${s.sessionId}`,
     'counted by CTK:',
     `  teammate spawns: ${s.spawnsAccepted} accepted, ${s.spawnsRejected} refused at capacity, ${s.spawnsFailedClosed} failed closed`,
+    `  guard reached by ${s.spawnsSeen} spawn event(s); named agents started outside the cap (with isolation): ${s.spawnsOutsideCap}`,
     `  peak live teammates: ${s.peakLive} (cap ${s.maxWorkers}); now ${num(snap.live)}`,
     `  worker models: ${fmtModels(s.workerModels) || DASH}`,
     `  tasks created/completed: ${s.tasks === null ? `${DASH} (no task event seen)` : `${s.tasks.created}/${s.tasks.completed}`}`,
