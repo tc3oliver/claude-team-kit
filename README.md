@@ -15,17 +15,17 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/stats-dark.svg">
-    <img src="docs/assets/stats-light.svg" alt="Default worker cap 3; about 187 always-on plugin tokens (fixed context only); 0 extra LLM calls from the HUD" width="720">
+    <img src="docs/assets/stats-light.svg" alt="Default worker cap 3; about 425 always-on plugin tokens, measured; 0 extra LLM calls from the HUD" width="720">
   </picture>
 </p>
 
-Claude Team Kit (CTK) is a Claude Code plugin for the built-in Agent Teams. It caps how many teammates run at once, puts each role on a suitable model, and shows the team in one line above your prompt. The lead and the teammates stay Claude Code's own: CTK does not add a second orchestrator.
+Claude Team Kit (CTK) is a Claude Code plugin for the built-in Agent Teams. It caps how many teammates run at once, puts each role on a suitable model, and shows the team in one line above your prompt, which you can click to open a read-only dashboard. The lead and the teammates stay Claude Code's own: CTK does not add a second orchestrator.
 
 <p align="center">
-  <img src="docs/assets/team-demo-d.svg" alt="Recording of a live /ctk:team session: the lead checks the cap, creates six tasks, starts three workers for five modules, and the team line counts tasks from 0/6 to 6/6" width="900">
+  <img src="docs/assets/mission-control-e.svg" alt="Recording of a live session: one plain-words request starts a team, the lead creates six tasks and starts three workers, a click on the CTK line above the prompt opens Mission Control, which shows the workers, their models, the tasks and their dependencies, and usage" width="900">
 </p>
 
-<p align="center"><sub>One live session, installed through the Plugin Manager. A Sonnet lead checks the cap, creates six tasks (the final test run blocked by the module tasks), starts three workers for five modules and hands the last two to whoever finishes first. The <code>tasks</code> count above the prompt goes from 0/6 to 6/6, matching the lead's report: 43 tests, 0 failures, $0.94, 117 s played back in 40 s. This recording predates the current line format (the first band showed team figures only). Recording notes, including what went less smoothly: <a href="docs/DEMO.md#run-d-the-same-recipe-after-the-plugin-fixes">docs/DEMO.md</a> (also as <a href="docs/assets/team-demo-d.gif">GIF</a> and <a href="docs/assets/team-demo-d.mp4">MP4</a>).</sub></p>
+<p align="center"><sub>One live session, installed through the Plugin Manager, 79 s played back in 45 s. The request is a plain sentence, not a slash command; the lead loaded the team skill itself, created six tasks and started three workers (the cap). A real mouse click on <code>CTK ▸</code> opens Mission Control: guard, workers with their models and tool calls, tasks with <code>needs 4,5</code> on the final run, usage. This is one run on a small fixture; another run may behave differently. Notes, including the band's few-second gap and the seven earlier takes: <a href="docs/DEMO.md#run-e-asked-in-plain-words-then-the-band-is-clicked-open">docs/DEMO.md</a> (also as <a href="docs/assets/mission-control-e.gif">GIF</a> and <a href="docs/assets/mission-control-e.mp4">MP4</a>).</sub></p>
 
 ## Install
 
@@ -36,7 +36,7 @@ In Claude Code:
 /plugin install ctk@ctk-kit
 ```
 
-Then `/reload-plugins` (or restart). Needs Claude Code 2.1.287 or newer for the cap and the team line. Claude Code may print `7 userConfig options not yet set`: that is harmless, every option has a default.
+Then `/reload-plugins` (or restart). Needs Claude Code 2.1.287 or newer for the cap and the team line. Claude Code may print `8 userConfig options not yet set`: that is harmless, every option has a default.
 
 **One setting a plugin cannot make for you.** Agent Teams are experimental and off by default. Add this to `~/.claude/settings.json` and restart:
 
@@ -48,24 +48,42 @@ Not sure? Run `/ctk-doctor`. It changes nothing and prints the exact fix for any
 
 ## Your first team
 
+Ask in words, or use the command; both reach the same skill:
+
 ```
+Use a team to implement this feature and review the result.
 /ctk:team <goal>
 ```
 
-The demo ran this prompt on the small fixture in [`scripts/demo/fixture`](scripts/demo/fixture/README.md) (five text modules, no tests):
+The demo asked for this on the small fixture in [`scripts/demo/fixture`](scripts/demo/fixture/README.md) (five text modules, no tests):
 
 ```
-/ctk:team Add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.
+Use a team to add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.
 ```
 
-Before spawning anything, `/ctk:team` checks that teams are on and reads the cap; if the flag is missing it spawns nothing and offers the settings edit, which you approve. It then splits the goal into independent tasks, starts workers up to the cap, and runs their verify commands itself before reporting. `/ctk-stats` shows what the session counted.
+Whether a sentence loads the team skill is Claude's decision: CTK adds no intent classifier and rewrites no prompt. The skill's description asks for it when you want a team, several agents or parallel work, and a plain "fix this bug" is meant to stay a plain request, but neither is guaranteed ([how it was checked](docs/NATURAL-LANGUAGE.md)). `/ctk:team` always loads it. The skill tells the lead to check that teams are on and read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting; the cap is enforced by CTK's mod, the rest is guidance the lead follows. `/ctk-stats` shows what the session counted.
+
+## Mission Control
+
+The `CTK ▸` line above the prompt is a button: click it, or run `/ctk-mission`, to open a read-only dashboard beside the transcript. Nothing in it spawns, stops or changes anything.
+
+<p align="center">
+  <img src="docs/assets/mission-control-e-workers.svg" alt="Mission Control, Workers view: three workers on Sonnet 5.5 with status running and their tool-call counts" width="49%">
+  <img src="docs/assets/mission-control-e-tasks.svg" alt="Mission Control, Tasks view: six tasks with status, owner and dependencies; the last task needs 4 and 5" width="49%">
+</p>
+
+<p align="center"><sub>Stills from the recording above: workers with their model and tool calls, and the task list with its dependencies. The pane is about 50 cells wide next to a 120-column terminal, so the tables switch to a compact form.</sub></p>
+
+- **Views:** Overview (guard, workers, tasks, team time, usage), Workers (select one for its agent id, model, status, current task, tool calls, last activity), Tasks (select one for owner, ready or blocked, what it needs and what it blocks), Usage, Config, Stats, Doctor. Digits `1` to `7` switch views; `Esc` returns to the prompt.
+- **Only what was observed.** Figures come from Claude Code's own events and API; anything CTK could not observe reads `unavailable`, never a made-up zero.
+- **Changing a setting from plain words.** "Set the worker cap to 2" makes the model propose the change; it applies only when you press Confirm in the pane. The model cannot write `settings.json` or skip the confirmation ([notes](docs/MISSION-CONTROL.md)).
 
 ## Why Claude Team Kit?
 
-- **A hard worker limit.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 3, settable from 1 to 12. A spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses.
+- **A hard worker limit.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one on teammates: default 3, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Ordinary subagents are not counted.
 - **Live team visibility.** One line above the prompt: model, 5-hour and weekly usage with reset countdowns, tool calls, agents against the cap, tasks, context and cost, fitted to your terminal (full, abbreviated or essentials only; whole figures are dropped, never cut in half). It reads only what Claude Code hands it: no network calls, no credential reads, no model calls.
-- **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus.
-- **Three skills, small footprint.** `/ctk:team`, `/ctk:review` (scaled to risk) and `/ctk:debug`. About 187 tokens load on every turn; a skill's body loads only when you use it (`/ctk:team` about 850).
+- **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus, unless a spawn names a model.
+- **Four skills, small footprint.** `/ctk:team`, `/ctk:review` (scaled to risk), `/ctk:debug` and `ctk` (status, settings, profile sync in plain words). The plugin adds about 425 tokens to a session, measured with a real call; a skill's body loads only when it is used (`/ctk:team` about 850 by Claude Code's estimate).
 - **Honest numbers.** `/ctk-stats` labels each figure as counted by CTK or measured by Claude Code. Claude Code does not report per-worker cost, so CTK shows none.
 
 <p align="center">
@@ -81,7 +99,7 @@ Before spawning anything, `/ctk:team` checks that teams are on and reads the cap
   <img src="docs/assets/team-demo-refusal.svg" alt="A spawn refused live with TEAM_CAPACITY_REACHED: live=3 starting=0 max=3; the team line shows rejected 1" width="49%">
 </p>
 
-<p align="center"><sub><b>Left (the demo):</b> at the cap, the lead keeps tasks #4 and #5 pending instead of spawning; the final run is <code>blocked by #4, #5</code>; the team line reads <code>team 3 busy · … / cap 3 · tasks 3/6</code>. No spawn was refused in this run. <b>Right (an earlier attempt, not the published demo, stopped for an unrelated <code>PATH</code> problem):</b> the only recorded live refusal. Claude Code's own agent list showed the refused spawns as "Done"; the lead read the refusal and reused idle workers through <code>SendMessage</code> (<a href="docs/DEMO.md#attempt-1-the-cap-refusing-live-not-the-published-run">notes</a>).</sub></p>
+<p align="center"><sub><b>Left (the earlier Run D recording):</b> at the cap, the lead keeps tasks #4 and #5 pending instead of spawning; the final run is <code>blocked by #4, #5</code>; the team line reads <code>team 3 busy · … / cap 3 · tasks 3/6</code>. No spawn was refused in this run. <b>Right (an earlier attempt, not the published demo, stopped for an unrelated <code>PATH</code> problem):</b> the only recorded live refusal. Claude Code's own agent list showed the refused spawns as "Done"; the lead read the refusal and reused idle workers through <code>SendMessage</code> (<a href="docs/DEMO.md#attempt-1-the-cap-refusing-live-not-the-published-run">notes</a>).</sub></p>
 
 ## Model routing and portable configuration
 
@@ -95,7 +113,7 @@ Public preview (v0.1.0): not on npm or in an official plugin directory. Agent Te
 
 ## Learn more
 
-[Installation](docs/INSTALLATION.md) · [Limitations](docs/LIMITATIONS.md) · [Demo notes](docs/DEMO.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) (fixed context only: about 94% and 91% less than OMC 5.3.0, as measured by the maintainers) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Threat model](docs/THREAT-MODEL.md) · [Verification record](docs/REVIEW.md) · [Rollback](docs/ROLLBACK.md)
+[Installation](docs/INSTALLATION.md) · [Limitations](docs/LIMITATIONS.md) · [Demo notes](docs/DEMO.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [Mission Control](docs/MISSION-CONTROL.md) · [Natural language](docs/NATURAL-LANGUAGE.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Threat model](docs/THREAT-MODEL.md) · [Verification record](docs/REVIEW.md) · [Rollback](docs/ROLLBACK.md)
 
 ---
 

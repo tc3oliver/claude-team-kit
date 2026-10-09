@@ -446,11 +446,11 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 366 tests (51 of them the status line tests), 366 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
-| Plugin tests | PASS | `npm run test:plugin`: 173 pass, 0 fail (6 files, including `hudline.test.ts`, `toolcalls.test.ts` and `doctor.test.ts`) |
+| Unit and integration tests | PASS | `npm test`: 372 tests (including the status line tests and the TS/`.mjs` layout parity fuzz test), 372 pass, 0 fail. One earlier run had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Plugin tests | PASS | `npm run test:plugin`: 302 pass, 0 fail (10 files, including the HUD layout, tool-call counting, Mission Control model and pane, and the confirmed-config tests) |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |
-| Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |
+| Always-on context budget | PASS against the 500-token CI budget; ABOVE the 250-token goal | Measured with a real `claude -p` call (`--setting-sources project`): 17,978 input tokens with no plugin, 18,349 (+371) with the earlier plugin, 18,403 (+425) with this one. `scripts/measure-context.mjs`: component descriptions alone about 176 tokens; `claude plugin details` charges a flat floor of roughly 40 per component (about 320 for the eight components), which is why the measured figure is higher. |
 | Real `claude` 2.1.294, macOS: install, idempotent re-install, doctor, rollback, uninstall, re-point, disabled plugin, edited script/options | PASS | run in scratch config directories (see section 4 to repeat) |
 | Mod loads in `claude -p "/ctk-stats"` | PASS | output printed; also with OMC installed beside it |
 | Native install from the GitHub repository (tested while it was private, via the tester's ssh credentials) in a scratch config: marketplace add, plugin install, `/ctk-doctor`, `/ctk-stats`, `ctk install` over it, `ctk update`, `ctk uninstall`, native removal | PASS | commands and output in [INSTALLATION](INSTALLATION.md) and [ROLLBACK](ROLLBACK.md); plugin cache about 160 KB |
@@ -462,10 +462,13 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Mutation checks | PARTIAL | 38 single-line mutations: 36 KILLED, 2 SURVIVED (5.8: the `GIT_EXTERNAL_DIFF` half of the scrub, a guard that cannot be observed; the `core.fsmonitor=false` override, defence in depth behind the repo-config gate). Three earlier survivors (5.1 early reservation, 5.5 `ext` transport, 5.8 `GIT_DIR` scrub) were pinned by new tests and re-run: now killed. |
 | CI on GitHub, commit b1594d3 (the final README commit): tests on ubuntu, macos and windows x Node 22 and 24; plugin validate `--strict` and plugin test on ubuntu, macos and windows; pack audit | PASS (10 of 10 jobs) | [https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745). Earlier runs for 0aaa9a0, 70fc90a and 4297975 also passed, after the move to `plugins/ctk`; the first Windows runs failed and found real bugs (section 5a), run [37816500991](https://github.com/tc3oliver/claude-team-kit/actions/runs/37816500991) was the first green one. GitHub-hosted runners only, with Claude Code from npm `latest` at the time. |
 | Hard cap against real concurrent spawns | UNVERIFIED (independently) | Reported by the maintainers: 6 concurrent, 3 started, 3 refused, on 2.1.294; simulated-host tests pass |
-| `/ctk:team` on a real task with live agents | UNVERIFIED | skill text and cap checked separately |
-| `/ctk:review`, `/ctk:debug` on real changes | UNVERIFIED | validated as plugin components only |
+| `/ctk:team` on a real task with live agents | PASS in recordings (one fixture, Sonnet lead and workers) | Runs C, D and E in [DEMO](DEMO.md): tasks created, three workers, the cap held, the lead's own test run. The skill only instructs: Run D showed tasks marked done before the lead verified them. |
+| `/ctk:review`, `/ctk:debug` on real changes | UNVERIFIED | validated as plugin components only; their descriptions have offline eval cases |
 | Model routing on live teammates, per team mode | UNVERIFIED | resolution is unit-tested |
-| Team band in a live multi-worker session | UNVERIFIED | rendering tests only |
+| Team band in a live multi-worker session | PASS in recordings, with a gap | Runs D and E: the band counted agents and tasks live. It was absent for about 5 s after the lead's turn ended while workers ran (cause not established). |
+| Mission Control opened by a real click on the band, and by keyboard | PASS (macOS, tmux, Claude Code 2.1.295) | Run E: real SGR mouse reports; `/ctk-mission` and the focus chords were exercised in a rehearsal. Opening from the band by keyboard takes two chord presses. |
+| Natural-language entry (`ctk:team` and `ctk` skills) | PARTIAL | Run E: one plain sentence loaded `ctk:team` itself. Offline evals under `plugins/ctk/evals/` (team positives 12/12, negatives 18/18, `ctk` 12/12, review/debug 8/8) were tuned on the same prompts: best effort, not a guarantee. A plain "use multiple agents" can be satisfied with ordinary subagents without the skill. |
+| A setting change from plain words, confirmed by a click | PASS once (demo config) | The model proposed `maxWorkers` 2 through `ctk_config`, the pane waited, a click on Confirm applied it (`settings.json` gained `pluginConfigs."ctk@ctk-kit".options.maxWorkers = 2`, restored afterwards). Tests pin that `$.config.set` has one call site, behind the confirm decision. |
 | Interactive first launch: plugin or mod approval prompts | UNVERIFIED | the interactive check stopped at the login screen; `-p` mode showed no prompt |
 | Windows Terminal, VS Code terminal, WSL; interactive use on Linux and Windows | UNVERIFIED | only automated CI jobs ran on Linux and Windows (previous row); nothing was run interactively |
 | Sync against a hosted remote or with authentication | UNVERIFIED | local bare repositories only |
@@ -493,3 +496,17 @@ must stay in place.
 - After a native uninstall, `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects.
 - The `team` skill's preflight and task-list wording are not exercised by any automated test.
 - `test/demo-render.test.ts` failed once in an earlier session with a tmux timing mismatch.
+- The always-on context is +425 measured tokens, above the 250-token goal for this release; the floor is mostly
+  per-component, so lowering it means fewer components, not shorter text.
+- A confirmed option change reloads the mod about 50 ms later; module memory (per-worker and per-task detail) is
+  lost and rebuilds from new events, and the "Applied" notice does not survive the reload. The setting itself is
+  persisted by Claude Code.
+- The cap gates spawns that Claude Code marks as teammates. Ordinary subagents are not counted. The team skill advises
+  `isolation: worktree` for overlapping scopes; whether such a spawn is marked as a teammate was not checked live, so
+  it may bypass the cap.
+- Model routing to different models on live teammates was not shown: the recorded lead and implementers were both Sonnet.
+- Natural-language activation of the skills is the model's decision; the eval pass rates were measured on the prompts the
+  descriptions were tuned on.
+- The confirmed-change flow was reviewed by a separate pass that reported nine findings (a Confirm applying whichever
+  proposal was pending, a stale pending change blocking a confirm, a spawn racing the reload, an unseen task id invented
+  as pending, and five smaller ones); all were fixed and each has a test.

@@ -142,6 +142,9 @@ record() {
   local masks=() extra=() script=team-demo.script.json
   if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; [ "$RUN" = e ] && script=mission-control-e.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
+  # Run e ends on the answer to the last question; the recorder stops there, so the screen that /exit prints
+  # (it carries the session id) is never recorded.
+  [ "$RUN" = e ] && extra+=(--until 'done [0-9]+:[0-9][0-9][\s\S]*How is the team doing[\s\S]*done [0-9]+:[0-9][0-9][\s\S]*CTK ▸')
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
     --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows $ROWS \
     --cwd "$DEMO/wordkit" --home "$DEMO/home" --path "$SESSION_PATH" --claude-bin "$DEMO/bin/claude" \
@@ -159,7 +162,7 @@ render_mission() {
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-band.svg" --at-regex 'Agents 3/3[\s\S]*Guard ON' --title 'ctk: the band while three workers run'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-overview.svg" --at-regex 'CTK Mission Control[\s\S]*Team time' --title 'ctk: Mission Control, overview'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex 'NAME +MODEL[\s\S]*Select a worker' --title 'ctk: Mission Control, workers'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'DEPENDS[\s\S]*needs #' --title 'ctk: Mission Control, tasks and their dependencies'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex '(DEPENDS|NEEDS)[\s\S]*needs ' --title 'ctk: Mission Control, tasks and their dependencies'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-usage.svg" --at-regex 'Session cost' --title 'ctk: Mission Control, usage'
   node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video-$RUN" --gif "$ASSETS/$PREFIX.gif" --mp4 "$ASSETS/$PREFIX.mp4" --target-seconds 45 --title 'ctk: from the band to Mission Control'
 }

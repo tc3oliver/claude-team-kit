@@ -2,11 +2,11 @@
   { "waitFor": "accept edits on", "timeout": 60000, "delay": 3000, "keys": "Use a team to add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.\n", "typed": 30 },
   { "waitFor": "Agents 3/3", "timeout": 300000, "click": { "text": "CTK ▸", "offset": 3 } },
   { "waitFor": "CTK Mission Control", "timeout": 30000, "delay": 3500, "click": { "text": "2: Workers", "offset": 4 } },
-  { "waitFor": "NAME +MODEL", "timeout": 30000, "delay": 4000, "click": { "text": "[a-z]+-(caesar|rle|roman) +claude", "offset": 1 } },
+  { "waitFor": "NAME +MODEL", "timeout": 30000, "delay": 4000, "click": { "text": "[a-z]+-(caesar|rle|roman) +[A-Z]", "offset": 1 } },
   { "waitFor": "Agent id", "timeout": 30000, "delay": 4500, "click": { "text": "3: Tasks", "offset": 4 } },
-  { "waitFor": "DEPENDS", "timeout": 30000, "delay": 4500, "click": { "text": "4: Usage", "offset": 4 } },
+  { "waitFor": "NEEDS|DEPENDS", "timeout": 30000, "delay": 4500, "click": { "text": "4: Usage", "offset": 4 } },
   { "waitFor": "Session cost", "timeout": 30000, "delay": 4000, "click": { "text": "1: Overview", "offset": 4 } },
   { "waitFor": "Team time", "timeout": 30000, "delay": 4000, "click": { "text": "\\[ Close \\]", "offset": 3 } },
   { "waitFor": "· done \\d[\\s\\S]*Agents 0/3|Agents 0/3[\\s\\S]*· done \\d", "stable": 12000, "timeout": 580000, "delay": 3000, "keys": "How is the team doing, and how much of my 5-hour usage is left?\n", "typed": 30 },
-  { "waitFor": "done \\d+:\\d\\d[\\s\\S]*How is the team doing[\\s\\S]*done \\d+:\\d\\d[\\s\\S]*CTK ▸", "stable": 8000, "timeout": 180000, "delay": 3000, "keys": "/exit\n", "typed": 30 }
+  { "waitFor": "done \\d+:\\d\\d[\\s\\S]*How is the team doing[\\s\\S]*done \\d+:\\d\\d[\\s\\S]*CTK ▸", "stable": 8000, "timeout": 180000 }
 ]

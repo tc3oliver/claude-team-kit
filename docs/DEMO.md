@@ -323,6 +323,69 @@ appear before any worker starts, and the HUD tasks count follows the list to 6/6
 slower and messier than Run C (message crossing, a worker trimming a test) but those are lead and worker behaviors,
 not plugin faults; one run each cannot say which is typical.
 
+## Run E: asked in plain words, then the band is clicked open
+
+Run E is the recording for Mission Control and for the natural-language entry. Files:
+[`mission-control-e.svg`](assets/mission-control-e.svg) (animated, no scripts),
+[`mission-control-e.gif`](assets/mission-control-e.gif), [`mission-control-e.mp4`](assets/mission-control-e.mp4),
+[`mission-control-e.frames.jsonl`](assets/mission-control-e.frames.jsonl) and the stills
+[the band](assets/mission-control-e-band.svg), [overview](assets/mission-control-e-overview.svg),
+[workers](assets/mission-control-e-workers.svg), [tasks](assets/mission-control-e-tasks.svg) and
+[usage](assets/mission-control-e-usage.svg).
+
+**Setup.** The plugin installed through the Plugin Manager from commit `52663bc` (`claude plugin marketplace add
+tc3oliver/claude-team-kit`, `claude plugin install ctk@ctk-kit`) into a dedicated, logged-in config directory; the same
+fixture as Runs B to D; Agent Teams and the task tools switched on in that directory's `settings.json`. Claude Code
+2.1.295, a Sonnet lead, 120 x 38 terminal. The playback is 45 s of a 79 s session. The recording has one rendering
+mask (a promotional banner line); no text was replaced.
+
+**What was typed.** One sentence, not a slash command: "Use a team to add one node:test file per module in src/, named
+test/<module>.test.js, one worker per module. Then run npm test and report the results." The clicks are real mouse
+reports (SGR) sent through tmux at positions found on the screen at that moment: the `CTK ▸` entry of the band, then
+`2: Workers`, a worker row, `3: Tasks`, `4: Usage`, `1: Overview` and `[ Close ]`. Finally a second plain-words
+question: "How is the team doing, and how much of my 5-hour usage is left?"
+
+**What the frames show** (times are recorded seconds, not playback seconds).
+
+- **The sentence started the team skill.** At 12 s the lead loaded `ctk:team` itself (`Skill(ctk:team)` is on screen),
+  then called `ctk_team_status` (13.9 s), created six tasks (the band reads `Tasks 0/6` at 20 s) and started three
+  workers (`Agents 1/3` at 23 s, `3/3` at 25 s). This is one run: the model chose to load the skill; a different
+  phrasing, or another run of the same one, may not (see [natural language](NATURAL-LANGUAGE.md)).
+- **The band opened Mission Control.** The click at 25 s opened the pane at 26 s with the guard `ON`, the three
+  workers on `Sonnet 5.5` with their own tool counts, and the Overview, Workers, Worker detail (agent id, model,
+  status, tool calls, last activity), Tasks (`needs 4,5` on the final run), and Usage views followed. `[ Close ]` returned
+  to the prompt at 54 s while the team was still being wrapped up.
+- **The cap held.** No spawn was refused; the lead kept the fourth and fifth slices pending until a worker was idle,
+  as the skill tells it to. The lead's own report: 43 tests, 0 failures, source untouched.
+- **The question in words.** The lead called `ctk_team_status` and answered from its figures: 6 of 6 tasks done, no
+  live workers, 5-hour 43% (it said "resets in about 3 hours"; the band reads 3h03m), weekly 55%, $0.99, 68 tool
+  calls, context 6%. The band's `Tools 68` and `5h 43% (3h03m)` agree with it.
+
+**Things to know.**
+
+- **The band disappears for a few seconds.** When the lead finished its turn while the workers were still running, the
+  `CTK ▸` line was absent from the screen for about 5 s (frames 62 to 74), then came back with the next lead turn. The
+  same gap exists in Run D. The cause is not established: CTK draws the band whenever Claude Code asks for it. The
+  recording script therefore clicks the band the moment `Agents 3/3` appears.
+- **The pane is narrow.** Docked next to a 120-column transcript it has about 50 cells, so the tables use a compact
+  form there (no LAST column, short model names). The first recording of Run E showed the full model id and cut off
+  the last columns; that was fixed in `52663bc` and the run re-recorded.
+- **Eight takes, one published.** Takes 1 to 7 stopped because of the recording script (a wait that did not match, a
+  click target the new table no longer had, a final wait that never matched); take 8 is the one published. Each take
+  that ran a full team cost about a dollar by the status line (this one: $0.99), so the experiment cost roughly six
+  to seven dollars in all. Only take 8's frames are in the repository.
+- **A confirmed setting change was exercised separately,** not in this recording. In the same demo configuration the
+  model was asked in words to change the worker cap to 2. It loaded the `ctk` skill and called `ctk_config` with
+  `propose` (the result read `pending_user_confirmation`), Mission Control showed `Waiting for you: Max live teammates
+  (maxWorkers): 3 -> 2` with `[ Confirm ]` and `[ Cancel ]`, and a click on `[ Confirm ]` applied it: the guard then read
+  `a spawn above 2 live teammates`, the plugin reloaded, and `settings.json` held `pluginConfigs."ctk@ctk-kit".options.maxWorkers
+  = 2`. That file was restored from a verified backup afterwards. The frames of this probe are not published. The
+  reload that follows a confirmed change restarts CTK's in-memory view, so per-worker and per-task detail starts empty
+  again ([limitations](LIMITATIONS.md)).
+
+Reproduce: `CTK_DEMO_RUN=e CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all`.
+The recorder stops by itself if more than three agents are busy or the cost passes $3.
+
 ## The HUD at five widths
 
 `docs/assets/hud-widths.svg` is not a recording: it draws the rows in `docs/assets/hud-widths.json`,
@@ -344,6 +407,7 @@ CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scri
 CTK_DEMO_RUN=b CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run B
 CTK_DEMO_RUN=c CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run C, native install
 CTK_DEMO_RUN=d CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run D, Run C's recipe after the fixes
+CTK_DEMO_RUN=e CTK_DEMO_CONFIG_DIR=<dedicated config dir> CTK_DEMO_MASKS_FILE=<masks.json> scripts/demo/team-demo.sh all   # Run E, plain words and the clickable band
 ```
 
 The model is not deterministic: another run will split the work differently, may spawn more or fewer workers,

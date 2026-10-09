@@ -18,6 +18,8 @@ All notable changes to this project are documented here. The format follows
 - Mission Control: the band is one clickable button (`CTK ▸ …`) that opens a read-only pane with the
   team's guard state, workers, tasks and usage; also `/ctk-mission`. Anything not observed reads
   "unavailable". See docs/MISSION-CONTROL.md.
+  In a docked pane (about 50 cells) the Workers and Tasks tables use a compact form.
+- A recording of Mission Control opened by a click after a plain-words request (docs/DEMO.md, Run E).
 - `ctk_config` tool: the model can propose an option change in plain words; only the user's Confirm
   button in Mission Control applies it. Option `hudIdle` (full, minimal, hidden) sets what the band shows
   before a team has started.
