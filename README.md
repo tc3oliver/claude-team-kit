@@ -16,10 +16,10 @@
 Claude Team Kit (CTK) is a lightweight companion plugin for Claude Code's native Agent Teams: a hard cap on how many teammates run at once, a clickable Mission Control for the team, and skills that guide the lead to split work into verifiable tasks. The lead and the teammates stay Claude Code's own; CTK is not a second orchestrator.
 
 <p align="center">
-  <img src="docs/assets/mission-control-e.svg" alt="Recording of a live Claude Code session: one plain-words request starts a team, the lead creates six tasks and starts three workers, and a click on the CTK line above the prompt opens Mission Control with the workers, their models, the tasks with their dependencies, and usage" width="900">
+  <img src="docs/assets/mission-control-f.svg" alt="Recording of a live Claude Code session: one plain-words request starts a team, the lead creates seven tasks and starts three workers, and a click on the CTK line above the prompt opens Mission Control beside the transcript, with the workers, a task graph whose nodes turn from ready to running to done, and usage" width="900">
 </p>
 
-<p align="center"><sub><b>Live Claude Code session.</b> One plain sentence starts the team; a real click on <code>CTK ▸</code> opens Mission Control. One run on a small fixture, played back at 79 s in 45 s; another run may behave differently. Recording notes: <a href="docs/DEMO.md#run-e-asked-in-plain-words-then-the-band-is-clicked-open">docs/DEMO.md</a> (also <a href="docs/assets/mission-control-e.gif">GIF</a>, <a href="docs/assets/mission-control-e.mp4">MP4</a>).</sub></p>
+<p align="center"><sub><b>Live Claude Code session.</b> One plain sentence starts the team; a real click on <code>CTK ▸</code> opens Mission Control beside the transcript. One run on a small fixture, played back at 185 s in 45 s; another run may behave differently. The account name, e-mail and organisation are masked. Recording notes: <a href="docs/DEMO.md#run-f-the-redesigned-mission-control-docked-beside-a-live-team">docs/DEMO.md</a> (also <a href="docs/assets/mission-control-f.gif">GIF</a>, <a href="docs/assets/mission-control-f.mp4">MP4</a>).</sub></p>
 
 ## From one prompt to a coordinated team
 
@@ -105,14 +105,14 @@ Small footprint: the plugin adds about 480 tokens to a session (measured with a 
 The `CTK ▸` line above the prompt is a button: click it, or run `/ctk-mission`, to open a read-only dashboard beside the transcript. Nothing in it spawns, stops or changes anything.
 
 <p align="center">
-  <a href="docs/assets/mission-control-e-workers.svg"><img src="docs/assets/mission-control-e-workers.svg" alt="Mission Control, Workers view: three workers on Sonnet 5.5 with status running and their tool-call counts" width="720"></a>
+  <a href="docs/assets/mission-control-f-workers.svg"><img src="docs/assets/mission-control-f-workers.svg" alt="Mission Control, Workers view, docked beside the transcript: three workers on Sonnet 5.5, each with its task, tool-call count, elapsed time and last activity" width="720"></a>
 </p>
 
 <p align="center">
-  <a href="docs/assets/mission-control-e-tasks.svg"><img src="docs/assets/mission-control-e-tasks.svg" alt="Mission Control, Tasks view: six tasks with status, owner and dependencies; the last task needs 4 and 5" width="720"></a>
+  <a href="docs/assets/mission-control-f-poster.svg"><img src="docs/assets/mission-control-f-poster.svg" alt="Mission Control, Tasks view, docked beside the transcript: five finished tasks fan in to a running npm test task, which leads to the report task" width="720"></a>
 </p>
 
-<p align="center"><sub>Stills from the recording above: workers with their model and tool calls, then the task list with its dependencies. The pane is about 50 cells wide, so the tables use a compact form. Tap an image for full size.</sub></p>
+<p align="center"><sub>Stills from the recording above: the workers with their live rows, then the task graph with its dependencies. The pane is about 48 cells wide in a 120-column terminal, so titles are short. Layouts at other widths are in the <a href="docs/DEMO.md#mission-control-screenshots-synthetic-data">synthetic-data screenshots</a>. Tap an image for full size.</sub></p>
 
 - **Views:** Overview (guard, workers, tasks, team time, usage), Workers, Tasks (owner, ready or blocked, what it needs and blocks), Usage, Config, Stats, Doctor. Digits `1` to `7` switch views; `Esc` returns to the prompt.
 - **Only what was observed.** Figures come from Claude Code's own events and API; anything CTK could not observe reads `unavailable`, never a made-up zero.

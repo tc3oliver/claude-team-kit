@@ -22,6 +22,11 @@
 # before the pane is closed; it ends by asking in words how the team and the usage are. Files mission-control-e.*.
 # The click aims at text found on the current screen, so a layout change fails the step instead of missing quietly.
 #
+# CTK_DEMO_RUN=f is Run E's recipe against the redesigned pane (docked, about 50 cells: tabs `1: Over 2: Work ...`, two-line
+# worker rows, a layered task graph with a progress bar). The installed plugin must be at HEAD of GitHub main (the
+# manifest pins 0.1.1, so a reinstall of the same version can keep an old cached copy; prepare checks gitCommitSha).
+# Files mission-control-f.*. CTK_DEMO_OFFLINE=1 makes prepare skip the login check and the /ctk-doctor model call.
+#
 # The recorder kills the session if more than 3 teammates are busy or the status line shows a cost of
 # $2.00 or more (test/demo-render.test.ts checks the pattern).
 #
@@ -36,11 +41,11 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd -P)
 DEMO=${CTK_DEMO_DIR:-/tmp/ctk-demo}          # short paths keep personal paths off the screen
 CLAUDE_REAL=${CTK_DEMO_CLAUDE:-$HOME/.local/bin/claude}   # the binary, never a shell alias
 ASSETS=$ROOT/docs/assets
-ROWS=34; [ "${CTK_DEMO_RUN:-a}" = e ] && ROWS=38
+ROWS=34; case ${CTK_DEMO_RUN:-a} in e|f) ROWS=38 ;; esac
 STAGE=${1:-all}
 RUN=${CTK_DEMO_RUN:-a}
-case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; d) PREFIX=team-demo-d ;; e) PREFIX=mission-control-e ;; *) PREFIX=team-demo ;; esac
-NATIVE=0; case $RUN in c|d|e) NATIVE=1 ;; esac
+case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; d) PREFIX=team-demo-d ;; e) PREFIX=mission-control-e ;; f) PREFIX=mission-control-f ;; *) PREFIX=team-demo ;; esac
+NATIVE=0; case $RUN in c|d|e|f) NATIVE=1 ;; esac
 CFG=$DEMO/config
 SESSION_PATH=$DEMO/bin:/usr/bin:/bin
 
@@ -59,9 +64,15 @@ require_inputs() {
 
 session_env() { env -i HOME="$DEMO/home" PATH="$SESSION_PATH" TERM=xterm-256color LANG=en_US.UTF-8 CLAUDE_CONFIG_DIR="$CFG" "$@"; }
 
+check_login() {
+  [ "${CTK_DEMO_OFFLINE:-}" = 1 ] && return 0
+  session_env "$DEMO/bin/claude" auth status | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!d.loggedIn){console.error("team-demo: the demo config is not logged in");process.exit(1)}'
+}
+
 prepare_native() {
   # Run C: nothing but Claude Code's own plugin commands touches the config, apart from two plain JSON edits.
-  local marketplace=${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit} real
+  local marketplace=${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit} real cap=()
+  [ "$RUN" = f ] && cap=(--config maxWorkers=3)   # the default cap is now 5; the recording and its guards assume 3
   mkdir -p "$DEMO"/{bin,home,out,work}
   ln -sfn "$CTK_DEMO_CONFIG_DIR" "$CFG"
   ln -sfn "$(command -v node)" "$DEMO/bin/node"
@@ -75,7 +86,7 @@ prepare_native() {
   cp -R "$ROOT/scripts/demo/fixture" "$DEMO/wordkit"
   ( cd "$DEMO/wordkit" && git init -q && git add -A \
     && git -c user.name=demo -c user.email=demo@example.invalid -c commit.gpgsign=false commit -q -m "wordkit: initial modules" )
-  session_env "$DEMO/bin/claude" auth status | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!d.loggedIn){console.error("team-demo: the demo config is not logged in");process.exit(1)}'
+  check_login
 
   # fresh plugin state: remove ctk and its marketplace if present, and leftovers of the CLI's own directory
   CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin uninstall ctk@ctk-kit >/dev/null 2>&1 || true
@@ -83,10 +94,17 @@ prepare_native() {
   [ -d "$CTK_DEMO_CONFIG_DIR/ctk" ] && rm -r "$CTK_DEMO_CONFIG_DIR/ctk"
   # the native flow; the real HOME is only used here, for git over ssh
   ( cd "$DEMO/work" && CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin marketplace add "$marketplace" \
-    && CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin install ctk@ctk-kit )
+    && CLAUDE_CONFIG_DIR=$CFG "$CLAUDE_REAL" plugin install ctk@ctk-kit "${cap[@]}" )
   # the installed copy must be the checkout's (the cache is keyed by version, so a stale one would pass unnoticed)
-  diff -q "$CFG/plugins/cache/ctk-kit/ctk/"*/skills/team/SKILL.md "$ROOT/plugins/ctk/skills/team/SKILL.md" \
+  # (the cache can hold older versions beside it, so read the installed path instead of globbing)
+  diff -q "$(node -p 'const p=require(process.argv[1]).plugins["ctk@ctk-kit"]; p[p.length-1].installPath' "$CFG/plugins/installed_plugins.json")/skills/team/SKILL.md" "$ROOT/plugins/ctk/skills/team/SKILL.md" \
     || { echo "team-demo: the installed team skill differs from this checkout; reinstall or push first" >&2; exit 1; }
+
+  if [ "$RUN" = f ]; then
+    local want got; want=$(git -C "$ROOT" rev-parse HEAD)
+    got=$(node -p 'const p=require(process.argv[1]).plugins["ctk@ctk-kit"]; p[p.length-1].gitCommitSha' "$CFG/plugins/installed_plugins.json")
+    [ "$got" = "$want" ] || { echo "team-demo: installed ctk is $got, HEAD is $want; push HEAD to GitHub main and reinstall" >&2; exit 1; }
+  fi
 
   # the two one-time settings, a plain JSON edit, plus the allow rules; no statusLine from CTK
   node -e '
@@ -94,10 +112,12 @@ prepare_native() {
     const s = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}
     delete s.statusLine
     s.env = { ...(s.env || {}), CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" }
+    // Run f: no grayed-out prompt suggestion in the input line (documented key and env var, this dedicated config only)
+    if (process.argv[2] === "f") { s.promptSuggestionEnabled = false; s.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "false" }
     s.permissions = { ...(s.permissions || {}), defaultMode: "acceptEdits",
       allow: ["Read", "Write", "Edit", "Bash(npm test:*)", "Bash(node --test:*)", "Bash(ls:*)", "Bash(cat:*)"] }
-    fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n")' "$CFG"
-  ( cd "$DEMO/wordkit" && session_env "$DEMO/bin/claude" -p "/ctk-doctor" )
+    fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n")' "$CFG" "$RUN"
+  [ "${CTK_DEMO_OFFLINE:-}" = 1 ] || ( cd "$DEMO/wordkit" && session_env "$DEMO/bin/claude" -p "/ctk-doctor" )
 }
 
 prepare() {
@@ -139,12 +159,14 @@ record() {
   require_inputs
   local ABORT='(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}'
   [ "$RUN" = e ] && ABORT='Agents (?:[4-9]|\d{2,})/|[│·] \$[3-9]\.\d\d|[│·] \$\d{2,}'
+  # Run f: no budget, only a runaway guard at $10 and the cap (more than 3 agents)
+  [ "$RUN" = f ] && ABORT='Agents (?:[4-9]|\d{2,})/|[│·] \$\d{2,}\.\d\d'
   local masks=() extra=() script=team-demo.script.json
-  if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; [ "$RUN" = e ] && script=mission-control-e.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
+  if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; [ "$RUN" = e ] && script=mission-control-e.script.json; [ "$RUN" = f ] && script=mission-control-f.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
   # Run e ends on the answer to the last question; the recorder stops there, so the screen that /exit prints
   # (it carries the session id) is never recorded.
-  [ "$RUN" = e ] && extra+=(--until 'done [0-9]+:[0-9][0-9][\s\S]*How is the team doing[\s\S]*done [0-9]+:[0-9][0-9][\s\S]*CTK ▸')
+  { [ "$RUN" = e ] || [ "$RUN" = f ]; } && extra+=(--until 'done [0-9]+:[0-9][0-9][\s\S]*How is the team doing[\s\S]*done [0-9]+:[0-9][0-9][\s\S]*CTK ▸')
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
     --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows $ROWS \
     --cwd "$DEMO/wordkit" --home "$DEMO/home" --path "$SESSION_PATH" --claude-bin "$DEMO/bin/claude" \
@@ -160,15 +182,16 @@ render_mission() {
   local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
   node "$svg" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 45 --max-gap 2 --title 'ctk: from the band to Mission Control'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-band.svg" --at-regex 'Agents 3/3[\s\S]*Guard ON' --title 'ctk: the band while three workers run'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-overview.svg" --at-regex 'CTK Mission Control[\s\S]*Team time' --title 'ctk: Mission Control, overview'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex 'NAME +MODEL[\s\S]*Select a worker' --title 'ctk: Mission Control, workers'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex '(DEPENDS|NEEDS)[\s\S]*needs ' --title 'ctk: Mission Control, tasks and their dependencies'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-usage.svg" --at-regex 'Session cost' --title 'ctk: Mission Control, usage'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-overview.svg" --at-regex 'CTK MISSION CONTROL[\s\S]*SLOTS' --title 'ctk: Mission Control, overview'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex '(RUNNING|IDLE|DONE) +\S+ [\d.]+[\s\S]*Select (a worker )?for details' --title 'ctk: Mission Control, workers'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'marked complete[\s\S]*needs ' --title 'ctk: Mission Control, tasks and their dependencies'
+  [ "$RUN" = f ] && node "$svg" "$f" --static-out "$ASSETS/$PREFIX-poster.svg" --at-regex '[1-9]/\d+ marked complete[\s\S]*Running [1-9] · Blocked [1-9]' --title 'ctk: Mission Control, a team mid-run'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-usage.svg" --at-regex 'LIMITS[\s\S]*SESSION' --title 'ctk: Mission Control, usage'
   node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video-$RUN" --gif "$ASSETS/$PREFIX.gif" --mp4 "$ASSETS/$PREFIX.mp4" --target-seconds 45 --title 'ctk: from the band to Mission Control'
 }
 
 render() {
-  [ "$RUN" = e ] && { render_mission; return; }
+  case $RUN in e|f) render_mission; return ;; esac
   local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
   # the lead's closing words differ per run; pick the frame that shows them with the status line
   local summary='Crunched for[\s\S]*team 0 busy' workers='team 3 busy .*\n[\s\S]*◯ w-roman'

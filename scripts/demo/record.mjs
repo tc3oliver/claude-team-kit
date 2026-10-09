@@ -19,7 +19,7 @@ import { cellWidth } from './render-svg.mjs'
 const USAGE = `usage: CLAUDE_CONFIG_DIR=<scratch dir> record.mjs --out <file.frames.jsonl> [options] -- <command> [args...]
   --cols N / --rows N   terminal size (default 110x32)
   --cwd DIR             working directory of the session
-  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, stable:ms, timeout:ms, delay:ms, keys:text, typed:msPerChar, key:name|[names], click:{text:regex, offset:cells, last:bool}}
+  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, stable:ms, timeout:ms, softTimeout:true (a timeout ends the wait instead of failing), delay:ms, keys:text, typed:msPerChar, key:name|[names], click:{text:regex, offset:cells, last:bool}}
   --until REGEX         stop once the script is done and the screen matches
   --idle MS             stop after MS without change once the script is done (default 5000)
   --limit MS            hard time limit (default 120000)
@@ -290,6 +290,7 @@ async function main() {
             since ??= now()
             if (now() - since >= (s.stable ?? 0)) break
           } else since = null
+          if (now() > deadline && s.softTimeout === true) break
           if (now() > deadline) throw new Error(`script step ${n}: ${k} /${re}/ not seen within ${s.timeout ?? 30000} ms`)
           await sleep(50)
         }

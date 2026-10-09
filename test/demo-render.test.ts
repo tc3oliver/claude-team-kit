@@ -226,7 +226,7 @@ test('record captures a real tmux session, types scripted keys and stops on a ma
   const script = join(dir, 'script.json')
   const out = join(dir, 'out.frames.jsonl')
   // the delay lets the shell finish starting before it is typed at
-  writeFileSync(script, JSON.stringify([{ waitForLine: '\\$$', delay: 300, keys: 'echo typed-ok\n', typed: 5 }]))
+  writeFileSync(script, JSON.stringify([{ waitFor: 'never-on-screen', softTimeout: true, timeout: 300 }, { waitForLine: '\\$$', delay: 300, keys: 'echo typed-ok\n', typed: 5 }]))
   // --idle and --limit are far above the time the run needs: only a missed match can reach them
   const r = spawnSync(process.execPath, [RECORD, '--out', out, '--script', script, '--until', '\\ntyped-ok\\n\\S*\\$$', '--idle', '30000', '--limit', '60000', '--interval', '100', '--cols', '60', '--rows', '10', '--home', dir, '--path', '/usr/bin:/bin', '--claude-bin', 'false', '--', '/bin/sh'], {
     encoding: 'utf8',
@@ -277,7 +277,7 @@ test('record masks text at capture time, lists labels not patterns, and aborts o
 test('team-demo.sh guard: aborts at a cost of $2.00 or more or more than 3 busy teammates, not at $0.78', () => {
   const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
   const patterns = [...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)
-  assert.equal(patterns.length, 2, 'a default guard and the Mission Control one')
+  assert.equal(patterns.length, 3, 'a default guard, the Mission Control one and Run F')
   assert.match(script, /--abort-on "\$ABORT"/)
   const guard = new RegExp(patterns[0] as string)
   for (const hit of ['· $2.00', '· $12.40', 'team 4 busy · 0 idle', 'team 12 busy']) assert.match(hit, guard, hit)
@@ -289,6 +289,13 @@ test('team-demo.sh guard for the Mission Control run: more than 3 agents or $3.0
   const guard = new RegExp([...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)[1] as string)
   for (const hit of ['Agents 4/3', 'Agents 12/3', 'Guard ON │ Ctx 5% │ $3.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
   for (const miss of ['Agents 3/3 (1 busy)', 'Agents 0/3', '│ $2.99 (4m)', 'Tools 31 │ Agents 3/3', '$0.94']) assert.doesNotMatch(miss, guard, miss)
+})
+
+test('team-demo.sh guard for Run F: more than 3 agents or $10.00 or more, not $9.99', () => {
+  const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
+  const guard = new RegExp([...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)[2] as string)
+  for (const hit of ['Agents 4/3', 'Agents 12/3', 'Guard ON │ Ctx 5% │ $10.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
+  for (const miss of ['Agents 3/3 (1 busy)', 'Agents 0/3', '│ $9.99 (4m)', '│ $3.50 (4m)', 'Tools 31 │ Agents 3/3']) assert.doesNotMatch(miss, guard, miss)
 })
 
 test('mask-frames applies masks after capture and says so in the meta line', () => {

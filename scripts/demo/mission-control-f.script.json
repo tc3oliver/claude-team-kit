@@ -1,0 +1,77 @@
+[
+  {
+    "waitFor": "accept edits on",
+    "timeout": 60000,
+    "delay": 3000,
+    "keys": "Use a team to add one node:test file per module in src/, named test/<module>.test.js. Give every task to a worker; you run nothing yourself, you only create tasks, assign workers and read their reports. One task per module, each with at least twelve test cases that include the edge cases, run and fixed until it passes; then a task whose only job is `npm test`; then a task that writes TEST-REPORT.md with one line per module. Every command anyone runs is a single `node --test test/<module>.test.js` or `npm test`: no `for`, `&&`, `;` or pipes. Keep going with the workers you have when the cap is full.\n",
+    "typed": 30
+  },
+  {
+    "waitFor": "Agents [23]/3",
+    "stable": 2000,
+    "timeout": 300000,
+    "click": {
+      "text": "CTK ▸",
+      "offset": 3
+    }
+  },
+  {
+    "waitFor": "CTK MISSION CONTROL",
+    "timeout": 30000,
+    "delay": 3500,
+    "click": {
+      "text": "2:(?= *3:| Work)",
+      "offset": 1
+    }
+  },
+  {
+    "waitFor": "RUNNING[\\s\\S]*RUNNING",
+    "stable": 3000,
+    "timeout": 120000,
+    "delay": 2500,
+    "click": {
+      "text": "3:(?= *4:| Task)",
+      "offset": 1
+    }
+  },
+  {
+    "waitFor": "[5-9]/\\d+ marked complete",
+    "softTimeout": true,
+    "timeout": 25000,
+    "delay": 2500,
+    "click": {
+      "text": "4:(?= *5:| Us)",
+      "offset": 1
+    }
+  },
+  {
+    "waitFor": "LIMITS",
+    "stable": 4000,
+    "timeout": 30000,
+    "click": {
+      "text": "1:(?= Over| +2:)",
+      "offset": 1
+    }
+  },
+  {
+    "waitFor": "SLOTS",
+    "stable": 4000,
+    "timeout": 30000,
+    "click": {
+      "text": "\\[ Close \\]",
+      "offset": 3
+    }
+  },
+  {
+    "waitFor": "· done \\d[\\s\\S]*Agents 0/3|Agents 0/3[\\s\\S]*· done \\d",
+    "stable": 12000,
+    "timeout": 580000,
+    "delay": 3000,
+    "keys": "How is the team doing, and how much of my 5-hour usage is left?\n",
+    "typed": 30
+  },
+  {
+    "waitFor": "How is the team doing[\\s\\S]*✻ [A-Za-z]+ for [0-9ms ]+ · done \\d+:\\d\\d",
+    "timeout": 180000
+  }
+]
