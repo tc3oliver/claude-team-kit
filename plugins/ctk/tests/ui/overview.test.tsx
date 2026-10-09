@@ -164,3 +164,36 @@ describe('guard sentence and cards', () => {
     await p.unmount()
   })
 })
+
+// Real lines the drawn tree takes: a Text is one, a row of boxes is as tall as its tallest child, a column is the sum.
+const realLines = (n: any): number =>
+  typeof n === 'string' ? 0 : n.type === 'Text' ? 1 : n.type === 'Box' && n.props.flexDirection === 'row' ? Math.max(0, ...(n.children ?? []).map(realLines)) : (n.children ?? []).reduce((a: number, c: any) => a + realLines(c), 0)
+
+describe('row budget counts real lines', () => {
+  // header + tabs + footer take 3 lines beside the 11 body rows (the gaps are margins, not lines).
+  const FRAME = 3
+  test('a full Overview (cards, refusal, subagents) fits 11 body lines at 44, 60 and 100 cells', async ($, on) => {
+    await team($, on)
+    for (let i = 1; i < 4; i++) await $.agent.spawn(spawnInput(i, true, { name: `w-x${i}` }))
+    for (let i = 20; i < 23; i++) {
+      const { name: _n, ...rest } = spawnInput(i, false, { subagentType: 'Explore', description: `s${i}`, background: false })
+      await $.agent.spawn(rest as never)
+    }
+    for (const cols of [44, 60, 100]) {
+      const p = await pane($, cols)
+      await p.press({ key: 'mc:refresh' })
+      expect(realLines(await p.drawn())).toBeLessThanOrEqual(11 + FRAME)
+      await p.unmount()
+    }
+  })
+
+  test('Config at 120 cells and Usage at 44 cells stay inside the budget', async ($, on) => {
+    await team($, on)
+    for (const [view, cols] of [['config', 120], ['usage', 44], ['usage', 60]] as const) {
+      const p = await pane($, cols)
+      await p.press({ key: `mc:view:${view}` })
+      expect(realLines(await p.drawn())).toBeLessThanOrEqual(11 + FRAME)
+      await p.unmount()
+    }
+  })
+})

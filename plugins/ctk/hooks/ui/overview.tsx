@@ -121,8 +121,9 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
     ...guardWhy,
     ...session,
   ]
-  const shown = fit('o', rows)
-  // The HUD form control lives in Config; it appears here only when rows are left over.
-  return shown.length < ctx.rows ? [...shown, hudButtons(kit, mc, ctx)] : shown
+  // Each card node is two lines (a label over its value), so the nodes are counted against a budget reduced by the extra lines.
+  const extra = cards.length
+  const shown = fit('o', rows, ctx.rows - extra)
+  // The HUD form control lives in Config; it appears here only when real lines are left over.
+  return shown.length + extra < ctx.rows ? [...shown, hudButtons(kit, mc, ctx)] : shown
 }
-

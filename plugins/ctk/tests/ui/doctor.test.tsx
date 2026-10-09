@@ -34,7 +34,7 @@ describe('doctor view', () => {
 
   test('a guard that is only available is never shown as ON', async ($, on) => {
     const { text: t, rows } = await open($, on, true)
-    expect(t).toContain('Ready')
+    expect(t).toContain('No fixes needed')
     expect(t).toContain('agent teams: enabled')
     expect(t).not.toContain('guard: ON')
   })

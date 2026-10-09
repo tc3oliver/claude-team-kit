@@ -224,7 +224,7 @@ describe('Mission Control views', () => {
 
   test('config view lists the options and says how to change one', async ($, on) => {
     await team($, on)
-    const p = await pane($)
+    const p = await pane($, { ...PANE, placement: 'dock', scroll: { offset: 0, bodyRows: 40 } })
     await p.press({ key: 'mc:view:config' })
     const t = await texts(p)
     for (const want of ['Max live teammates', '3', 'Explorer model', 'haiku', 'Team band', 'Nothing changes without your confirmation']) expect(t).toContain(want)

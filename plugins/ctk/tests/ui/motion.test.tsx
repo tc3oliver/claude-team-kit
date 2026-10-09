@@ -46,6 +46,7 @@ describe('motion state (pure)', () => {
 const pane = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: PANE })
 
 // The pane redraws once per `invalidate`; counting them counts timer fires.
+const fail = { invalidate: false }
 const setup = async ($: any, on: any, env: Record<string, string> = { CLAUDE_CONFIG_DIR: '/cfg' }) => {
   const w = fresh()
   w.model = 'claude-sonnet-5-5'
@@ -54,11 +55,12 @@ const setup = async ($: any, on: any, env: Record<string, string> = { CLAUDE_CON
   let draws = 0
   on('ui.invalidate', async (_$: any, e: any, next: any) => {
     draws++
+    if (fail.invalidate) throw new Error('no redraw')
     return next(e)
   })
   await $.session.start(START)
   await $.agent.spawn(spawnInput(0, true, { name: 'w-rle', model: 'claude-sonnet-5-5' }))
-  return { w, clock, draws: () => draws }
+  return { w, clock, draws: () => draws, fail }
 }
 
 describe('motion timers (fake clock)', () => {
@@ -114,6 +116,33 @@ describe('motion timers (fake clock)', () => {
     const before = draws()
     await clock.advance(10_000)
     expect(draws()).toBe(before)
+    await p.unmount()
+  })
+
+  test('after session end a late pane draw arms no timer', async ($, on) => {
+    const { clock, draws } = await setup($, on)
+    const p = await pane($)
+    await clock.advance(1)
+    await $.session.end({ reason: 'other', sessionId: 'sess/1' } as never)
+    await p.press({ key: 'mc:refresh' })
+    await clock.advance(1)
+    const before = draws()
+    await clock.advance(10_000)
+    expect(draws()).toBe(before)
+    await p.unmount()
+  })
+
+  test('a redraw request that throws does not escape the timer', async ($, on) => {
+    const { clock, draws } = await setup($, on)
+    const p = await pane($)
+    await clock.advance(1)
+    fail.invalidate = true
+    const before = draws()
+    await clock.advance(3_000)
+    // The redraw was asked for (and refused) from the timer; nothing escaped and the pane still answers.
+    expect(draws()).toBeGreaterThan(before)
+    fail.invalidate = false
+    await p.press({ key: 'mc:view:tasks' })
     await p.unmount()
   })
 })

@@ -83,6 +83,8 @@ type Ctx = {
   moTimer: { cancel: () => void } | null
   /** True from a pane draw until the pane is closed by its own button; the timer does nothing otherwise. */
   paneOpen: boolean
+  /** True from session end: a late pane draw must not arm another timer. */
+  ended: boolean
 }
 
 async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
@@ -236,7 +238,8 @@ async function boot($: EngineInterface, c: Ctx) {
 }
 
 // Stops the redraw timer. Called when the pane closes and when the session ends.
-function stopMotion(c: Ctx) {
+function stopMotion(c: Ctx, ended = false) {
+  if (ended) c.ended = true
   c.moTimer?.cancel()
   c.moTimer = null
   c.paneOpen = false
@@ -246,14 +249,18 @@ function stopMotion(c: Ctx) {
 // still to end). Each fire redraws the pane, which arms the next; a pane that is gone draws nothing, so the
 // chain ends by itself.
 function armMotion($: EngineInterface, c: Ctx, now: number) {
-  if (c.moTimer !== null) return
+  if (c.moTimer !== null || c.ended) return
   const ms = delayFor(c.mo, missionOf(c), now)
   if (ms === null) return
   c.moTimer = $.clock.after(ms, () => {
     c.moTimer = null
-    if (!c.paneOpen) return
-    c.mo = { ...c.mo, frame: c.mo.frame + 1 }
-    $.ui.invalidate('ui.render')
+    if (!c.paneOpen || c.ended) return
+    try {
+      c.mo = { ...c.mo, frame: c.mo.frame + 1 }
+      $.ui.invalidate('ui.render')
+    } catch {
+      // A redraw that cannot be asked for ends the chain; motion is decoration.
+    }
   })
 }
 
@@ -438,6 +445,7 @@ export const register: Register = (on, options) => {
     mo: newMotionState(),
     moTimer: null,
     paneOpen: false,
+    ended: false,
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -516,6 +524,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   on('session.start', async ($, e, next) => {
+    c.ended = false
     try {
       await $.tool.register({
         name: STATUS_TOOL_NAME,
@@ -578,7 +587,7 @@ export const register: Register = (on, options) => {
   })
 
   on('session.end', async ($, e, next) => {
-    stopMotion(c)
+    stopMotion(c, true)
     await persist($, c, true)
     return next(e)
   })

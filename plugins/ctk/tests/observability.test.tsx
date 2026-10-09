@@ -18,6 +18,8 @@ const flat = (n: any): string =>
   typeof n === 'string' ? n : n.type === 'Button' ? `⟦${n.props.key}⟧${(n.children ?? []).map(flat).join('')}` : (n.children ?? []).map(flat).join(n.type === 'Box' ? ' ' : '')
 const band = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'AbovePrompt', props: BAND })
 const pane = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: PANE })
+// A docked pane gets the terminal's rows, so the whole Config page fits.
+const dock = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: { ...PANE, placement: 'dock', scroll: { offset: 0, bodyRows: 40 } } })
 const panes = new WeakMap<object, any>()
 const view = async ($: any, v: string): Promise<string> => {
   const p = panes.get($) ?? (await pane($))
@@ -183,7 +185,9 @@ describe('changing a setting is visible outside the pane', () => {
 
   test('the Config page without a proposal says how a change is made', async ($, on) => {
     await started($, on)
-    const text = await view($, 'config')
+    const p = await dock($)
+    await p.press({ key: 'mc:view:config' })
+    const text = flat(await p.drawn())
     expect(text).toContain('then press Confirm')
   })
 })

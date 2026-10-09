@@ -25,7 +25,9 @@ export const renderDoctor = (_kit: Kit, _m: Mission, mc: McState, _extras: Extra
   return [
     ...(ctx.compact ? [] : [line('d-head', HEADER, { dim: true })]),
     actions.length === 0
-      ? line('d-sum', `${GLYPH.done} Ready: nothing needs a fix`, { color: COLOR.done, bold: true })
+      ? watch.length === 0
+        ? line('d-sum', `${GLYPH.done} No fixes needed`, { color: COLOR.done, bold: true })
+        : line('d-sum', `${GLYPH.ready} No fixes needed · ${watch.length} to watch`, { color: COLOR.ready, bold: true })
       : line('d-sum', `${GLYPH.failed} ${actions.length} need${actions.length === 1 ? 's' : ''} a fix`, { color: COLOR.error, bold: true }),
     ...actions.flatMap((r, i) => [
       ...para(`d-a${i}`, `${GLYPH.failed} ${r.text}`, { color: COLOR.error }),

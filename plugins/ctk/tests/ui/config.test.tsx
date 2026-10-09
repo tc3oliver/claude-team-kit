@@ -6,19 +6,19 @@ import { engine, fresh, test } from '../world.ts'
 
 const flat = (n: any): string =>
   typeof n === 'string' ? n : n.type === 'Button' ? `⟦${n.props.key}⟧${(n.children ?? []).map(flat).join('')}` : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : '')
-const open = async ($: any, on: any, bodyColumns: number) => {
+const open = async ($: any, on: any, bodyColumns: number, dock = false) => {
   engine(on, fresh())
   await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
   await $.tool.call({ tool: CONFIG_TOOL, action: 'propose', option: 'maxWorkers', value: 2 })
-  const props = { title: 'CTK Mission Control', isFocused: true, bodyColumns, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
+  const props = { title: 'CTK Mission Control', isFocused: true, bodyColumns, placement: dock ? 'dock' : 'inline', scroll: { offset: 0, bodyRows: dock ? 40 : 16 }, view: {} }
   const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props })
   await p.press({ key: 'mc:view:config' })
   return flat(await p.drawn())
 }
 
 describe('config view', () => {
-  test('groups the options and marks the pending change at 130 columns', async ($, on) => {
-    const t = await open($, on, 130)
+  test('groups the options and marks the pending change at 130 columns (docked: the whole page fits)', async ($, on) => {
+    const t = await open($, on, 130, true)
     for (const g of ['Team', 'Models', 'Band', 'Other']) expect(t).toContain(g)
     expect(t).toContain('PENDING CHANGE')
     expect(t).toContain('3 → 2 (pending)')

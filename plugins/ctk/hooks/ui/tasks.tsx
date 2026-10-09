@@ -58,7 +58,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
     const list = (ids: string[]): string => (ids.length === 0 ? 'none' : ids.map(seen).join(' '))
     return [
       ...para(`t-${row.id}-title`, `#${row.id} ${row.subject}`, { bold: true }).slice(0, 2),
-      field('t-status', 'Status', word(row) + (row.status === 'completed' ? ' (TaskUpdate; not verified)' : ''), statusColor(taskStatus(row))),
+      ...ctx.fieldWrap('t-status', 'Status', word(row) + (row.status === 'completed' ? ' (TaskUpdate; not verified)' : ''), statusColor(taskStatus(row))),
       field('t-owner', 'Owner', row.owner ?? UNAVAILABLE),
       field('t-by', 'Blocked by', list(row.blockedBy)),
       field('t-open', 'Still open', row.blockedBy.length === 0 ? 'none' : list(row.openBlockers)),

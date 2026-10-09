@@ -8,7 +8,9 @@ import { test } from 'node:test'
 // a module makes; this keeps that list closed in CI without needing the Claude Code binary's types.
 
 const HOOKS = join(import.meta.dirname, '..', 'plugins', 'ctk', 'hooks')
-const sources = readdirSync(HOOKS)
+// Recursive: hooks/ui/* is part of the mod and gets the same closed list and banned-pattern check.
+const sources = readdirSync(HOOKS, { recursive: true })
+  .map(String)
   .filter(f => /\.(ts|tsx)$/.test(f))
   .map(f => ({ file: f, text: readFileSync(join(HOOKS, f), 'utf8') }))
 
@@ -41,6 +43,10 @@ test('the mod calls only the host APIs on the closed list: no model call, no spa
   const found = new Set(sources.flatMap(s => calls(s.text)))
   const extra = [...found].filter(c => !ALLOWED.has(c))
   assert.deepEqual(extra, [], `new host call(s) ${extra.join(', ')}: review them, then add them to this list on purpose`)
+})
+
+test('the scan reaches hooks/ui', () => {
+  assert.ok(sources.some(s => s.file.startsWith('ui/')), 'hooks/ui/* is scanned')
 })
 
 test('nothing in the mod reaches for the network, a process or dynamic code', () => {

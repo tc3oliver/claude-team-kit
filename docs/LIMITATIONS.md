@@ -102,6 +102,11 @@ in practice:
   detect that.
 - **Both lines use Claude Code's own widths.** The band is terminal − 5 columns, the status line
   terminal − 4 (measured on 2.1.295); another Claude Code version may differ.
+- **Claude Code's own task list (`Ctrl+T`) can push the band and the status line off screen.** With a
+  long task list open, the host's list takes the rows and the CTK lines disappear until it is closed
+  (reported on a session with more than 20 tasks; closing the list brings them back). The list is not
+  drawn by a plugin and CTK has no hook on it, so CTK cannot shorten it. Close it with `Ctrl+T`, or open
+  Mission Control (`/ctk-mission`), whose Tasks page keeps to its own row budget.
 
 ## Mission Control
 

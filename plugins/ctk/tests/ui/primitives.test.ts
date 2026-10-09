@@ -16,9 +16,13 @@ describe('width-aware text helpers', () => {
     expect(lines.join(' ')).toBe('set the 工作者 cap to six and confirm it here')
   })
 
-  test('ambiguous width 2 makes the block glyphs two cells', () => {
+  test('ambiguous width 2 doubles the ambiguous block glyphs only: █ and ▓ are ambiguous, ░ is narrow', () => {
     expect(displayWidth('█░')).toBe(2)
-    expect(displayWidth('█░', 2)).toBe(4)
+    expect(displayWidth('█░', 2)).toBe(3)
+    expect(displayWidth('▓', 2)).toBe(2)
+    expect(displayWidth('░', 2)).toBe(1)
+    // A bar's measured width follows: 3 filled (ambiguous) + 7 empty (narrow) + brackets and the figure.
+    expect(displayWidth(progressBar(30).text, 2)).toBe(displayWidth(progressBar(30).text) + 3)
   })
 })
 

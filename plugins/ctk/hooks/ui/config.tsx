@@ -18,9 +18,10 @@ export const renderConfig = (kit: Kit, m: Mission, mc: McState, extras: Extras, 
   const { Box, Text } = kit
   const { line, para, button, divider, pad, clip, room } = ctx
   const pending = extras.pending === null ? null : { ...extras.pending, parsed: parsePending(extras.pending.text) }
-  const wide = room >= TWO_COLUMNS
-  const colWidth = wide ? Math.floor((room - 2) / 2) : room
-  const labelWidth = Math.min(26, Math.max(10, colWidth - 14))
+  // Set once the head is known: two columns only when the whole page fits the row budget, else one column and `fit`.
+  let wide = room >= TWO_COLUMNS
+  let colWidth = wide ? Math.floor((room - 2) / 2) : room
+  let labelWidth = Math.min(26, Math.max(10, colWidth - 14))
 
   const row = (key: string, label: string, value: string) => {
     const changing = pending?.parsed?.label === label
@@ -81,6 +82,12 @@ export const renderConfig = (kit: Kit, m: Mission, mc: McState, extras: Extras, 
     guardLine,
     hudButtons(kit, mc, ctx),
   ]
+  const columnLines = Math.max(left.reduce((a, g) => a + g.rows.length + 1, 0), right.reduce((a, g) => a + g.rows.length + 1, 0))
+  if (wide && head.length + columnLines + (pending === null ? how.length : 0) > ctx.rows) {
+    wide = false
+    colWidth = room
+    labelWidth = Math.min(26, Math.max(10, colWidth - 14))
+  }
   if (!wide) {
     // Group headers and rows are separate nodes so a short pane drops the tail with the shared "+N more" line.
     const body = [...head, ...groups.flatMap(g => [heading(g), ...rowsOf(g)]), ...(pending === null ? how : [])]
