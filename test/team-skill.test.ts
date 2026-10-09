@@ -61,3 +61,8 @@ test('no agent definition sets isolation in its frontmatter', () => {
     assert.doesNotMatch(front, /^\s*isolation\s*:/m, `${f} would start every spawn of it outside the cap`)
   }
 })
+
+test('the shutdown request is described as a structured object, the form Claude Code accepts', () => {
+  assert.match(read('skills/team/SKILL.md'), /`message` an\s+object `\{"type":"shutdown_request"\}`, never a JSON string/)
+  assert.match(read('skills/team/references/protocol.md'), /`SendMessage` with `message` as an \*\*object\*\*/)
+})

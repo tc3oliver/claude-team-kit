@@ -74,7 +74,7 @@ The recording asked for this on a small fixture ([`scripts/demo/fixture`](script
 ## Why Claude Team Kit?
 
 - **Structured team execution.** Vertical slices with real dependencies, short handoffs, and a check run before "done" ([how it works](#from-one-prompt-to-a-coordinated-team)). This is skill guidance for the lead, not code that enforces it.
-- **Hard worker limits.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 3, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Ordinary subagents are not counted, and CTK does not queue the refused work: the lead keeps it pending and offers it again.
+- **Hard worker limits.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 3, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Only teammates are counted: ordinary subagents, forks and agents started with `isolation` are not, so the team skill never uses `isolation`. CTK does not queue the refused work: the lead keeps it pending and offers it again. Whether the guard is working is shown, not assumed: `Guard ON` appears only after a spawn has reached it ([how](docs/ARCHITECTURE.md#the-mod)).
 - **Clickable Mission Control.** A live, read-only view of workers, tasks and usage, one click away ([below](#mission-control)).
 
 Small footprint: the plugin adds about 425 tokens to a session (measured with a real call; a skill's body loads only when used), and the team line makes no model calls. No speed, cost or token-saving claim is made.
@@ -130,7 +130,7 @@ Change the cap, the model per role, the team line and stats recording with `/plu
 
 ## Status and limitations
 
-Public preview (v0.1.0): not on npm or in an official plugin directory. Agent Teams are experimental and Mods, which carry the cap and the team line, are early access; where Mods are missing (older builds, reportedly WSL) `/ctk:team` says the cap and team line are off. Used interactively on macOS; Windows and Linux are covered by [CI](https://github.com/tc3oliver/claude-team-kit/actions/workflows/ci.yml) only. What was never run live is listed in [Limitations](docs/LIMITATIONS.md).
+Public preview (v0.1.0): not on npm or in an official plugin directory. Agent Teams are experimental and Mods, which carry the cap and the team line, are early access; where Mods are missing (older builds, reportedly WSL) `/ctk:team` says the cap and team line are off. Used interactively on macOS; Windows and Linux are covered by [CI](https://github.com/tc3oliver/claude-team-kit/actions/workflows/ci.yml) only ([platform matrix](docs/LIMITATIONS.md#platforms)). What was never run live is listed in [Limitations](docs/LIMITATIONS.md).
 
 ## Documentation
 

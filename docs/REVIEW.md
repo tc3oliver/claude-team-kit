@@ -171,6 +171,24 @@ Mission Control, `/ctk-doctor`, `/ctk-stats` and the status tool). The gate read
 matter which plugin defines the agent. Claude Code's documentation states the same rule ("a `name` ... unless the call
 is a fork or passes `isolation`"). One run on one version: repeat the probe after a Claude Code update.
 
+#### A short live check of the reworked team skill
+
+After the skill changes (no `isolation`, name every worker, one retry, shutdown form), one small run on a copy of the
+wordkit fixture: Claude Code 2.1.295, CTK from the marketplace at the pushed commit, cap 2, the spawn probe beside it,
+a Sonnet lead, a plain-words request with two slices that overlap on one file (about $0.60, 1 minute).
+
+- The lead merged the two overlapping slices into one task instead of running them side by side, created a final
+  verification task blocked by both tasks, and started two workers, both named, both `ctk:implementer`.
+- The probe logged both spawns with `isTeammate: true`; nothing started outside the cap. Band at the end: `Agents 0/2`
+  after the shutdowns, `Tasks 3/3`.
+- One worker found its edit already present and said so instead of adding a duplicate; the lead reported that.
+- **A real defect found:** the lead tried to shut the workers down with the request as a JSON *string*, which Claude Code
+  refuses ("message text must not be a teammate protocol frame"), five times, then used the structured object form.
+  Idle teammates count against the cap until they exit, so a failed shutdown would have kept slots held. The skill and its
+  protocol reference now give the object form, and say not to report workers as shut down before the result says so.
+- Not exercised: the cap being reached in this run, a worker that fails (the one-retry rule is guidance and unobserved),
+  an unreadable roster, the review and debug skills. One run proves nothing about the rate of any of these.
+
 ### 5.2 Worker spawn refusal and capacity recovery
 
 - **Read:** `plugins/ctk/skills/team/SKILL.md` (sections 3 and 4), `plugins/ctk/skills/team/references/protocol.md`,
@@ -205,7 +223,7 @@ is a fork or passes `isolation`"). One run on one version: repeat the probe afte
   contract the mod was written against. A different build can ship different types.
 - **What happens on an unsupported build:** version below the floor: stub-tested as above. A build
   at or above the floor where the API changed: **not tested**; the mod would fail to load, and
-  `ctk doctor` would still pass its "mods supported" check because that check compares versions
+  `ctk doctor` would still pass its "can load mods" check because that check compares versions
   only. `claude -p "/ctk-stats"` or `/ctk-doctor` is the real check.
 - **Mutation:** not mutation-tested.
 

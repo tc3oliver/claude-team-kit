@@ -44,6 +44,13 @@ passes `isolation` as an ordinary subagent, not a teammate (seen live on 2.1.295
 and outside the cap, and `ctk_team_status` may not list it. If the user asks for worktree isolation anyway,
 say that those workers are not limited by CTK, and count them yourself.
 
+## Shutting a teammate down
+
+`SendMessage` with `message` as an **object**: `{"type":"shutdown_request","reason":"work verified"}`. The same JSON as a
+string is refused ("message text must not be a teammate protocol frame", seen live: five wasted calls before the object
+form). The result says `Shutdown request sent`; until it does, the teammate still counts against the cap. Do not tell the
+user workers were shut down until it has.
+
 ## Failures and retries
 
 | Situation | Action |

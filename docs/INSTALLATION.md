@@ -153,8 +153,12 @@ labels the cap's source `default` or `set in plugin options`:
 
 ## Update and remove (native)
 
-- Update: `/plugin update ctk@ctk-kit` (shell: `claude plugin update ctk@ctk-kit`). Only
-  same-version behaviour was exercised; a real version bump through the plugin manager was not.
+- Update: `/plugin update ctk@ctk-kit` (shell: `claude plugin marketplace update ctk-kit`, then
+  `claude plugin update ctk@ctk-kit`), then `/reload-plugins` or restart. **An update arrives only when the plugin's
+  `version` changes.** CTK's manifest pins `version`, so a commit that does not bump it is not an update: the
+  marketplace clone moves, but `claude plugin update` answers "already at the latest version". (Seen live; it is
+  Claude Code's rule for a manifest that pins `version`.) If you installed an earlier preview commit that has the
+  same version as the one you want, use the recovery below.
 - Remove: `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`.
 
 ```
@@ -163,6 +167,27 @@ $ claude plugin uninstall ctk@ctk-kit
 $ claude plugin marketplace remove ctk-kit
 ✔ Successfully removed marketplace: ctk-kit
 ```
+
+### What was exercised for update, recovery and rollback
+
+In a dedicated, logged-in config directory (never `~/.claude`), on Claude Code 2.1.295 with the real Plugin Manager
+and a GitHub-hosted marketplace:
+
+| Step | Result |
+|---|---|
+| Install an earlier commit, set non-default options (`maxWorkers` 2, `reviewerModel`, `hudIdle`) with `--config` | installed; `/ctk-doctor` read the cap as 2, "set in plugin options" |
+| Push a newer commit with the same `version`, `marketplace update`, `plugin update` | marketplace clone moved; `plugin update`: "already at the latest version (0.1.0)"; installed copy unchanged |
+| Push a newer commit with `version` bumped, `marketplace update`, `plugin update` | "updated from 0.1.0 to 0.1.1"; new skill text installed; the old version directory is marked `.orphaned_at` (kept 14 days); the three options kept; `/ctk-doctor` showed the same cap and the mod loaded |
+| Move the marketplace ref back to the older commit, `marketplace update`, `plugin update` | "updated from 0.1.1 to 0.1.0": Claude Code follows the marketplace in either direction; the options kept |
+| Uninstall, then reinstall | the latest commit is installed, **but uninstall deletes the plugin's options** from `settings.json` (with or without `--keep-data`); reinstall with `--config KEY=VALUE` to restore them |
+| `ctk doctor`, `ctk update`, `ctk uninstall`, `ctk install` (dry runs) beside the native install | the CLI recognises the install as native: it reports `installed natively`, keeps the marketplace as it is, does not update, reinstall or remove the plugin, and says "nothing to uninstall: ctk owns nothing here" |
+
+Claude Code has no rollback command of its own and CTK does not add one for it. To go back to a known version:
+note your options (`/ctk-doctor` shows the cap), run `/plugin uninstall ctk@ctk-kit` and
+`/plugin marketplace remove ctk-kit`, add the marketplace at a release tag
+(`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; the `#<ref>` form was exercised with a branch), install again and pass your options as
+`claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. Once tags exist this is the supported way back; no
+tag has been created yet. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
 
 Two things stay behind, both Claude Code's or the mod's, neither CTK's: empty `enabledPlugins`
 and `extraKnownMarketplaces` objects in `settings.json`, and the mod's per-session counters in
@@ -406,7 +431,7 @@ ctk doctor
 ```
 [ok  ] node: Node 24.21.0
 [ok  ] claude: Claude Code 2.1.294
-[ok  ] mods: mods supported (>= 2.1.287)
+[ok  ] mods: this Claude Code can load mods (>= 2.1.287); a version check only, /ctk-doctor in Claude Code reports whether the guard is on
 [ok  ] wsl: platform darwin
 [ok  ] settings: settings.json parses
 [ok  ] plugin: ctk@ctk-kit 0.1.0 installed and enabled
@@ -427,7 +452,7 @@ under it. `doctor` fails when `claude plugin list --json` reports load errors fo
 ctk-kit failed to load: cache-miss` and `marketplace: ... registered at <path>, which does not
 exist`), and warns when the plugin is installed but disabled.
 
-What `doctor` still does **not** prove: "mods supported" is a version comparison, not a check
+What `doctor` still does **not** prove: "this Claude Code can load mods" is a version comparison, not a check
 that the mod loaded. So also run the real check, the mod's own command, in a project
 directory:
 
@@ -605,7 +630,7 @@ What the code does for Windows, and what has and has not been tested:
   Mods are reported unsupported in WSL sessions, so there the cap and band would not be
   active and the status line script would be the HUD; WSL was not tested.
   `ctk install` does not detect this: it checks only the Claude Code version and still
-  reports "mods supported" in WSL.
+  reports that mods can load in WSL.
 
 ## Uninstall
 

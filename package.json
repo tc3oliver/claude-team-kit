@@ -45,6 +45,7 @@
     "!docs/assets/*.gif",
     "!docs/assets/*.mp4",
   "!docs/assets/*-poster.png",
+    "!docs/assets/social-preview.png",
     "!docs/assets/*.frames.jsonl"
   ],
   "engines": {

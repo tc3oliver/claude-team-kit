@@ -55,6 +55,6 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
   yourself or ask the user. Never loop on a refused spawn or a failing task.
 
 ## 6. Close
-Integrate, run the full verification once, then send each teammate a shutdown request (`SendMessage`) so
-capacity frees. Report tasks, files changed, checks run and results. If any task failed, was blocked or was
-never verified, say the goal is NOT complete and name them. Review the result with `/ctk:review`.
+Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an
+object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
+Any task failed, blocked or unverified: say the goal is NOT complete and name it. Then `/ctk:review`.

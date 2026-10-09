@@ -22,8 +22,8 @@ Evidence levels used below:
 | There is no official worker cap | Claude Code has no setting that limits live teammates (Reported). CTK's cap is a **mod** (a function hook on `agent.spawn`) shipped in the plugin. |
 | Mods are early access | The mod API and the version floor (`2.1.287`) can change. A Claude Code update can break the cap, the band or `/ctk-stats` without any change to CTK. |
 | Mods do not exist everywhere | On Claude Code builds older than 2.1.287 the mod is not available: the cap and the band are inactive, while skills, agents and the status line script still work. Mods are also reported unsupported in WSL sessions; that was not tested. `ctk install` and `ctk doctor` decide this from the Claude Code **version only**; they do not detect WSL for this purpose and print "mods supported" there. |
-| `doctor` does not prove the mod is running | "mods supported" is a version comparison, not a check that the mod loaded. `doctor` does fail when `claude plugin list --json` reports load errors (Live: after the install directory was moved, Claude Code reported `failed to load`, `/ctk-stats` disappeared and `ctk doctor` failed). Confirm with `claude -p "/ctk-stats"`. If that command is unknown, **the cap is not enforced**. |
-| The cap is by teammate, not by plugin | It gates every teammate spawn in the session, including ones another plugin (for example OMC) starts. See [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md). Code only for the other-plugin case. |
+| `doctor` does not prove the mod is running | "this Claude Code can load mods" is a version comparison, not a check that the mod loaded. `doctor` does fail when `claude plugin list --json` reports load errors (Live: after the install directory was moved, Claude Code reported `failed to load`, `/ctk-stats` disappeared and `ctk doctor` failed). Confirm with `claude -p "/ctk-stats"`. If that command is unknown, **the cap is not enforced**. |
+| The cap is by teammate, not by plugin | It gates every teammate spawn in the session, including ones another plugin (for example OMC) starts. See [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md). Live: a built-in `general-purpose` teammate was refused like a CTK one ([probe](REVIEW.md#hard-limit-coverage-probe)); the gate reads `isTeammate`, not who defined the agent. Another plugin's teammate spawn itself was not run. |
 
 ## The native install
 
@@ -157,13 +157,24 @@ in practice:
 
 ## Platforms
 
-| Platform | Status |
-|---|---|
-| macOS | Live: install, rollback, uninstall, doctor, a same-version `update`, the mod in `claude -p`, npm tarball install. |
-| Linux | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), ubuntu-latest, Node 22 and 24, plus plugin validate and plugin test). Interactive behaviour not verified. |
-| Windows native | Automated test and plugin jobs passed in CI ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), windows-latest, Node 22 and 24, plus plugin validate and plugin test). The first Windows runs failed and found real bugs, since fixed (see [REVIEW](REVIEW.md#5a-found-by-ci-on-windows)). A real `ctk install`, the mod and `/ctk:team` were not run interactively; the `.cmd`/`.exe` handling and the Git Bash status line command are covered only by CI's unit tests. |
-| Windows Terminal, VS Code terminal | Not verified. |
-| WSL | Not tested. Mods are reported unsupported there; the status line script is the fallback. |
+Three levels, never blurred: **live** (run by hand in a real Claude Code session), **CI only** (automated tests on that
+operating system; the mod runs against a simulated host and `claude plugin test`, not a person at a terminal) and
+**not verified**. A passing CI run is not interactive support.
+
+| Platform | Mods and the guard | Clickable band, Mission Control | Width, UTF-8, ANSI | Plugin install and update |
+|---|---|---|---|---|
+| macOS | **Live**: the cap refused spawns on 2.1.295, guard states and the spawn probe ([REVIEW](REVIEW.md#hard-limit-coverage-probe)) | **Live**, in a tmux pane: real SGR mouse clicks opened it and every view ([Run E](DEMO.md#run-e-asked-in-plain-words-then-the-band-is-clicked-open)); not tried in each terminal emulator by hand | **Live** captures at 200, 130, 100, 80 and 60 columns, UTF-8 locale | **Live**: native install, same-version and version-bump update, a move back to an older ref, uninstall and reinstall ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)), the CLI beside it |
+| Linux | CI only (simulated host, `claude plugin test`) | Not verified | CI only (layout tests; no live capture) | CI only (`plugin validate --strict`); no live install |
+| Windows native | CI only | Not verified | CI only; an ambiguous-width or legacy console was not seen | CI only; the `.cmd`/`.exe` handling and the Git Bash status line command are covered by unit tests alone. The first Windows runs failed and found real bugs, since fixed ([REVIEW](REVIEW.md#5a-found-by-ci-on-windows)) |
+| Windows Terminal | Not verified | Not verified (needs the terminal to pass mouse reports) | Not verified | Not verified |
+| VS Code terminal | Not verified | Not verified | Not verified | Not verified |
+| WSL | Not tested. Claude Code is reported not to load Mods there, so the cap and the band would be off and `/ctk:team` says so; the CLI does not detect WSL for this | Not applicable if Mods do not load | Not verified | Not verified |
+
+Claude Code's own docs say split-pane teammates are not supported in the VS Code integrated terminal, Windows Terminal
+or Ghostty; the default in-process mode works anywhere. CTK's cap counts both. Where the platform is "not verified",
+expect the plugin to install (it is Markdown and JSON plus one module) and treat the cap, the band and Mission Control as
+unconfirmed until `/ctk-doctor` says the guard is `ON` after a first spawn.
+
 | CI (`.github/workflows`) | The latest run passed all 10 jobs ([run](https://github.com/tc3oliver/claude-team-kit/actions/runs/37829085745), 2026-10-09): tests on ubuntu, macos and windows with Node 22 and 24, plugin validate `--strict` and plugin test on the three systems, and the pack audit. Earlier runs after the move to `plugins/ctk` passed too. They used GitHub-hosted runners only, and Claude Code came from npm `latest` at the time. |
 
 In an interactive session, whether Claude Code asks you to approve the plugin or its mod on

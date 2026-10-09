@@ -38,7 +38,7 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   else add('claude', 'pass', `Claude Code ${version}`)
   if (version !== null) {
     versionAtLeast(version, MODS_MIN_VERSION)
-      ? add('mods', 'pass', `mods supported (>= ${MODS_MIN_VERSION})`)
+      ? add('mods', 'pass', `this Claude Code can load mods (>= ${MODS_MIN_VERSION}); a version check only, /ctk-doctor in Claude Code reports whether the guard is on`)
       : add('mods', 'warn', `Claude Code ${version} predates mods (>= ${MODS_MIN_VERSION}): team cap and band are inactive`, 'update Claude Code, then run "ctk update"')
   }
   add('wsl', 'pass', isWsl() ? 'running under WSL' : `platform ${process.platform}`)

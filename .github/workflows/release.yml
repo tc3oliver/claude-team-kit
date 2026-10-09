@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: The tag must equal the package and plugin version
+        run: |
+          v=$(node -p "require('./package.json').version")
+          p=$(node -p "require('./plugins/ctk/.claude-plugin/plugin.json').version")
+          test "$GITHUB_REF_NAME" = "v$v" && test "$p" = "$v" || { echo "tag $GITHUB_REF_NAME, package $v, plugin $p: they must agree"; exit 1; }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
@@ -27,3 +32,4 @@ jobs:
         with:
           files: '*.tgz'
           body_path: RELEASE_NOTES.md
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
