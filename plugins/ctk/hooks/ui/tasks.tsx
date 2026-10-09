@@ -19,6 +19,16 @@ export const TASK_ROWS = 11
 const DAG_ROWS = 6
 const LIST_MIN = 3
 
+/** The overflow line: the longest wording that fits the room, so it never clips mid-word. */
+export const moreHint = (n: number, room: number, ambiguous: 1 | 2 = 1): string => {
+  const tiers = [
+    `+${n} more not shown, done last · enlarge the terminal, or ask Claude for the task list`,
+    `+${n} more · enlarge the terminal or ask Claude to list them`,
+    `+${n} more · enlarge terminal`,
+  ]
+  return tiers.find(t => displayWidth(t, ambiguous) <= room) ?? tiers[2]!
+}
+
 const num = (v: number | null): string => (v === null ? UNAVAILABLE : String(v))
 
 // What the person needs first: work in progress, then what can start, then the rest, done last.
@@ -112,6 +122,6 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
       </kit.Button>,
     )
   }
-  if (shown < sorted.length) out.push(line('t-more', clip(`+${sorted.length - shown} more not shown (done tasks last)`), { dim: true }))
+  if (shown < sorted.length) out.push(line('t-more', clip(moreHint(sorted.length - shown, room, ambiguous)), { dim: true }))
   return out
 }

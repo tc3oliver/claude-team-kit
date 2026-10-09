@@ -1,7 +1,8 @@
 import { describe, expect } from 'claude-code/testing'
 
 import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { TASK_ROWS } from '../../hooks/ui/tasks.tsx'
+import { moreHint, TASK_ROWS } from '../../hooks/ui/tasks.tsx'
+import { displayWidth } from '../../shared/hudline.ts'
 import { engine, fresh, test } from '../world.ts'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
@@ -72,8 +73,20 @@ describe('Tasks page', () => {
       for (let i = 2; i <= 40; i += 2) await call($, 'TaskUpdate', `tu${i}`, { taskId: String(i), addBlockedBy: ['1'] })
       const p = await open($, cols)
       expect(await bodyRows(p)).toBeLessThanOrEqual(TASK_ROWS)
-      expect(flat(await p.drawn())).toContain('more not shown')
+      expect(flat(await p.drawn())).toMatch(/\+\d+ more/)
       await p.unmount()
     })
   }
+
+  test('the overflow hint says how to see the rest and fits the room', () => {
+    for (const cols of [58, 80, 98]) {
+      const h = moreHint(12, cols - 1)
+      expect(displayWidth(h)).toBeLessThanOrEqual(cols - 1)
+      expect(h).toContain('+12 more')
+      expect(h).toContain('enlarge')
+    }
+    expect(moreHint(12, 97)).toContain('ask Claude for the task list')
+    expect(moreHint(12, 79)).toContain('ask Claude to list them')
+    expect(moreHint(12, 30)).toBe('+12 more · enlarge terminal')
+  })
 })
