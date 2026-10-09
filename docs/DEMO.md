@@ -395,6 +395,15 @@ resized between captures. The second session also had CTK's status line configur
 `--settings`. Usage figures are the maintainer account's at that moment. Rebuild the image with
 `node scripts/render-hud-widths.mjs`.
 
+## Mission Control screenshots (synthetic data)
+
+`scripts/showcase/` renders the real Mission Control pane in a real Claude Code terminal from fixed fixture data,
+for ten scenes (empty state, active team, workers, task DAG, usage, guard at capacity, a task board too big to draw, config with a pending change, stats, doctor) at 60, 80, 100, 130 and
+200 columns. No model is called and no agent runs, so these pictures show layout only: every one carries the line
+`SYNTHETIC DATA - UI showcase, not a live agent run` and a metadata line with the ctk commit, Claude Code version and
+date. They are not part of the recorded runs above and prove nothing about team behaviour. The sets are in
+`docs/assets/mission-control-ui/<name>/`; how they are made and reproduced is in `scripts/showcase/README.md`.
+
 ## Reproduce
 
 `scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config
