@@ -138,11 +138,18 @@ in practice:
 
 ## Workflows not run end to end
 
-- **`/ctk:team` on a full real task** (plan slices, create dependent tasks, spawn live
-  workers, integrate, verify, shut down) has not been run with live agents. The pieces were
-  checked: the skill text, the cap, the refusal and the stats.
+- **`/ctk:team` on a real task** was run live in the recorded demos (`docs/DEMO.md`: Runs C, D and E):
+  the lead cut slices, created dependent tasks, spawned up to three workers, and the cap held.
+  What stayed unverified is whether the lead follows every step of the skill (verify command before
+  closing a task, shutdown requests); the skill only instructs, and a recorded run showed tasks
+  marked done before the lead verified them.
 - **`/ctk:review` and `/ctk:debug`** have been validated as plugin components (frontmatter,
   size, description budget), not exercised on real changes.
+- **`isolation: worktree`:** the team skill advises it when file scopes may overlap. A spawn that
+  carries `isolation` may not be marked as a teammate, in which case the cap would not count it.
+  Not verified live.
+- **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
+  runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),
   not by watching a live multi-worker session.
 

@@ -269,6 +269,23 @@ describe('Mission Control views', () => {
     tabs.forEach((tab, i) => expect(drawn).toContain(`⟦mc:view:${tab}|${i + 1}⟧`))
   })
 
+  test('a docked pane (about 50 cells) keeps NAME, MODEL, STATUS, TOOLS and IDLE on screen', async ($, on) => {
+    await team($, on)
+    const p = await pane($, { ...PANE, bodyColumns: 50 })
+    await p.press({ key: 'mc:view:workers' })
+    let t = await texts(p)
+    expect(t).toContain('IDLE')
+    expect(t).not.toContain('LAST')
+    expect(t).toContain('Sonnet 5.5')
+    expect(t).toContain('Haiku 5.5')
+    expect(t).not.toContain('claude-sonnet-5-5')
+    await p.press({ key: 'mc:view:tasks' })
+    t = await texts(p)
+    expect(t).toContain('NEEDS')
+    expect(t).toContain('needs 1,2')
+    await p.unmount()
+  })
+
   test('narrow panes never draw a line wider than the pane', async ($, on) => {
     await team($, on)
     for (const bodyColumns of [100, 60, 40]) {

@@ -108,9 +108,10 @@ Honest notes:
   Use the slash command when it matters.
 - The English and Chinese keywords are in the `team` description only because they moved the
   results; other languages are untested.
-- "Use multiple agents" can still be satisfied by the model with plain subagents without loading
-  `ctk:team`. The CTK worker cap applies to those spawns as well (it is enforced by the Mods hook,
-  not by the skill), but the slicing, task list and spawn checks of the skill do not.
+- "Use multiple agents" can still be satisfied by the model with ordinary subagents without loading
+  `ctk:team`. The CTK worker cap (enforced by the Mods hook, not by the skill) gates only spawns
+  that Claude Code marks as teammates; ordinary subagents are not counted. The slicing, task list
+  and spawn checks of the skill do not apply to them either.
 - The team skill needs Agent Teams enabled; without it, it tells you the one-time setup and spawns
   nothing. `/ctk-doctor` shows readiness.
 - Both CTK tools are deferred: the skill tells Claude to load them with ToolSearch first, which the status runs below did.

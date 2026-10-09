@@ -1,6 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
 import { DASH, truncateToWidth } from '../shared/hudline.ts'
+import { modelLabel } from './band.ts'
 import {
   BACK_KEY,
   CLOSE_KEY,
@@ -43,6 +44,9 @@ const noop = () => {}
 const num = (v: number | null): string => (v === null ? UNAVAILABLE : String(v))
 
 const pad = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s.padEnd(n))
+
+/** Below this many cells of room the tables use their compact form. */
+const TABLE_ROOM = 62
 
 const modeLabel = (m: HudMode): string => m[0]?.toUpperCase() + m.slice(1)
 
@@ -119,8 +123,14 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
     hudButtons,
   ]
 
+  // A docked pane is about 50 cells wide: below this the tables drop their least useful column (LAST,
+  // DEPENDS wording) and shorten the model id so the columns that matter stay on screen.
+  const compact = room < TABLE_ROOM
+
   const workerLine = (w: WorkerRow) =>
-    `${pad(w.name, 12)} ${pad(w.model ?? UNAVAILABLE, 17)} ${pad(w.status, 8)} ${pad(w.toolCalls === null ? UNAVAILABLE : String(w.toolCalls), 5)} ${pad(fmtAge(w.lastActivityMs), 8)} ${w.idleMs === null ? DASH : fmtSpan(w.idleMs)}`
+    compact
+      ? `${pad(w.name, 11)} ${pad(modelLabel(w.model) ?? UNAVAILABLE, 10)} ${pad(w.status, 7)} ${pad(w.toolCalls === null ? UNAVAILABLE : String(w.toolCalls), 5)} ${w.idleMs === null ? DASH : fmtSpan(w.idleMs)}`
+      : `${pad(w.name, 12)} ${pad(w.model ?? UNAVAILABLE, 17)} ${pad(w.status, 8)} ${pad(w.toolCalls === null ? UNAVAILABLE : String(w.toolCalls), 5)} ${pad(fmtAge(w.lastActivityMs), 8)} ${w.idleMs === null ? DASH : fmtSpan(w.idleMs)}`
 
   const workers = () => {
     const picked = mc.selected?.kind === 'worker' ? m.workers.find(w => w.agentId === mc.selected?.id) : undefined
@@ -139,14 +149,25 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
     }
     if (m.workers.length === 0) return [line('w-none', 'No teammate has started this session.', { dim: true })]
     return [
-      line('w-head', `${pad('NAME', 12)} ${pad('MODEL', 17)} ${pad('STATUS', 8)} ${pad('TOOLS', 5)} ${pad('LAST', 8)} IDLE`, { dim: true }),
+      line(
+        'w-head',
+        compact
+          ? `${pad('NAME', 11)} ${pad('MODEL', 10)} ${pad('STATUS', 7)} ${pad('TOOLS', 5)} IDLE`
+          : `${pad('NAME', 12)} ${pad('MODEL', 17)} ${pad('STATUS', 8)} ${pad('TOOLS', 5)} ${pad('LAST', 8)} IDLE`,
+        { dim: true },
+      ),
       ...m.workers.map(w => link(workerKey(w.agentId), workerLine(w), `Worker ${w.name}`)),
       line('w-hint', 'Select a worker for its details.', { dim: true }),
     ]
   }
 
+  const statusWord = (t: TaskRow): string => (t.status === 'in_progress' ? 'doing' : t.status === 'completed' && compact ? 'done' : t.status)
+  const needs = (t: TaskRow): string => (t.blocked ? `needs ${t.openBlockers.map(i => (compact ? i : `#${i}`)).join(',')}` : t.ready ? 'ready' : DASH)
+
   const taskLine = (t: TaskRow) =>
-    `${pad(`#${t.id}`, 4)} ${pad(t.status === 'in_progress' ? 'doing' : t.status, 7)} ${pad(t.owner ?? DASH, 10)} ${pad(t.blocked ? `needs ${t.openBlockers.map(i => `#${i}`).join(',')}` : t.ready ? 'ready' : DASH, 11)} ${t.subject}`
+    compact
+      ? `${pad(`#${t.id}`, 3)} ${pad(statusWord(t), 7)} ${pad(t.owner ?? DASH, 9)} ${pad(needs(t), 9)} ${t.subject}`
+      : `${pad(`#${t.id}`, 4)} ${pad(statusWord(t), 7)} ${pad(t.owner ?? DASH, 10)} ${pad(needs(t), 11)} ${t.subject}`
 
   const tasks = () => {
     if (!m.tasks.detailed) {
@@ -170,7 +191,7 @@ export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras,
       ]
     }
     return [
-      line('t-head', `${pad('ID', 4)} ${pad('STATUS', 7)} ${pad('OWNER', 10)} ${pad('DEPENDS', 11)} TASK`, { dim: true }),
+      line('t-head', compact ? `${pad('ID', 3)} ${pad('STATUS', 7)} ${pad('OWNER', 9)} ${pad('NEEDS', 9)} TASK` : `${pad('ID', 4)} ${pad('STATUS', 7)} ${pad('OWNER', 10)} ${pad('DEPENDS', 11)} TASK`, { dim: true }),
       ...m.tasks.rows.map(t => link(taskKey(t.id), taskLine(t), `Task ${t.id}`)),
       ...(m.tasks.partial ? [line('t-partial', 'Some tasks were created before CTK loaded: shown as "unknown", and the totals are unavailable.', { dim: true, color: 'warning' })] : []),
       line('t-hint', 'Built from the TaskCreate and TaskUpdate calls CTK observed; select a task for its dependencies.', { dim: true }),
