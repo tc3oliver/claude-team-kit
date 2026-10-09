@@ -15,6 +15,12 @@ All notable changes to this project are documented here. The format follows
   usage with reset countdowns, context, cost, and (band only) tool calls, agents and tasks, laid out
   for the terminal width: full, abbreviated and essentials-only forms, whole figures dropped by rank,
   CJK and ANSI aware. When CTK's status line is configured the band drops what it shows.
+- Mission Control: the band is one clickable button (`CTK ▸ …`) that opens a read-only pane with the
+  team's guard state, workers, tasks and usage; also `/ctk-mission`. Anything not observed reads
+  "unavailable". See docs/MISSION-CONTROL.md.
+- `ctk_config` tool: the model can propose an option change in plain words; only the user's Confirm
+  button in Mission Control applies it. Option `hudIdle` (full, minimal, hidden) sets what the band shows
+  before a team has started.
 - `ctk` CLI commands: `install`, `doctor`, `update`, `rollback`, `uninstall`,
   `stats` and `config`.
 - `ctk sync` for git-based profile sync, with a secrets scan before publish.

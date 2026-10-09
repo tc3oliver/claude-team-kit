@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Disciplined bug diagnosis: reproduce, minimize, diagnose by hypothesis, fix, add a regression test."
+description: "Find out why a test, command or behavior fails: reproduce, diagnose, fix, regression test."
 argument-hint: "<symptom or failing command>"
 ---
 

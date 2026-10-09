@@ -124,7 +124,7 @@ describe('tool call counter', () => {
     )
     await $.session.start(START)
     expect(await toolCalls($)).toBe(0)
-    const out = await $.command.run({ command: 'ctk-stats', args: '' })
+    const out = await $.command.run({ command: 'ctk-stats', args: '' } as never)
     expect(out.text).toContain('teammate spawns: 1 accepted')
   })
 

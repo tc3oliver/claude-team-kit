@@ -229,8 +229,8 @@ describe('status tool and command', () => {
     const w = fresh()
     engine(on, w)
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
-    expect(w.registeredTools).toEqual(['ctk_team_status'])
-    expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor'])
+    expect(w.registeredTools).toEqual(['ctk_team_status', 'ctk_config'])
+    expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor', 'ctk-mission'])
   })
 
   test('ctk_team_status reports the real roster and counters', async ($, on) => {
@@ -241,13 +241,13 @@ describe('status tool and command', () => {
     w.agents[0]!.status = 'idle'
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
     const status = statusOf(r)
-    expect(status).toEqual({
+    expect(status).toMatchObject({
       live: 3,
       max: 3,
       workers: [
-        { name: 'worker-0', teammateId: 'worker-0@session-test', status: 'idle' },
-        { name: 'worker-1', teammateId: 'worker-1@session-test', status: 'running' },
-        { name: 'worker-2', teammateId: 'worker-2@session-test', status: 'running' },
+        { name: 'worker-0', teammateId: 'worker-0@session-test', agentId: 'a1', status: 'idle' },
+        { name: 'worker-1', teammateId: 'worker-1@session-test', agentId: 'a2', status: 'running' },
+        { name: 'worker-2', teammateId: 'worker-2@session-test', agentId: 'a3', status: 'running' },
       ],
       rejected: 1,
       accepted: 3,
@@ -289,7 +289,7 @@ describe('status tool result shape', () => {
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
     expect(typeof r.result).toBe('string')
     expect(Object.keys(JSON.parse(r.result)).sort()).toEqual(
-      ['accepted', 'cap', 'live', 'max', 'rejected', 'taskTools', 'teamsEnabled', 'workers'],
+      ['accepted', 'cap', 'completed', 'failed', 'guard', 'idle', 'live', 'max', 'rejected', 'running', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'usage', 'workers'],
     )
   })
 

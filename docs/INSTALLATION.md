@@ -55,8 +55,10 @@ models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them late
 ```
 
 The plugin cache for this install was about 160 KB (`du` of `<config>/plugins/cache/ctk-kit/ctk/0.1.0`).
-`claude plugin details ctk@ctk-kit` lists Skills (3) `debug, review, team`, Agents (4), and about
-187 tokens always-on.
+`claude plugin details ctk@ctk-kit` listed the skills `debug, review, team`, 4 agents, and an
+always-on estimate (about 187 tokens on Claude Code 2.1.294; the estimator has a floor of about 40
+per component since, so it prints about 40 for each of the 8 components now). The measured cost is in
+[NATURAL-LANGUAGE](NATURAL-LANGUAGE.md#always-on-cost).
 
 **The repository is public**, so no credentials are needed. A stranger-style run (empty `HOME`,
 clean environment, ssh blocked, one macOS machine, Claude Code 2.1.294) cloned it over HTTPS on its
@@ -482,7 +484,7 @@ into `<config>/ctk/backups/<timestamp>-install/`.
 
 | Key | Written when |
 |---|---|
-| `pluginConfigs["ctk@ctk-kit"].options.{maxWorkers, explorerModel, implementerModel, reviewerModel, highRiskModel, hudBand, recordStats}` | each one absent. Defaults are in [CONFIGURATION](CONFIGURATION.md). |
+| `pluginConfigs["ctk@ctk-kit"].options.{maxWorkers, explorerModel, implementerModel, reviewerModel, highRiskModel, hudBand, hudIdle, recordStats}` | each one absent. Defaults are in [CONFIGURATION](CONFIGURATION.md). |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` = `"1"` | absent, and `claude.enableAgentTeams` is true |
 | `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` = `"1"` | absent, and `claude.enableTaskTools` is true (default false) |
 | `statusLine` = `'<node>' '<config>/ctk/bin/ctk-statusline.mjs'` on macOS and Linux (each path single-quoted) | absent, and `hud.statusLine` is `auto` |

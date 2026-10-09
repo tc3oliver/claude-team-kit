@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import type { TestContext } from 'node:test'
 
 import { maskFramesText } from '../scripts/demo/mask-frames.mjs'
-import { assertScratchConfigDir } from '../scripts/demo/record.mjs'
+import { assertScratchConfigDir, locateText, sgrClick } from '../scripts/demo/record.mjs'
 import { cellWidth, color256, escapeXml, findFrame, parseAnsiLine, parseFrames, plainText, renderAnimatedSvg, renderStaticSvg, wrapCells } from '../scripts/demo/render-svg.mjs'
 import type { Frame } from '../scripts/demo/render-svg.mjs'
 
@@ -272,11 +272,19 @@ test('record masks text at capture time, lists labels not patterns, and aborts o
 
 test('team-demo.sh guard: aborts at a cost of $2.00 or more or more than 3 busy teammates, not at $0.78', () => {
   const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
-  const pattern = /--abort-on '([^']+)'/.exec(script)?.[1]
-  assert.ok(pattern, 'team-demo.sh passes --abort-on')
-  const guard = new RegExp(pattern)
+  const patterns = [...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)
+  assert.equal(patterns.length, 2, 'a default guard and the Mission Control one')
+  assert.match(script, /--abort-on "\$ABORT"/)
+  const guard = new RegExp(patterns[0] as string)
   for (const hit of ['· $2.00', '· $12.40', 'team 4 busy · 0 idle', 'team 12 busy']) assert.match(hit, guard, hit)
   for (const miss of ['· $0.78', '· $1.99 ·', 'team 3 busy · 0 idle · 0 done / cap 3 · models x×3 · $0.78 · 1m', 'team 0 busy']) assert.doesNotMatch(miss, guard, miss)
+})
+
+test('team-demo.sh guard for the Mission Control run: more than 3 agents or $3.00 or more', () => {
+  const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
+  const guard = new RegExp([...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)[1] as string)
+  for (const hit of ['Agents 4/3', 'Agents 12/3', 'Guard ON │ Ctx 5% │ $3.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
+  for (const miss of ['Agents 3/3 (1 busy)', 'Agents 0/3', '│ $2.99 (4m)', 'Tools 31 │ Agents 3/3', '$0.94']) assert.doesNotMatch(miss, guard, miss)
 })
 
 test('mask-frames applies masks after capture and says so in the meta line', () => {
@@ -290,4 +298,12 @@ test('mask-frames applies masks after capture and says so in the meta line', () 
   assert.deepEqual(frames.map(f => f.t), [0, 5])
   assert.equal(frames[0]?.text, 'a\n\nb', 'the line is blanked, the frame keeps its shape')
   assert.equal(maskFramesText(src, [{ match: 'nothing-here', replace: 'x' }]), null)
+})
+
+test('recorder click: the target is found by its cells on the current screen and sent as one SGR press and release', () => {
+  const screen = 'first line\n分支 │CTK ▸ Sonnet │ 5h\nlast CTK'
+  assert.deepEqual(locateText(screen, 'CTK ▸', 2), { col: 9, row: 2 })
+  assert.deepEqual(locateText(screen, 'CTK', 0, true), { col: 6, row: 3 })
+  assert.equal(locateText(screen, 'nowhere'), null)
+  assert.equal(sgrClick({ col: 12, row: 35 }), '\x1b[<0;12;35M\x1b[<0;12;35m')
 })

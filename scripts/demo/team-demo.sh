@@ -17,6 +17,11 @@
 #
 # CTK_DEMO_RUN=d is Run C's recipe again after the plugin fixes (the preflight tool's output shape); files team-demo-d.*.
 #
+# CTK_DEMO_RUN=e is the Mission Control recording: the same fixture, asked in plain words ("Use a team to ..."), the band
+# clicked while the workers run (real mouse reports sent through tmux), and the Workers, Tasks and Usage views visited
+# before the pane is closed; it ends by asking in words how the team and the usage are. Files mission-control-e.*.
+# The click aims at text found on the current screen, so a layout change fails the step instead of missing quietly.
+#
 # The recorder kills the session if more than 3 teammates are busy or the status line shows a cost of
 # $2.00 or more (test/demo-render.test.ts checks the pattern).
 #
@@ -31,10 +36,11 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd -P)
 DEMO=${CTK_DEMO_DIR:-/tmp/ctk-demo}          # short paths keep personal paths off the screen
 CLAUDE_REAL=${CTK_DEMO_CLAUDE:-$HOME/.local/bin/claude}   # the binary, never a shell alias
 ASSETS=$ROOT/docs/assets
+ROWS=34; [ "${CTK_DEMO_RUN:-a}" = e ] && ROWS=38
 STAGE=${1:-all}
 RUN=${CTK_DEMO_RUN:-a}
-case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; d) PREFIX=team-demo-d ;; *) PREFIX=team-demo ;; esac
-NATIVE=0; case $RUN in c|d) NATIVE=1 ;; esac
+case $RUN in b) PREFIX=team-demo-b ;; c) PREFIX=team-demo-c ;; d) PREFIX=team-demo-d ;; e) PREFIX=mission-control-e ;; *) PREFIX=team-demo ;; esac
+NATIVE=0; case $RUN in c|d|e) NATIVE=1 ;; esac
 CFG=$DEMO/config
 SESSION_PATH=$DEMO/bin:/usr/bin:/bin
 
@@ -131,21 +137,35 @@ prepare() {
 
 record() {
   require_inputs
+  local ABORT='(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}'
+  [ "$RUN" = e ] && ABORT='Agents (?:[4-9]|\d{2,})/|[│·] \$[3-9]\.\d\d|[│·] \$\d{2,}'
   local masks=() extra=() script=team-demo.script.json
-  if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
+  if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; [ "$RUN" = e ] && script=mission-control-e.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
   CLAUDE_CONFIG_DIR=$CFG node "$ROOT/scripts/demo/record.mjs" \
-    --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows 34 \
+    --out "$ASSETS/$PREFIX.frames.jsonl" --cols 120 --rows $ROWS \
     --cwd "$DEMO/wordkit" --home "$DEMO/home" --path "$SESSION_PATH" --claude-bin "$DEMO/bin/claude" \
     --script "$ROOT/scripts/demo/$script" \
     --model 'Sonnet 5.5 lead (claude --model sonnet); workers by ctk roles' \
     --meta "attempts=${CTK_DEMO_ATTEMPTS:-1}" --meta "run=$RUN" "${extra[@]}" \
-    --approve '❯ 1\. Yes' --abort-on '(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}' \
+    --approve '❯ 1\. Yes' --abort-on "$ABORT" \
     --idle 180000 --limit 600000 --interval 250 --slow-interval 1000 \
     "${masks[@]}" -- "$DEMO/bin/claude" --model sonnet
 }
 
+render_mission() {
+  local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
+  node "$svg" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 45 --max-gap 2 --title 'ctk: from the band to Mission Control'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-band.svg" --at-regex 'Agents 3/3[\s\S]*Guard ON' --title 'ctk: the band while three workers run'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-overview.svg" --at-regex 'CTK Mission Control[\s\S]*Team time' --title 'ctk: Mission Control, overview'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex 'NAME +MODEL[\s\S]*Select a worker' --title 'ctk: Mission Control, workers'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'DEPENDS[\s\S]*needs #' --title 'ctk: Mission Control, tasks and their dependencies'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-usage.svg" --at-regex 'Session cost' --title 'ctk: Mission Control, usage'
+  node "$ROOT/scripts/demo/render-video.mjs" "$f" --work-dir "$DEMO/video-$RUN" --gif "$ASSETS/$PREFIX.gif" --mp4 "$ASSETS/$PREFIX.mp4" --target-seconds 45 --title 'ctk: from the band to Mission Control'
+}
+
 render() {
+  [ "$RUN" = e ] && { render_mission; return; }
   local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
   # the lead's closing words differ per run; pick the frame that shows them with the status line
   local summary='Crunched for[\s\S]*team 0 busy' workers='team 3 busy .*\n[\s\S]*◯ w-roman'

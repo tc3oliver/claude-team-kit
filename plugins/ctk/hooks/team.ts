@@ -15,7 +15,7 @@ const BUSY = new Set(['pending', 'running', 'waiting'])
 
 export const isLiveTeammate = (a: AgentInfo): boolean => a.teammateId !== undefined && LIVE.has(a.status)
 
-export type Worker = { name: string; teammateId: string; status: string }
+export type Worker = { name: string; teammateId: string; agentId: string; status: string }
 
 /** What the last refresh saw. A null figure was not reported; it renders as a dash. */
 export type Snapshot = {
@@ -23,12 +23,14 @@ export type Snapshot = {
   busy: number | null
   idle: number | null
   done: number | null
+  /** Teammates that failed or were killed; a subset of `done`. */
+  failed: number | null
   live: number | null
   workers: Worker[]
   elapsedMs: number | null
 }
 
-export const emptySnapshot = (): Snapshot => ({ busy: null, idle: null, done: null, live: null, workers: [], elapsedMs: null })
+export const emptySnapshot = (): Snapshot => ({ busy: null, idle: null, done: null, failed: null, live: null, workers: [], elapsedMs: null })
 
 export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | null, now: number): Snapshot => {
   const elapsedMs = usage !== null && usage.startedAt > 0 && now >= usage.startedAt ? now - usage.startedAt : null
@@ -39,10 +41,12 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
     busy: count(BUSY),
     idle: team.filter(a => a.status === 'idle').length,
     done: team.length - count(LIVE),
+    failed: team.filter(a => a.status === 'failed' || a.status === 'killed').length,
     live: team.filter(isLiveTeammate).length,
     workers: team.map(a => ({
       name: (a.teammateId as string).split('@')[0] as string,
       teammateId: a.teammateId as string,
+      agentId: a.id,
       status: a.status,
     })),
     elapsedMs,
@@ -84,6 +88,10 @@ export const isNewToolCall = (seen: Set<string>, toolUseId: unknown): boolean =>
   return true
 }
 
+/** A teammate spawn that arrives while a confirmed option change is being written. The skill treats this code like any guard refusal: leave the task pending and retry. */
+export const settingChangeDeny = (): string =>
+  `${GUARD_CODE}: CTK is applying a setting change you confirmed. Do not treat this worker as started; leave its task pending and retry in a moment.`
+
 export const capacityDeny = (live: number, starting: number, max: number): string =>
   `${CAPACITY_CODE}: live=${live} starting=${starting} max=${max}. Do not treat this worker as started; leave its task pending; reuse an idle teammate via SendMessage or wait for one to finish.`
 
@@ -108,6 +116,8 @@ export const routed = (e: AgentSpawnInput, opts: PolicyOptions): AgentSpawnInput
 /** Full name Claude Code gives the status tool (`mcp__<plugin>__<name>`); the tool.call hook matches it. */
 export const STATUS_TOOL_NAME = 'ctk_team_status'
 export const STATUS_TOOL = `mcp__ctk__${STATUS_TOOL_NAME}`
+export const CONFIG_TOOL_NAME = 'ctk_config'
+export const CONFIG_TOOL = `mcp__ctk__${CONFIG_TOOL_NAME}`
 
 /** How long an accepted teammate stays counted while the roster has not listed it yet. */
 export const PENDING_TTL_MS = 10_000

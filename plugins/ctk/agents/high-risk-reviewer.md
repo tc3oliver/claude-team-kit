@@ -1,6 +1,6 @@
 ---
 name: high-risk-reviewer
-description: Read-only deep reviewer for auth, money, migration, concurrency, public API or security changes.
+description: Read-only deep reviewer for high-risk diffs.
 model: opus
 effort: high
 tools: Read, Grep, Glob

@@ -79,11 +79,11 @@ test('agent files are exactly the four roles', () => {
   assert.deepEqual(readdirSync(join(plugin, 'agents')).sort(), Object.values(fileOf).map((f) => `${f}.md`).sort())
 })
 
-test('skills are team, review, debug', () => {
-  assert.deepEqual(skillNames.sort(), ['debug', 'review', 'team'])
+test('skills are team, review, debug and ctk', () => {
+  assert.deepEqual(skillNames.sort(), ['ctk', 'debug', 'review', 'team'])
 })
 
-for (const name of ['team', 'review', 'debug']) {
+for (const name of ['team', 'review', 'debug', 'ctk']) {
   test(`skill ${name}: frontmatter, size, references`, () => {
     const text = read('skills', name, 'SKILL.md')
     const fm = frontmatter(text)
@@ -101,10 +101,13 @@ for (const name of ['team', 'review', 'debug']) {
   })
 }
 
-test('team skill: manual only, hint, refusal codes, agent types', () => {
+test('team skill: found from natural language but gated on explicit intent, hint, refusal codes, agent types', () => {
   const text = read('skills', 'team', 'SKILL.md')
   const fm = frontmatter(text)
-  assert.equal(fm['disable-model-invocation'], 'true')
+  // Model-invocable on purpose (docs/NATURAL-LANGUAGE.md); the body must still wait for a clear ask.
+  assert.equal(fm['disable-model-invocation'], undefined)
+  assert.match(text, /## 0\. Intent gate\nNo clear ask for a team/)
+  assert.match(text, /and WAIT\. Spawn nothing/)
   assert.equal(fm['argument-hint'], '<goal>')
   assert.ok(text.includes('TEAM_CAPACITY_REACHED'))
   assert.ok(text.includes('TEAM_GUARD_FAILED'))

@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: Read-only codebase scout. Finds files, symbols and patterns and reports pointers, not file dumps.
+description: Read-only scout; returns file:line pointers, not dumps.
 model: haiku
 effort: medium
 tools: Read, Grep, Glob

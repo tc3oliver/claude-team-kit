@@ -1,13 +1,17 @@
 ---
 name: team
-description: Run a goal with a capped native agent team when work splits into independent slices.
-disable-model-invocation: true
+description: "Invoke before spawning several agents, or when asked for a team, multiple agents, split or parallel work (多個 Agent, 平行). Keeps the worker cap."
 argument-hint: "<goal>"
 ---
 
 Goal: $ARGUMENTS. You are the lead.
 
-## 0. Preflight
+## 0. Intent gate
+No clear ask for a team, multiple agents or parallel work (running `/ctk:team` counts as one)? Reply with one
+sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
+Asked, but the goal has no 2+ independently verifiable slices? Say so in one line and do the work directly.
+
+## 1. Preflight
 Call `ctk_team_status` if it exists, then branch:
 - Tool absent: the CTK mod is not active here (unsupported build or mods disabled). Say in two lines that
   the worker cap, HUD band and stats are OFF and teams run without a limit; offer to continue. Never imply a cap.
@@ -16,11 +20,6 @@ Call `ctk_team_status` if it exists, then branch:
   or the project's) and restart Claude Code. Edit it only if they say yes, with the Edit tool so they approve.
   `/ctk-doctor` shows readiness.
 - `teamsEnabled` is null: say you cannot tell, then proceed. Otherwise proceed.
-
-## 1. Decide
-Default to one agent (yourself) doing the work. Use a team only if the user asked for one
-or the goal splits into 2+ slices that can be built and verified independently.
-If neither holds, say so in one line and do the work directly.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior.
@@ -34,7 +33,7 @@ If neither holds, say so in one line and do the work directly.
   The user can get the shared task list with `ctk config set claude.enableTaskTools true`
   or by starting Claude Code with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`.
 - Each slice states: spec/context pointers, file scope, verify command. Pointers, never pasted contents.
-- Ready frontier = pending slices with no open blockers.
+  Ready frontier = pending slices with no open blockers.
 
 ## 3. Spawn
 - Spawn at most the cap (`maxWorkers`, default 3) with `Agent`, giving each a `name`.

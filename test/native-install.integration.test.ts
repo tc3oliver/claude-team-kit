@@ -37,7 +37,7 @@ test('real claude: native install works on its own, then `ctk install` adopts it
   assert.deepEqual(plugin.errors, [])
 
   const details = await claude('plugin', 'details', 'ctk@ctk-kit')
-  assert.equal(/Skills \((\d+)\)/.exec(details)?.[1], '3')
+  assert.equal(/Skills \((\d+)\)/.exec(details)?.[1], '4')
   assert.equal(/Agents \((\d+)\)/.exec(details)?.[1], '4')
   const alwaysOn = Number(/Always-on:\s+~(\d+) tok/.exec(details)?.[1])
   assert.ok(alwaysOn > 0 && alwaysOn < 500, `always-on context is ${alwaysOn} tokens`)
@@ -53,7 +53,7 @@ test('real claude: native install works on its own, then `ctk install` adopts it
 
   const r = await runInstall(ctx, { statusline: true, enableTeams: true })
   assert.equal(r.code, 0, r.lines.join('\n'))
-  assert.deepEqual(r.data.steps, { marketplace: 'present', plugin: 'present', statusline: 'copy', settingsKeys: 9 })
+  assert.deepEqual(r.data.steps, { marketplace: 'present', plugin: 'present', statusline: 'copy', settingsKeys: 10 })
   assert.deepEqual(registry(), registryBefore, 'the plugin was adopted, not reinstalled')
   assert.deepEqual(readJson(ctx.paths.settings).extraKnownMarketplaces, marketplaceBefore, 'the marketplace entry is untouched')
   assert.deepEqual(loadLedger(ctx)?.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: false, pluginInstalledByCtk: false })

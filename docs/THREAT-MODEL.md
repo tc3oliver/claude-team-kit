@@ -49,7 +49,8 @@ scratch config directory; it is not an audit.
 | Claude Code's status line JSON on stdin | The status line script only: model, effort, context %, rate-limit % and reset times, cost, duration, directory. |
 | `.git/HEAD` and the git config files of your working directory's repository, and one `git status --porcelain -uno` | The status line script only, for the branch and a dirty marker (250 ms timeout; any failure shows nothing). The config files are read to decide whether it is safe to run `git status` at all (see Process execution). |
 | The mod's host API | Roster (`agent.list`), session id and usage, clock, its own stats file (`fs.read`, to continue counters), and the env vars `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. `claude plugin validate` reports the exact list. |
-| Tool events (`tool.call`) | The mod, to count them: only the call's `tool_use_id`. Tool names, inputs and results are not read or stored. |
+| Tool events (`tool.call`) | The mod, to count them: the call's `tool_use_id` and `agentId`, and the tool's name to spot a Task tool. For `TaskCreate` and `TaskUpdate` only the named fields (`subject`, `taskId`, `status`, `owner`, `addBlockedBy`, `addBlocks` and the created task's id and subject from the tool's result) are kept, in memory, for Mission Control. Descriptions, metadata, other tools' inputs and every result are not read or stored. None of it is written to the stats file. |
+| `$.config.list()` | Mission Control, once per Confirm: it lists the `/config` rows and looks at one (`ctk.<option>`) to see whether managed settings lock it. No other row is used. |
 | `/ctk-doctor` and the status tool: the settings the mods API exposes (`$.settings.read`), the tool names (`$.tool.list`) and the teams flag | To report whether the teams flag is set, whether a plugin option sets the cap, whether `statusLine` is configured, and whether `TaskCreate` is listed. The report is read-only: nothing is written. The call hands the mod the whole settings object, which can include `env` values you keep there; only the derived yes/no facts are kept or printed. |
 
 ## What CTK writes
@@ -60,6 +61,7 @@ scratch config directory; it is not an audit.
 | `<config>/ctk/**` | Ledger, profile layers, status line script, stats, sync state, backups. |
 | `<config>/skills/<name>/` | Only skills listed in your profile, only as directories CTK created (marked `.ctk-managed`). |
 | Claude Code's plugin registry | By `claude plugin ...`, not by CTK directly. CTK backs the registry files up first. |
+| A CTK option, through Claude Code's `$.config.set` | Only when you press Confirm in Mission Control on a change proposed in words or by the `ctk_config` tool; one option, once, after the request is checked again. Claude Code writes `pluginConfigs` itself. The model cannot trigger it: the only call site is behind that button ([MISSION-CONTROL](MISSION-CONTROL.md#changing-an-option)); `test/mod-calls.test.ts` pins it. |
 | The profile repo clone and its remote | `ctk sync publish`: the paths listed by `--dry-run`, a commit, a normal (never forced) push. |
 
 `settings.json`, the ledger, profile layers and sync state are written atomically (temporary

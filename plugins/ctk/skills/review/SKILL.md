@@ -1,6 +1,6 @@
 ---
 name: review
-description: Risk-based review of the current change. Picks self-check, reviewer or high-risk-reviewer by diff risk.
+description: "CTK risk-based review of current changes: picks reviewer depth by diff risk. For 'review my changes'."
 argument-hint: "[spec path or ticket]"
 ---
 

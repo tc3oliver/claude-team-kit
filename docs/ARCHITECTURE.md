@@ -69,11 +69,11 @@ things only the CLI, or you by hand, can provide.
 ### Skills and agents (always-on cost)
 
 Everything Claude Code loads into context every turn is the frontmatter `description` of the
-skills that allow model invocation and of the four agents. `team` sets
-`disable-model-invocation: true`, so it is only loaded when you invoke it. Skill bodies and
-`references/*.md` are loaded on demand. `claude plugin details ctk@ctk-kit` reports
-`~187 tok` always-on for this build (invoking `team` costs about 850 tokens, `review` 330, `debug` 280); `node scripts/measure-context.mjs 500` checks the same
-text against a 500-token budget and runs in CI.
+skills that allow model invocation (all four: `team` is found from natural language and gates itself on a
+clear ask) and of the four agents. Skill bodies and `references/*.md` are loaded on demand (invoking `team`
+costs about 850 tokens, `review` 330, `debug` 280). The measured fixed cost is +425 tokens over a session
+without the plugin ([NATURAL-LANGUAGE](NATURAL-LANGUAGE.md#always-on-cost)); `node scripts/measure-context.mjs 500`
+checks the descriptions' own text (about 176 tokens) against a 500-token budget and runs in CI.
 
 | Skill | Invocation | Purpose |
 |---|---|---|
@@ -213,6 +213,23 @@ free (a line of `COLUMNS − 4` cells fits, one cell more is cut with `…`; bot
 Claude Code 2.1.295). The tier follows the terminal, the fit follows what is left. The band is
 redrawn at once when the terminal is resized; Claude Code runs the status line again only on
 its next update, so until then it shows Claude Code's own cut of the old line.
+
+#### Mission Control
+
+The band is one `Button` (`plain`, so it draws no chrome) whose children are the `CTK ▸` entry and the
+HUD line: a click anywhere on it, or `Enter` once Claude Code has focused it, raises `ui.press`. The
+mod's `ui.press` hook lets the button's own no-op handler run first (a redraw releases it) and then opens
+a pane, `$.ui.open({ id: 'ctk-mission', focus, closeOnEscape })`, which a `ui.render` hook for
+`{ component: 'Pane' }` draws. The pane's buttons only change `McState` (view, selection, HUD form) in
+`hooks/mission.ts`; `hooks/missionui.tsx` draws it; `missionText` is the same overview as text for
+`/ctk-mission` where no pane can be drawn. Everything is event-driven: a redraw is asked for when a turn
+ends, the roster or usage changes, a task event arrives, or a press happens (and at most once a second
+for tool calls); nothing polls and no model, tool or process is started (`test/mod-calls.test.ts`).
+
+What it knows comes from event hooks that pass every event on untouched: the spawn result (agent id,
+model), `tool.call` events (per-agent counts, last activity, and the named fields of `TaskCreate` and
+`TaskUpdate` for the task board), `turn.complete` and `classic.TeammateIdle`. The one write is a
+confirmed option change; see [MISSION-CONTROL](MISSION-CONTROL.md).
 
 #### Band and status line together
 

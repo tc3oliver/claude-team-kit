@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implements one scoped task with the smallest correct diff and verifies it before reporting.
+description: Implements one scoped task, then verifies it.
 model: sonnet
 effort: medium
 ---

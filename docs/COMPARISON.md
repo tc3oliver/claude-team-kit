@@ -180,8 +180,9 @@ Other facts that affect the choice:
 - claude-hud: dependencies, built output, other branches, the version number.
 - Agent Teams: one documentation page, summarised by a fetch tool before quoting; not
   cross-checked against the raw Markdown. The `statusline` documentation page was not read.
-- CTK's own claims (the cap observed live on Claude Code 2.1.294, the ~187-token fixed context)
-  come from this repository's documentation and `claude plugin details`.
+- CTK's own claims (the cap observed live on Claude Code 2.1.294, the fixed context: +425 tokens
+  measured, about 320 by `claude plugin details` on 2.1.295) come from this repository's
+  documentation and those two measurements.
 - Repository metadata (descriptions, licences, versions) can change at any time; the date above
   is the date it was read.
 

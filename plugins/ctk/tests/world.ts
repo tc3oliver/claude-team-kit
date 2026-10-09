@@ -17,6 +17,24 @@ export type World = {
   usage: Record<string, unknown>
   /** What $.session.model answers; null makes it reject. */
   model: string | null
+  /** Every $.ui.open argument, in order. */
+  opened: Record<string, unknown>[]
+  /** Pane ids $.ui.close received. */
+  closed: string[]
+  /** What $.ui.open answers: false means no pane can be drawn here. */
+  placePanes: boolean
+  /** Every $.config.set call, in order. */
+  configSets: { key: string; value: unknown }[]
+  /** Rows $.config.list answers; a row's isLocked can be set by a test. */
+  configLocked: boolean
+  /** What $.config.set answers: a string makes it return { deny }. */
+  configDeny: string | null
+  /** When set, $.config.set waits for it before answering. */
+  configGate: Promise<void> | null
+  /** While true, $.agent.list rejects (the roster cannot be read). */
+  listFails: boolean
+  /** When set, a spawn waits for it inside the engine, so a test can hold one in flight. */
+  spawnGate: Promise<void> | null
   /** Every path $.fs.write received, as received. */
   rawPaths: string[]
   /** What $.settings.read answers (merged); null makes it reject. */
@@ -59,6 +77,15 @@ export const fresh = (): World => ({
   registeredCommands: [],
   usage: { startedAt: 0, context: { window: 200000 }, rateLimits: [] },
   model: null,
+  opened: [],
+  closed: [],
+  placePanes: true,
+  configSets: [],
+  configLocked: false,
+  configDeny: null,
+  configGate: null,
+  listFails: false,
+  spawnGate: null,
   rawPaths: [],
   settings: {},
   tools: [],
@@ -84,6 +111,8 @@ export type EngineOptions = {
   writeFails?: boolean
   /** Roster list calls before a new teammate shows up in agent.list (Infinity: never). */
   rosterLag?: number
+  /** What the engine answers a model's tool call with (`result`); defaults to 'ok'. */
+  toolResult?: (e: Record<string, unknown>) => unknown
   /** Microtasks agent.list takes to answer; the roster is read when asked, then held back. */
   listDelay?: number
 }
@@ -115,7 +144,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
   on('turn.complete', (_$, e) => ({ text: e.answer }))
   on('session.id', () => ({ value: 'sess/1' }) as never)
   on('agent.list', async () => {
-    if (opts.listFails) throw new Error('roster unavailable')
+    if (opts.listFails || w.listFails) throw new Error('roster unavailable')
     const seen = w.agents.filter(a => {
       const left = a.teammateId === undefined ? undefined : w.lag.get(a.teammateId)
       if (left === undefined) return true
@@ -133,7 +162,33 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     return { value: w.model } as never
   })
   // Any tool other than the plugin's own: the engine runs it and answers.
-  on('tool.call', () => ({ result: 'ok' }) as never)
+  on('tool.call', (_$, e) => ({ result: opts.toolResult?.(e as unknown as Record<string, unknown>) ?? 'ok' }) as never)
+  on('ui.open', (_$, e) => {
+    w.opened.push({ ...e })
+    return { value: w.placePanes ? { isPlaced: true } : { isPlaced: false, reason: 'no room' } } as never
+  })
+  on('config.list', () => {
+    const row = (key: string, value: unknown, kind: string) => ({ key, label: key, kind, value, provider: { plugin: 'ctk', tier: 'user' }, isLocked: w.configLocked })
+    return {
+      value: [
+        row('ctk.maxWorkers', 3, 'number'),
+        row('ctk.explorerModel', 'haiku', 'text'),
+        row('ctk.hudBand', true, 'boolean'),
+        { key: 'theme', label: 'Theme', kind: 'choice', value: 'dark', provider: { plugin: 'engine', tier: 'core' }, isLocked: false },
+      ],
+    } as never
+  })
+  on('config.set', async (_$, e) => {
+    if (w.configGate !== null) await w.configGate
+    w.configSets.push({ key: e.key, value: e.value })
+    return (w.configDeny === null ? { value: e.value } : { deny: w.configDeny }) as never
+  })
+  // What the engine itself draws where no plugin does.
+  on('ui.render', () => ({ type: 'Box', props: { key: 'engine-default' }, children: [] }) as never)
+  on('ui.close', (_$, e) => {
+    w.closed.push(e.id)
+    return { value: undefined } as never
+  })
   on('tool.register', (_$, e) => (w.registeredTools.push(e.name), { value: { tool: `mcp__ctk__${e.name}` } }) as never)
   on('command.register', (_$, e) => (w.registeredCommands.push(e.name), { value: { command: e.name } }) as never)
   on('fs.read', (_$, e) => {
@@ -151,6 +206,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     w.spawnCalls += 1
     w.models.push(e.model)
     const n = w.spawnCalls
+    if (w.spawnGate !== null) await w.spawnGate
     for (let k = 0; k < delay(n); k++) await Promise.resolve()
     const id = `a${n}`
     const teammateId = e.isTeammate ? `${e.name}@session-test` : undefined

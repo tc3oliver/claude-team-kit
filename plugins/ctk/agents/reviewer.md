@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Read-only reviewer for medium-risk changes. Reports defects with file:line and a failing scenario.
+description: Read-only reviewer for medium-risk diffs.
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob

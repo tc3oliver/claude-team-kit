@@ -55,6 +55,12 @@
       "description": "Show the one-line team status band above the prompt.",
       "default": true
     },
+    "hudIdle": {
+      "type": "string",
+      "title": "Band while no team runs",
+      "description": "full, minimal (only the CTK entry and the guard) or hidden (use /ctk-mission). The band always shows once a teammate has started.",
+      "default": "full"
+    },
     "recordStats": {
       "type": "boolean",
       "title": "Record stats",

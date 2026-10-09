@@ -44,11 +44,18 @@ export type BandOptions = {
    * drawn twice.
    */
   coordinated?: boolean
+  /**
+   * The terminal width that picks the form (full, abbreviated, essentials). Default: the width the
+   * engine reports for the band plus its margin; a forced HUD form passes its own.
+   */
+  tierColumns?: number
+  /** The guard's one-word state (`ON`, `ERR`, `–`), shown as `Guard ON`; left out when not given. */
+  guard?: string
 }
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
-const RANK = { fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, tasks: 40, cost: 30, workerModels: 10 }
+const RANK = { fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, guard: 45, tasks: 40, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -64,6 +71,10 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
   }
   out.push({ id: 'tools', prio: RANK.tools, forms: [`Tools ${s.toolCalls}`, `T${s.toolCalls}`, `T${s.toolCalls}`] })
   out.push(agentsSegment(s, snap))
+  if (opts.guard !== undefined) {
+    const text = `Guard ${opts.guard}`
+    out.push({ id: 'guard', prio: RANK.guard, missing: opts.guard === DASH, forms: [text, text, ''] })
+  }
   if (mine) {
     const ctx = s.measured.contextPct
     const text = `Ctx ${fmtPct(ctx)}`
@@ -120,7 +131,7 @@ const agentsSegment = (s: StatsRecord, snap: Snapshot): Segment => {
 export const BAND_MARGIN = 5
 
 export const formatBand = (s: StatsRecord, snap: Snapshot, bodyColumns: number, opts: BandOptions = {}): string =>
-  layoutLine(bandSegments(s, snap, opts), { columns: bodyColumns, tierColumns: bodyColumns + BAND_MARGIN, ambiguous: opts.ambiguous })
+  layoutLine(bandSegments(s, snap, opts), { columns: bodyColumns, tierColumns: opts.tierColumns ?? bodyColumns + BAND_MARGIN, ambiguous: opts.ambiguous })
 
 const limitLine = (label: string, pctValue: number | null, resetsAt: string | null, now: number): string => {
   const left = fmtCountdown(resetMs(resetsAt), now)

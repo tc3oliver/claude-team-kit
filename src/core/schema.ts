@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { DEFAULT_OPTIONS, type PolicyOptions } from '../../plugins/ctk/shared/policy.ts'
+import { DEFAULT_OPTIONS, HUD_IDLE, type PolicyOptions } from '../../plugins/ctk/shared/policy.ts'
 import { deepMerge, type JsonObject } from './jsonx.ts'
 
 export const PROFILE_SCHEMA_VERSION = 1
@@ -23,7 +23,7 @@ export const profileSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION),
   team: z.strictObject({ maxWorkers: z.number().int().min(1).max(12) }),
   routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema }),
-  hud: z.strictObject({ band: z.boolean(), statusLine: z.enum(['auto', 'off']) }),
+  hud: z.strictObject({ band: z.boolean(), idle: z.enum(HUD_IDLE), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
   claude: z.strictObject({ enableAgentTeams: z.boolean(), enableTaskTools: z.boolean() }),
   portable: z.strictObject({
@@ -53,7 +53,7 @@ export const profileLayerSchema = z.strictObject({
       highRisk: partialRole.optional(),
     })
     .optional(),
-  hud: z.strictObject({ band: z.boolean().optional(), statusLine: z.enum(['auto', 'off']).optional() }).optional(),
+  hud: z.strictObject({ band: z.boolean().optional(), idle: z.enum(HUD_IDLE).optional(), statusLine: z.enum(['auto', 'off']).optional() }).optional(),
   stats: z.strictObject({ record: z.boolean().optional() }).optional(),
   claude: z.strictObject({ enableAgentTeams: z.boolean().optional(), enableTaskTools: z.boolean().optional() }).optional(),
   portable: z.strictObject({ settings: profileSchema.shape.portable.shape.settings.optional() }).optional(),
@@ -70,7 +70,7 @@ export const DEFAULT_PROFILE: Profile = {
     reviewer: { model: DEFAULT_OPTIONS.reviewerModel },
     highRisk: { model: DEFAULT_OPTIONS.highRiskModel },
   },
-  hud: { band: DEFAULT_OPTIONS.hudBand, statusLine: 'auto' },
+  hud: { band: DEFAULT_OPTIONS.hudBand, idle: DEFAULT_OPTIONS.hudIdle, statusLine: 'auto' },
   stats: { record: DEFAULT_OPTIONS.recordStats },
   // Task tools (TaskCreate/TaskUpdate/TaskList) are left out by Claude Code on current default models
   // unless CLAUDE_CODE_ENABLE_TODO_TOOLS=1. Enabling them adds tool definitions to every session, so
@@ -110,5 +110,6 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   reviewerModel: p.routing.reviewer.model,
   highRiskModel: p.routing.highRisk.model,
   hudBand: p.hud.band,
+  hudIdle: p.hud.idle,
   recordStats: p.stats.record,
 })

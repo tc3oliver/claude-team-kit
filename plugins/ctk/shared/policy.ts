@@ -8,6 +8,9 @@
 export const ROLES = ['explorer', 'implementer', 'reviewer', 'highRisk'] as const
 export type Role = (typeof ROLES)[number]
 
+export const HUD_IDLE = ['full', 'minimal', 'hidden'] as const
+export type HudIdle = (typeof HUD_IDLE)[number]
+
 export type PolicyOptions = {
   /** Most teammates alive at once. Further spawns are refused with TEAM_CAPACITY_REACHED. */
   maxWorkers: number
@@ -18,6 +21,8 @@ export type PolicyOptions = {
   highRiskModel: string
   /** Draw the team band above the prompt. */
   hudBand: boolean
+  /** What the band shows while no teammate has started: everything, only the CTK entry and guard, or nothing. */
+  hudIdle: HudIdle
   /** Write small per-session counters to <config>/ctk/stats/ for `ctk stats`. */
   recordStats: boolean
 }
@@ -29,6 +34,7 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   reviewerModel: 'sonnet',
   highRiskModel: 'opus',
   hudBand: true,
+  hudIdle: 'full',
   recordStats: true,
 }
 
@@ -69,6 +75,7 @@ export const readOptions = (raw: unknown): PolicyOptions => {
     reviewerModel: str(o.reviewerModel, DEFAULT_OPTIONS.reviewerModel),
     highRiskModel: str(o.highRiskModel, DEFAULT_OPTIONS.highRiskModel),
     hudBand: bool(o.hudBand, DEFAULT_OPTIONS.hudBand),
+    hudIdle: (HUD_IDLE as readonly unknown[]).includes(o.hudIdle) ? (o.hudIdle as HudIdle) : DEFAULT_OPTIONS.hudIdle,
     recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
   }
 }

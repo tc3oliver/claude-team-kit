@@ -36,7 +36,7 @@ in practice:
   directory with an empty `HOME`, a clean environment, `GIT_CONFIG_GLOBAL=/dev/null` and ssh blocked
   (`GIT_SSH_COMMAND=/usr/bin/false`; `git ls-remote` over ssh failed there, over https worked),
   `claude plugin marketplace add tc3oliver/claude-team-kit` cloned over HTTPS on its own,
-  `claude plugin install ctk@ctk-kit` succeeded (3 skills, 4 agents, about 187 tokens always-on) and
+  `claude plugin install ctk@ctk-kit` succeeded (3 skills, 4 agents at that time) and
   `claude -p "/ctk-doctor"` ran with no model call. Not covered: other machines, operating systems
   or Claude Code versions; anything that calls a model; typing `/plugin install` in an interactive
   session (the CLI form was run). A local-directory marketplace is also covered by
@@ -61,7 +61,7 @@ in practice:
 - **Removal leaves traces.** After `/plugin uninstall` and `/plugin marketplace remove`,
   `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
   counters stay in `<config>/ctk/stats/` until you delete them (Live).
-- **`/team` costs more than the always-on estimate.** Always-on is about 187 tokens; invoking `team`
+- **`/team` costs more than the always-on estimate.** The fixed cost is +425 tokens measured; invoking `team`
   adds about 850, `review` 330, `debug` 280 (`claude plugin details`, estimates).
 
 ## The hard cap
@@ -102,6 +102,23 @@ in practice:
   detect that.
 - **Both lines use Claude Code's own widths.** The band is terminal − 5 columns, the status line
   terminal − 4 (measured on 2.1.295); another Claude Code version may differ.
+
+## Mission Control
+
+- **It shows only what was observed.** Task detail needs `TaskCreate`/`TaskUpdate` calls, which Claude
+  Code leaves out on current models unless `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`; per-worker figures need the
+  worker's loop to run in this process (not a tmux or iTerm2 pane); "current task" is the in-progress task
+  whose owner is the worker's name. Everything else reads *unavailable*. Details:
+  [MISSION-CONTROL](MISSION-CONTROL.md#what-it-shows).
+- **Keyboard entry takes two chords.** Opening the pane from the focused band does not give the pane the
+  keys (Claude Code refuses focus while the band holds it). `/ctk-mission` opens it already focused.
+- **An option change reloads the mod.** Claude Code reloads the module a moment after `$.config.set`, so
+  per-worker detail and the task board start over (counters continue from the stats file). CTK refuses to
+  apply a change while a teammate is starting, because a reload forgets spawns still in flight.
+- **The HUD form button is session-only.** There is no way to save it from the pane: a saved choice would
+  be a settings write, and CTK writes settings only through the confirmed option change.
+- **Pane placement is Claude Code's.** Docked beside the transcript in the fullscreen layout, above the
+  prompt otherwise; a pane opened by a person's own press or command is placed at any width.
 
 ## Cost, effort and routing
 

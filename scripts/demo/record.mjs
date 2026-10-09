@@ -14,10 +14,12 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { cellWidth } from './render-svg.mjs'
+
 const USAGE = `usage: CLAUDE_CONFIG_DIR=<scratch dir> record.mjs --out <file.frames.jsonl> [options] -- <command> [args...]
   --cols N / --rows N   terminal size (default 110x32)
   --cwd DIR             working directory of the session
-  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, stable:ms, timeout:ms, delay:ms, keys:text, typed:msPerChar, key:name|[names]}
+  --script FILE         JSON array of steps: {at:ms | waitFor:regex | waitForLine:regex, stable:ms, timeout:ms, delay:ms, keys:text, typed:msPerChar, key:name|[names], click:{text:regex, offset:cells, last:bool}}
   --until REGEX         stop once the script is done and the screen matches
   --idle MS             stop after MS without change once the script is done (default 5000)
   --limit MS            hard time limit (default 120000)
@@ -102,6 +104,23 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 const ANSI = /\x1b\[[0-9;:?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]/g
 export const stripAnsi = s => s.replace(ANSI, '')
 
+/**
+ * Where a regex first (or last) matches on a plain screen capture, as a 1-based terminal cell {col, row}
+ * `offset` cells into the match; null when it does not match. Used to aim a mouse click.
+ */
+export const locateText = (plainScreen, re, offset = 0, last = false) => {
+  const lines = plainScreen.split('\n')
+  const order = last ? [...lines.keys()].reverse() : [...lines.keys()]
+  for (const row of order) {
+    const m = new RegExp(re).exec(lines[row])
+    if (m) return { col: [...lines[row].slice(0, m.index)].reduce((n, ch) => n + cellWidth(ch.codePointAt(0)), 0) + offset + 1, row: row + 1 }
+  }
+  return null
+}
+
+/** The bytes of one left click (press then release) at a cell, as an xterm SGR mouse report. */
+export const sgrClick = ({ col, row }) => `\x1b[<0;${col};${row}M\x1b[<0;${col};${row}m`
+
 function validateScript(steps) {
   if (!Array.isArray(steps)) throw new Error('script must be a JSON array')
   steps.forEach((s, n) => {
@@ -109,7 +128,11 @@ function validateScript(steps) {
     if (typeof s !== 'object' || s === null) throw new Error(`${where}: not an object`)
     if (s.at !== undefined && !(Number.isFinite(s.at) && s.at >= 0)) throw new Error(`${where}: "at" must be ms >= 0`)
     for (const k of ['waitFor', 'waitForLine']) if (s[k] !== undefined) new RegExp(s[k])
-    if (['at', 'waitFor', 'waitForLine', 'delay', 'keys', 'key'].every(k => s[k] === undefined)) throw new Error(`${where}: empty step`)
+    if (['at', 'waitFor', 'waitForLine', 'delay', 'keys', 'key', 'click'].every(k => s[k] === undefined)) throw new Error(`${where}: empty step`)
+    if (s.click !== undefined) {
+      if (typeof s.click !== 'object' || s.click === null || typeof s.click.text !== 'string') throw new Error(`${where}: "click" needs {text: regex}`)
+      new RegExp(s.click.text)
+    }
     if (s.stable !== undefined && !(Number.isFinite(s.stable) && s.stable > 0)) throw new Error(`${where}: "stable" must be ms > 0`)
     if (s.keys !== undefined && typeof s.keys !== 'string') throw new Error(`${where}: "keys" must be a string`)
   })
@@ -268,6 +291,12 @@ async function main() {
       if (stop) return
       if (s.keys !== undefined) await typeText(s.keys, s.typed ?? 0)
       if (s.key !== undefined) for (const k of [].concat(s.key)) send(k)
+      if (s.click !== undefined) {
+        // A click is aimed at what is on screen now, so a layout change cannot make it miss silently.
+        const at = locateText(plain, s.click.text, s.click.offset ?? 0, s.click.last === true)
+        if (at === null) throw new Error(`script step ${n}: click target /${s.click.text}/ is not on screen`)
+        send('-l', '--', sgrClick(at))
+      }
       // let the sampler see the effect before the next step looks at the screen
       await sleep(o.interval * 1.5)
     }
