@@ -10,7 +10,7 @@ import { test } from 'node:test'
 const HOOKS = join(import.meta.dirname, '..', 'plugins', 'ctk', 'hooks')
 // Recursive: hooks/ui/* is part of the mod and gets the same closed list and banned-pattern check.
 const sources = readdirSync(HOOKS, { recursive: true })
-  .map(String)
+  .map(f => String(f).replaceAll('\\', '/')) // Windows lists 'ui\\x.tsx'
   .filter(f => /\.(ts|tsx)$/.test(f))
   .map(f => ({ file: f, text: readFileSync(join(HOOKS, f), 'utf8') }))
 
