@@ -265,10 +265,10 @@ for tool calls), plus the one slow motion timer described below while a worker i
 
 **The pane's modules.** `hooks/missionui.tsx` is only the entry (`renderMission`): it builds a context and calls one
 render function per view in `hooks/ui/` (`overview`, `workers`, `tasks`, `usage`, `config`, `stats`, `doctor`, each
-`(kit, mission, mc, extras, ctx)`), between the shared header, tabs and footer in `frame.tsx`. `ctx.tsx` holds the
+`(kit, mission, mc, extras, ctx)`), between the shared header, tabs and footer in `frame.tsx` (below 69 columns a docked pane stacks the tabs in two lines of full labels, `stackedTabs`; inline it keeps one line of short words, then three letters). `ctx.tsx` holds the
 width-aware primitives (clip, pad and wrap by terminal cells, wrapped fields, metric cards, bars, the shared "+N more"
 line) and the row budget: `ctx.rows` is 11 inline and, docked, the rows the engine reports less the frame. `theme.ts`
-holds the semantic colours (Mods theme keys only) and glyphs; `dag.ts` is the pure layered layout for the task graph.
+holds the semantic colours (Mods theme keys only) and glyphs; `dag.ts` is the pure layered layout for the task graph (parents of one sole child share a trunk, so a fan-in is one track).
 Views are pure: they draw what they are given and never call the host.
 
 **Motion.** `hooks/ui/motion.ts` is pure too: `observe` compares this draw with the last to find what is new,

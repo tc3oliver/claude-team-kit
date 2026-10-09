@@ -12,6 +12,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Mission Control at the real docked width (about 48 cells): the tabs stack in two lines of full labels instead of a digits-only row, the last-resort tab tier keeps a three-letter name, and a fan-in in the task graph shares one trunk; the graph's row budget follows the pane height.
+
 - The default worker cap is now 5 (was 3), still 1 to 12. An explicit setting is never touched: an installed plugin that was configured to a value keeps it, and one that was never configured follows the new default after it updates.
 - Mission Control, the band and the status tool now tell ordinary subagents apart from native teammates. An `Agent`
   call without a `name` is an ordinary subagent: it is listed in its own "Ordinary subagents" section (type, status,

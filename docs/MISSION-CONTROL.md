@@ -45,7 +45,15 @@ command, a pattern or any other input can carry a secret, so CTK does not keep i
 
 **The task graph** is drawn only from the dependencies the model declared (`addBlockedBy`, `addBlocks`). CTK infers
 none. When the declared graph cannot be drawn faithfully (a cycle, more than 12 linked tasks, or no room) the page
-falls back to the list. A task that `TaskUpdate` set to completed is shown as **marked complete (TaskUpdate; not
+falls back to the list. Parents that share one child share one trunk, so a fan-in stays compact:
+
+```
+[◇ 2]─┐
+[◇ 4]─┼▸[○ 6]──▸[○ 7]
+[◇ 5]─┘
+```
+
+Titles are shortened before the graph is dropped, and a taller pane lets it use more rows. A task that `TaskUpdate` set to completed is shown as **marked complete (TaskUpdate; not
 verified)**: CTK does not check the work. A task that failed is not observable from these calls, so there is no
 failed state.
 
@@ -125,8 +133,9 @@ docked beside the transcript it gets the rows the terminal reports (taller termi
 use that. What does not fit is summarised in one line, for example `+3 more lines not shown · enlarge the
 terminal or ask Claude`, shortened as the pane gets narrower; the Tasks page also says it lists done tasks last.
 Nothing is cut in the middle of a sentence or a word: text wraps, and the code `TEAM_CAPACITY_REACHED` always
-stays whole. The tabs shrink in steps (full labels from 69 columns, then short words, then digits with only the
-current view spelled out). The band, past six tasks, adds `full list: Mission Control`.
+stays whole. The tabs shrink in steps: full labels on one line from 69 columns; below that, a docked pane stacks them in two
+lines of full labels (`1: Overview 2: Workers 3: Tasks` over `4: Usage 5: Config 6: Stats 7: Doctor`, down to
+37 columns); the inline pane keeps one line of short words, then three-letter names (the current view in full). The band, past six tasks, adds `full list: Mission Control`.
 
 ## Motion
 
