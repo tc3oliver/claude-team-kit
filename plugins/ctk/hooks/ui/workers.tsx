@@ -85,12 +85,15 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
   // Wide: name, status pill, model and activity on one row; the task, tool calls and times under it. Only observed values; the rest are a dash.
   const twoLines = (w: WorkerRow) => {
     const st = statusOf(w.status)
-    const detail = [
-      w.currentTask ?? DASH,
-      `${w.toolCalls ?? DASH} tools`,
-      w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs),
-      `last ${w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)}`,
-    ].join(' · ')
+    // The numbers are never cut: from the narrowest room, 'last' and 'ago' go first, then the time since spawn, then the tool count; the task is what gets the ellipsis.
+    const task = w.currentTask ?? DASH
+    const age = w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)
+    const tools = `${w.toolCalls ?? DASH} tools`
+    const clock = w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs)
+    const tails = [[tools, clock, `last ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
+    const need = Math.min(displayWidth(task, ambiguous), TASK_MIN)
+    const tail = tails.find(t => room - gw - displayWidth(t, ambiguous) - 3 >= need) ?? tails[tails.length - 1]!
+    const detail = `${ctx.clip(task, Math.max(1, room - gw - displayWidth(tail, ambiguous) - 3))} · ${tail}`
     return [
       <kit.Button key={workerKey(w.agentId)} plain label={`Worker ${w.name}`} onPress={() => {}}>
         <Text wrap="truncate-end">

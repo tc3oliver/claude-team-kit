@@ -67,6 +67,28 @@ describe('Workers page', () => {
     expect(rows.join('\n')).toMatch(/– · 0 tools/)
   })
 
+  for (const cols of [40, 44, 48, 55]) {
+    test(`${cols} columns: line 2 keeps its numbers whole and cuts only the task`, opts, async ($, on) => {
+      const w = fresh()
+      w.settings = { env: { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1' } }
+      engine(on, w, undefined, { toolResult: (e: any) => (e.tool === 'TaskCreate' ? { task: { id: String(e.tool_use_id).replace('tc', ''), subject: e.subject } } : 'ok') })
+      await $.session.start(START)
+      const titles = ['Tests for caesar', 'Write the unit tests for the slugify module now']
+      for (const [i, name] of ['t-caesar', 't-slug'].entries()) {
+        await $.agent.spawn(spawnInput(i, true, { name }))
+        await $.tool.call({ tool: 'TaskCreate', tool_use_id: `tc${i + 1}`, subject: titles[i] })
+        await $.tool.call({ tool: 'TaskUpdate', tool_use_id: `tu${i + 1}`, taskId: String(i + 1), status: 'in_progress', owner: name })
+      }
+      const p = await pane($, cols)
+      await p.press({ key: 'mc:view:workers' })
+      const rows = await bodyRows(p)
+      const details = rows.filter(r => r.includes('tools') || /\d+s/.test(r))
+      expect(details.length).toBeGreaterThanOrEqual(2)
+      for (const r of rows) expect(displayWidth(r)).toBeLessThanOrEqual(cols - 1)
+      for (const r of details) expect(r.trimEnd()).toMatch(/(\d+[smh]|\d+s ago|–)$/) // never ends in a cut number
+    })
+  }
+
   test('12 workers at 60 columns fall back to one line with the TASK column', opts, async ($, on) => {
     const { p } = await open($, on, Array.from({ length: 12 }, (_, i) => `w${i}`), 60)
     expect((await bodyRows(p)).join('\n')).toContain('TASK')
