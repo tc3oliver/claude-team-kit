@@ -1,5 +1,5 @@
 import { DASH, fmtModels, pct, usd } from '../shared/format.ts'
-import { fmtCountdown, fmtPct, layoutLine, resetMs, usageSegment } from '../shared/hudline.ts'
+import { fmtCountdown, fmtPct, layoutLine, resetMs, truncateToWidth, usageSegment } from '../shared/hudline.ts'
 import type { Segment } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import type { Snapshot } from './team.ts'
@@ -55,6 +55,8 @@ export type BandOptions = {
   subagentsLive?: number
   /** An option change waits for the person's Confirm in Mission Control; the band says so until it is answered. */
   pendingChange?: boolean
+  /** The git branch of the session's directory (a short commit id when detached); left out when null or the status line shows it. */
+  branch?: string | null
 }
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
@@ -62,7 +64,7 @@ export type BandOptions = {
 /** Above this many tasks the band points at Mission Control for the whole list. */
 const MORE_TASKS = 6
 
-const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
+const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -75,6 +77,10 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
       usageSegment('5h', '5h', RANK.fiveHour, { pct: s.measured.fiveHourPct, resetsAtMs: resetMs(s.measured.fiveHourResetsAt) }, now),
       usageSegment('wk', 'Wk', RANK.sevenDay, { pct: s.measured.sevenDayPct, resetsAtMs: resetMs(s.measured.sevenDayResetsAt) }, now),
     )
+  }
+  if (mine && opts.branch) {
+    const full = `git:${opts.branch}`
+    out.push({ id: 'branch', prio: RANK.branch, forms: [truncateToWidth(full, 28, opts.ambiguous), truncateToWidth(full, 20, opts.ambiguous), ''] })
   }
   out.push({ id: 'tools', prio: RANK.tools, forms: [`Tools ${s.toolCalls}`, `T${s.toolCalls}`, `T${s.toolCalls}`] })
   out.push(agentsSegment(s, snap))

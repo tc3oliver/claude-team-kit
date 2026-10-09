@@ -300,3 +300,17 @@ describe('HUD band', () => {
     expect(found?.text).toBe('CTK ▸ Sonnet 5.5 │ 5h – │ Wk – │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ready │ Ctx – │ Sub 1 │ –')
   })
 })
+
+describe('git branch in the band', () => {
+  test('is shown after the usage figures when the CTK status line is not configured, and dropped in the narrowest form', () => {
+    expect(band(filled(), 130, { branch: 'main' })).toContain('git:main')
+    expect(bandSegments(filled(), snap(), { nowMs: NOW, branch: 'main' }).map(x => x.id).slice(0, 4)).toEqual(['model', '5h', 'wk', 'branch'])
+    expect(band(filled(), 70, { branch: 'main' })).not.toContain('git:')
+  })
+
+  test('is left out when the status line shows it, when there is none, and is cut when long', () => {
+    expect(band(filled(), 130, { branch: 'main', coordinated: true })).not.toContain('git:')
+    expect(band(filled(), 130, { branch: null })).not.toContain('git:')
+    expect(band(filled(), 200, { branch: 'feature/' + 'x'.repeat(60) })).toMatch(/git:feature\/x+…/)
+  })
+})

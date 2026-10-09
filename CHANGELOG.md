@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- The band shows the git branch (`git:main`, a short commit id when HEAD is detached) when the CTK status line is not configured, which already shows it. It reads `.git/HEAD` through `fs.read` from the session's directory (new host call `session.cwd`), refreshes on each turn and each prompt, is cut to 28 cells, and is left out below 80 columns.
+
 ## [0.1.1] - 2026-10-09 (prerelease)
 
 ### Added

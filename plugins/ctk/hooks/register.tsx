@@ -12,6 +12,7 @@ import type { Snapshot } from './team.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
+import { readBranch } from './branch.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -63,6 +64,8 @@ type Ctx = {
   toolSeen: Set<string>
   /** True while the CTK status line is configured: the band then leaves out what it shows. */
   coordinated: boolean
+  /** The git branch of the session's directory, read from .git/HEAD; null when not in a repository. */
+  branch: string | null
   /** 2 when CTK_AMBIGUOUS_WIDTH=2 (a terminal that draws │ and … two cells wide). */
   ambiguous: 1 | 2
   /** What Mission Control shows: workers, tasks and tool calls observed this session (memory only). */
@@ -119,6 +122,19 @@ async function persist($: EngineInterface, c: Ctx, force = false) {
   }
 }
 
+// Re-reads .git/HEAD (two small files at most) and redraws the band when the branch changed. Never throws.
+async function refreshBranch($: EngineInterface, c: Ctx) {
+  try {
+    const branch = await readBranch(path => $.fs.read(path), await $.session.cwd())
+    if (branch === c.branch) return
+    c.branch = branch
+    c.dirty = true
+    $.ui.invalidate('ui.render')
+  } catch {
+    // No branch shown; the band is otherwise unchanged.
+  }
+}
+
 // Re-reads the roster and usage, then redraws the band and writes stats. Never throws.
 async function refresh($: EngineInterface, c: Ctx, write = true) {
   try {
@@ -138,6 +154,7 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
   } catch {
     // Band and stats are best effort.
   }
+  await refreshBranch($, c)
   if (write) await persist($, c)
 }
 
@@ -435,6 +452,7 @@ export const register: Register = (on, options) => {
     lastDraw: 0,
     toolSeen: new Set(),
     coordinated: false,
+    branch: null,
     ambiguous: 1,
     mission: newMissionState(),
     mc: newMcState(),
@@ -519,6 +537,7 @@ export const register: Register = (on, options) => {
   // prompt's own text is untouched, a prompt that is not the person's own is left alone, and any failure here
   // lets the prompt through as it was.
   on('prompt.submit', async ($, e, next) => {
+    await refreshBranch($, c) // a `git checkout` the person ran themselves shows up with their next prompt
     const hint = c.opts.teamHint ? teamHintFor(e) : null
     return next(hint === null ? e : { ...e, context: [...(e.context ?? []), hint] })
   }).catch(($, e, next) => next(e))
@@ -697,6 +716,7 @@ export const register: Register = (on, options) => {
       nowMs: c.lastNow,
       ambiguous: c.ambiguous,
       coordinated: c.coordinated,
+      branch: c.branch,
       guard,
       subagentsLive: c.snap.subagents.filter(a => !['completed', 'failed', 'killed'].includes(a.status)).length,
       pendingChange: waiting,

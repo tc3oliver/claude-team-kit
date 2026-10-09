@@ -104,12 +104,12 @@ hooks it registers and the host calls it makes; for this build that is:
   `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (only `ctk_team_status`),
   `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.read`, `fs.write`,
-  `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
+  `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
   `ui.resolve`.
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
   `USERPROFILE`. Environment writes: none.
 
-Only `fs.write` (stats file) mutates anything; `fs.read` reads that same stats file. There is no network call and no model call.
+Only `fs.write` (stats file) mutates anything; `fs.read` reads that same stats file and, for the band's git branch, `.git/HEAD` (and a linked worktree's `.git` pointer file), found by walking up from the session's directory; no `git` process runs. There is no network call and no model call.
 
 **Teammate cap.** On `agent.spawn`, a request with `isTeammate === true` is checked against
 the number of live teammates plus spawns already in flight. Live means status `pending`,
@@ -196,7 +196,7 @@ and those counters. It is redrawn on events only (a session measure, a turn end,
 a spawn decision, and at most once a second for tool calls); nothing polls.
 
 ```
-Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $0.94 (12m)
+Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ git:main │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $0.94 (12m)
 ```
 
 `Agents 2/3` is live teammates (busy and idle: the figure the cap counts) over the cap, with

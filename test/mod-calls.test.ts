@@ -25,6 +25,7 @@ const ALLOWED = new Set([
   'env.get',
   'fs.read',
   'fs.write',
+  'session.cwd',
   'session.id',
   'session.model',
   'session.usage',
