@@ -25,6 +25,7 @@ import {
   noteTaskCall,
   noteTeammateIdle,
   noteWorkerToolCall,
+  toolLabel,
   noteWorkerTurnEnd,
   OPEN_KEY,
   pressMc,
@@ -604,7 +605,7 @@ export const register: Register = (on, options) => {
     const r = await next(e)
     await touch($, c)
     if (isNew) {
-      noteWorkerToolCall(c.mission, e.agentId, c.lastNow)
+      noteWorkerToolCall(c.mission, e.agentId, c.lastNow, toolLabel(e.tool, e))
       // The task board is built from the Task tools' named fields only (see noteTaskCall), and only
       // from a call that ran: a denied or failed one changes nothing.
       if ((e.tool === 'TaskCreate' || e.tool === 'TaskUpdate') && r.deny === undefined) {

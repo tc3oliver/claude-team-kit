@@ -19,6 +19,7 @@ import {
   noteTeammateIdle,
   noteWorkerToolCall,
   noteWorkerTurnEnd,
+  toolLabel,
   pressMc,
   REFRESH_KEY,
   taskKey,
@@ -160,6 +161,27 @@ describe('workers', () => {
     const snap = snapshotOf([agent('a1', 'w-rle', 'idle')], null, NOW)
     const [w] = buildMission({ stats: emptyStats('s', 3, 0), snap, state: m, nowMs: NOW, teamsEnabled: true, ready: true }).workers
     expect(w).toMatchObject({ name: 'w-rle', model: 'claude-sonnet-5-5', toolCalls: 2, status: 'idle', lastActivityMs: 2 * MIN, idleMs: 2 * MIN })
+  })
+
+  test('a call label keeps the tool name and a file basename, nothing else of the input', () => {
+    expect(toolLabel('Bash', { command: 'curl -H "Authorization: sk-secret" x' })).toBe('Bash')
+    expect(toolLabel('Grep', { pattern: 'password' })).toBe('Grep')
+    expect(toolLabel('Read', { file_path: '/a/b/notes.md' })).toBe('Read notes.md')
+    expect(toolLabel('NotebookEdit', { notebook_path: '/a/n.ipynb' })).toBe('NotebookEdit n.ipynb')
+    expect(toolLabel('Write', { file_path: `/a/${'x'.repeat(80)}` })).toHaveLength(40)
+    expect(toolLabel('Read', null)).toBe('Read')
+  })
+
+  test('recent labels keep the last six, newest first in the row; none is an empty list', () => {
+    const m = newMissionState()
+    noteSpawn(m, 'a1', 'w1', null, NOW - MIN)
+    for (let i = 1; i <= 8; i++) noteWorkerToolCall(m, 'a1', NOW, `T${i}`)
+    noteWorkerToolCall(m, 'a1', NOW)
+    noteSpawn(m, 'a2', 'w2', null, NOW - MIN)
+    const snap = snapshotOf([agent('a1', 'w1', 'running'), agent('a2', 'w2', 'running'), agent('a9', 'ghost', 'running')], null, NOW)
+    const ws = buildMission({ stats: emptyStats('s', 3, 0), snap, state: m, nowMs: NOW, teamsEnabled: true, ready: true }).workers
+    expect(ws.map(w => w.recent)).toEqual([['T8', 'T7', 'T6', 'T5', 'T4', 'T3'], [], []])
+    expect(ws[0]?.toolCalls).toBe(9)
   })
 
   test('activity after an idle notice clears the idle clock', () => {

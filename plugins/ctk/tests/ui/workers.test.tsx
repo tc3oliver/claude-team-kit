@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
 import { fmtClock } from '../../hooks/ui/workers.tsx'
-import { MC_PANE_ID } from '../../hooks/mission.ts'
+import { BACK_KEY, MC_PANE_ID, workerKey } from '../../hooks/mission.ts'
 import { displayWidth } from '../../shared/hudline.ts'
 import { engine, fresh, spawnInput, test } from '../world.ts'
 
@@ -85,6 +85,21 @@ describe('Workers page', () => {
     expect(rows[0]).toContain('TASK')
     expect(rows.filter(r => r.includes('running'))).toHaveLength(6)
     expect(rows.join('\n')).not.toMatch(/\+\d+ more/)
+  })
+
+  test('detail: recent calls newest first, unavailable when none, within the row budget', opts, async ($, on) => {
+    const { w, p } = await open($, on, ['a', 'b'], 100)
+    const id = w.agents[0]!.id
+    await $.tool.call({ tool: 'Read', tool_use_id: 't1', agentId: id, file_path: '/w/one.ts' })
+    await $.tool.call({ tool: 'Bash', tool_use_id: 't2', agentId: id, command: 'echo sk-secret' })
+    await p.press({ key: workerKey(id) })
+    const rows = await bodyRows(p)
+    expect(rows.find(r => r.startsWith('Recent'))).toMatch(/Bash ‹ Read one\.ts/)
+    expect(rows.join('\n')).not.toContain('sk-secret')
+    expect(rows.length).toBeLessThanOrEqual(11)
+    await p.press({ key: BACK_KEY })
+    await p.press({ key: workerKey(w.agents[1]!.id) })
+    expect((await bodyRows(p)).find(r => r.startsWith('Recent'))).toContain('unavailable (no tool call')
   })
 
   for (const cols of [60, 100]) {

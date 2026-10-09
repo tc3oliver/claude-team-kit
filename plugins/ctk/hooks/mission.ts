@@ -30,6 +30,8 @@ export type WorkerRec = {
   model: string | null
   /** Tool calls the worker's own loop made (tool.call events carrying its agentId). */
   toolCalls: number
+  /** Labels of its last RECENT_CALLS tool calls (see toolLabel), newest last. */
+  recent: string[]
   /** Epoch ms of its last tool call, turn end or idle notice; null when none was seen. */
   lastActivityAt: number | null
   /** Epoch ms of the last TeammateIdle notice, cleared by the next activity. */
@@ -63,17 +65,29 @@ const trim = <V>(map: Map<string, V>): void => {
 // --- Observations ------------------------------------------------------------------------
 
 export const noteSpawn = (m: MissionState, agentId: string, name: string, model: string | null, now: number): void => {
-  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, lastActivityAt: now, idleSinceAt: null, startedAt: now })
+  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, recent: [], lastActivityAt: now, idleSinceAt: null, startedAt: now })
   m.teamStartedAt ??= now
   trim(m.workers)
 }
 
+/** Most call labels kept per worker. */
+export const RECENT_CALLS = 6
+const FILE_TOOLS = new Set(['Read', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
+
+/** The tool name, plus a file's basename for file tools. Nothing else of the input is kept: a command or pattern can carry a secret. */
+export const toolLabel = (tool: string, input: unknown): string => {
+  const path = FILE_TOOLS.has(tool) && typeof input === 'object' && input !== null ? (input as Record<string, unknown>).file_path ?? (input as Record<string, unknown>).notebook_path : undefined
+  const base = typeof path === 'string' ? path.split(/[\\/]/).filter(Boolean).pop() : undefined
+  return base === undefined ? tool : `${tool} ${base}`.slice(0, 40)
+}
+
 /** A tool call made inside a subagent or teammate loop. The lead's own calls are not per-worker. */
-export const noteWorkerToolCall = (m: MissionState, agentId: string | undefined, now: number): void => {
+export const noteWorkerToolCall = (m: MissionState, agentId: string | undefined, now: number, label?: string): void => {
   if (agentId === undefined) return
   const w = m.workers.get(agentId)
   if (w === undefined) return
   w.toolCalls += 1
+  if (label !== undefined) w.recent = [...w.recent, label].slice(-RECENT_CALLS)
   w.lastActivityAt = now
   w.idleSinceAt = null
 }
@@ -228,6 +242,8 @@ export type WorkerRow = {
   /** `#3 write tests` for the in-progress task the worker owns; null when the board does not show one. */
   currentTask: string | null
   toolCalls: number | null
+  /** Labels of its last tool calls, newest first; empty when none was seen. */
+  recent: string[]
   lastActivityMs: number | null
   idleMs: number | null
   /** Time since the spawn CTK saw; null for a worker it did not see start. */
@@ -249,6 +265,7 @@ export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows:
       model: rec?.model ?? null,
       currentTask: m.taskCallsSeen && mine !== undefined ? `#${mine.id} ${mine.subject}` : null,
       toolCalls: rec === undefined ? null : rec.toolCalls,
+      recent: rec === undefined ? [] : [...rec.recent].reverse(),
       lastActivityMs: last === null || nowMs < last ? null : nowMs - last,
       idleMs: w.status === 'idle' && idleFrom !== null && nowMs >= idleFrom ? nowMs - idleFrom : null,
       elapsedMs: rec === undefined || nowMs < rec.startedAt ? null : nowMs - rec.startedAt,

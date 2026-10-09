@@ -98,6 +98,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
       field('w-status', 'Status', picked.status),
       field('w-task', 'Current task', picked.currentTask ?? `${UNAVAILABLE} (no in-progress task owned by this worker was observed)`),
       field('w-tools', 'Tool calls', picked.toolCalls === null ? UNAVAILABLE : `${picked.toolCalls} (its own loop)`),
+      field('w-recent', 'Recent', picked.recent.length === 0 ? `${UNAVAILABLE} (no tool call of its own loop was seen)` : picked.recent.join(' ‹ ')),
       field('w-last', 'Last activity', fmtAge(picked.lastActivityMs)),
       field('w-idle', 'Idle for', picked.status === 'idle' ? fmtSpan(picked.idleMs) : 'not idle'),
       backButton(kit, ctx),
