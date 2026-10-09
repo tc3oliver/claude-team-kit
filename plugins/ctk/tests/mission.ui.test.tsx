@@ -155,7 +155,7 @@ describe('Mission Control views', () => {
   test('overview: guard, workers, tasks, team time and usage', async ($, on) => {
     await team($, on)
     const t = await texts(await pane($))
-    for (const want of ['Guard', 'ON', '2/3 active', '1 running', '1 idle', '0 completed', '0 failed', '0/3 done', '2 pending', '1 in progress', '1 blocked', '1 ready', '5h 28% (resets in 2h34m)', '7 tool calls']) {
+    for (const want of ['Guard', 'ON', '2/3 active', '1 running', '1 idle', '0 completed', '0 failed', '0/3 done', '2 pending', '1 in progress', '1 blocked', '1 ready', '5h quota', '28% (resets in 2h34m)', '7 tool calls']) {
       expect(t).toContain(want)
     }
   })
@@ -187,17 +187,6 @@ describe('Mission Control views', () => {
     expect(t).toContain('unavailable (no in-progress task owned by this worker was observed)')
   })
 
-  test('the Tasks page is one line however many tasks there are', async ($, on) => {
-    await team($, on)
-    for (let i = 4; i <= 10; i++) await call($, 'TaskCreate', `tc${i}`, { subject: `task ${i}` })
-    const p = await pane($)
-    await p.press({ key: 'mc:view:tasks' })
-    const t = await texts(p)
-    expect(t).toContain('0/10 done')
-    expect(t).not.toContain('task 7')
-    await p.unmount()
-  })
-
   test('descriptions the model passed to the task tools are never shown', async ($, on) => {
     await team($, on)
     const p = await pane($)
@@ -212,7 +201,7 @@ describe('Mission Control views', () => {
     const p = await pane($)
     await p.press({ key: 'mc:view:usage' })
     const t = await texts(p)
-    for (const want of ['claude-sonnet-5-5', '42%', '5h usage', '28% (resets in 2h34m)', 'Weekly usage', 'unavailable', '$0.94', '7 (lead, subagents and teammates)']) expect(t).toContain(want)
+    for (const want of ['claude-sonnet-5-5', '42%', '5H', '[███░░░░░░░] 28%  reset 2h34m', 'WEEK', 'unavailable', '$0.94', 'Tool calls', '7']) expect(t).toContain(want)
   })
 
   test('config view lists the options and says how to change one', async ($, on) => {
@@ -228,7 +217,7 @@ describe('Mission Control views', () => {
     const p = await pane($)
     await p.press({ key: 'mc:view:stats' })
     const t = await texts(p)
-    expect(t).toContain('counted by CTK')
+    expect(t).toContain('COUNTED BY CTK')
     expect(t).toContain('per-worker cost: not available from Claude Code')
   })
 
@@ -275,7 +264,7 @@ describe('Mission Control views', () => {
     expect(t).not.toContain('claude-sonnet-5-5')
     await p.press({ key: 'mc:view:tasks' })
     t = await texts(p)
-    expect(t).toContain('0/3 done')
+    expect(t).toContain('0/3 marked complete')
     await p.unmount()
   })
 

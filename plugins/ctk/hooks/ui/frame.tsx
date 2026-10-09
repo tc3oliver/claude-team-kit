@@ -4,9 +4,10 @@ import type { Ctx } from './ctx.tsx'
 import { guardColor } from './theme.ts'
 import type { Kit } from './types.ts'
 
-// Widths in cells: the full tab row is 54, the short one 34; the footer buttons are 22.
-const TABS_FULL = 56
-const TAB_SHORT = 4
+// Widths in cells. A plain Button with a hotkey may draw "1: " before its label (unverified in real
+// cells), so each tab tier is sized to fit with that prefix: full 75, four letters 55, three letters 48.
+const TABS_FULL = 76
+const TABS_SHORT = 56
 const FOOT_FULL = 84
 const FOOT_MID = 58
 const FOOT_SHORT = 34
@@ -24,16 +25,17 @@ export const header = (kit: Kit, m: Mission, ctx: Ctx) => {
   )
 }
 
-/** Seven tabs on one line from 60 columns: below TABS_FULL cells of room the labels shrink to four letters. */
+/** Seven tabs on one line from 60 columns: the labels shrink to four, then three letters as the room does. */
 export const tabs = (kit: Kit, mc: McState, ctx: Ctx) => {
   const { Box, Text, Button } = kit
-  const short = ctx.room < TABS_FULL
+  const letters = ctx.room >= TABS_FULL ? 0 : ctx.room >= TABS_SHORT ? 4 : 3
+  const short = letters > 0
   return (
     <Box key="tabs" flexDirection="row" flexWrap="wrap" columnGap={short ? 1 : 2}>
       {MC_VIEWS.map(v => (
         <Button key={viewKey(v.view)} plain hotkey={v.hotkey} label={v.label} onPress={() => {}}>
           <Text bold={mc.view === v.view} underline={mc.view === v.view}>
-            {short ? v.label.slice(0, TAB_SHORT) : v.label}
+            {short ? v.label.slice(0, letters) : v.label}
           </Text>
         </Button>
       ))}

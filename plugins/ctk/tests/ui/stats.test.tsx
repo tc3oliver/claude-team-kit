@@ -1,0 +1,37 @@
+import { describe, expect } from 'claude-code/testing'
+
+import { MC_PANE_ID } from '../../hooks/mission.ts'
+import { engine, fresh, test } from '../world.ts'
+
+const PANE = (bodyColumns: number) => ({ title: 'CTK Mission Control', isFocused: true, bodyColumns, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} })
+const flat = (n: any): string => (typeof n === 'string' ? n : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : ''))
+const textRows = (n: any): number => (typeof n === 'string' ? 0 : n.type === 'Text' ? 1 : n.type === 'Box' && n.props.flexDirection === 'row' ? Math.max(0, ...(n.children ?? []).map(textRows)) : (n.children ?? []).reduce((a: number, c: any) => a + textRows(c), 0))
+
+const open = async ($: any, on: any, cols = 100) => {
+  const w = fresh()
+  engine(on, w)
+  await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+  const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: PANE(cols) })
+  await p.press({ key: 'mc:view:stats' })
+  const d = await p.drawn()
+  return { text: flat(d), rows: textRows(d) }
+}
+
+describe('stats view', () => {
+  test('counted and measured are separate sections', async ($, on) => {
+    const { text: t, rows } = await open($, on)
+    expect(t.indexOf('COUNTED BY CTK')).toBeGreaterThan(-1)
+    expect(t.indexOf('COUNTED BY CTK')).toBeLessThan(t.indexOf('MEASURED BY CLAUDE CODE'))
+    expect(t).toContain('per-worker cost: not available from Claude Code')
+  })
+
+  test('an unreported figure is a dash while a zero count stays 0', async ($, on) => {
+    const { text: t, rows } = await open($, on)
+    expect(t).toContain('cost: –')
+    expect(t).toContain('0 refused at capacity')
+  })
+
+  test('fits the 16-row pane at 60 columns', async ($, on) => {
+    expect((await open($, on, 60)).rows).toBeLessThanOrEqual(16)
+  })
+})

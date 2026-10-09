@@ -7,6 +7,12 @@ import type { Kit } from './types.ts'
 /** Below this many cells of room the tables use their compact form. */
 export const TABLE_ROOM = 62
 
+/** Rows the body gets in the inline pane: PANE_ROWS (16) minus header, tabs, two gaps and the footer. */
+export const BODY_ROWS = 11
+
+/** From this much room the overview draws its metric cards and the bars grow. */
+export const WIDE_ROOM = 100
+
 export type LineOpts = { dim?: boolean; color?: ThemeColor; bold?: boolean }
 
 const noop = () => {}
@@ -44,6 +50,17 @@ export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 
       <Text wrap="truncate-end">{clip(text)}</Text>
     </Button>
   )
+  /** A field whose value wraps with a hanging indent under the value, so a long value is never cut. */
+  const fieldWrap = (key: string, label: string, value: string, color?: ThemeColor, labelWidth = 13) =>
+    wrap(value, room - labelWidth).map((t, i) => (
+      <Text key={`${key}-${i}`} wrap="truncate-end">
+        <Text dimColor>{pad(i === 0 ? label : '', labelWidth)}</Text>
+        <Text color={color}>{t}</Text>
+      </Text>
+    ))
+  /** Keeps a view inside the row budget: the first rows-1 nodes and a "+N more" line, or all of them when they fit. */
+  const fit = (key: string, nodes: ReturnType<typeof line>[], rows = BODY_ROWS) =>
+    nodes.length <= rows ? nodes : [...nodes.slice(0, rows - 1), line(`${key}-more`, `+${nodes.length - rows + 1} more lines not shown`, { dim: true })]
   const divider = (key: string, title = '') => line(key, dividerText(room, title), { color: COLOR.muted })
   /** A bar for a percentage; null (not observed) draws the muted dash bar. */
   const bar = (key: string, pct: number | null, width = 10) => {
@@ -64,7 +81,7 @@ export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 
     </Text>
   )
 
-  return { kit, room, ambiguous, compact: room < TABLE_ROOM, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
+  return { kit, room, ambiguous, rows: BODY_ROWS, wide: room >= WIDE_ROOM, compact: room < TABLE_ROOM, fieldWrap, fit, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
 }
 
 export type Ctx = ReturnType<typeof createCtx>

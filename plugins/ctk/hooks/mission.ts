@@ -34,6 +34,8 @@ export type WorkerRec = {
   lastActivityAt: number | null
   /** Epoch ms of the last TeammateIdle notice, cleared by the next activity. */
   idleSinceAt: number | null
+  /** Epoch ms of the spawn CTK saw. */
+  startedAt: number
 }
 
 export type MissionState = {
@@ -61,7 +63,7 @@ const trim = <V>(map: Map<string, V>): void => {
 // --- Observations ------------------------------------------------------------------------
 
 export const noteSpawn = (m: MissionState, agentId: string, name: string, model: string | null, now: number): void => {
-  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, lastActivityAt: now, idleSinceAt: null })
+  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, lastActivityAt: now, idleSinceAt: null, startedAt: now })
   m.teamStartedAt ??= now
   trim(m.workers)
 }
@@ -228,6 +230,8 @@ export type WorkerRow = {
   toolCalls: number | null
   lastActivityMs: number | null
   idleMs: number | null
+  /** Time since the spawn CTK saw; null for a worker it did not see start. */
+  elapsedMs: number | null
 }
 
 const busyStatuses = new Set(['pending', 'running', 'waiting'])
@@ -247,6 +251,7 @@ export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows:
       toolCalls: rec === undefined ? null : rec.toolCalls,
       lastActivityMs: last === null || nowMs < last ? null : nowMs - last,
       idleMs: w.status === 'idle' && idleFrom !== null && nowMs >= idleFrom ? nowMs - idleFrom : null,
+      elapsedMs: rec === undefined || nowMs < rec.startedAt ? null : nowMs - rec.startedAt,
     }
   })
 
@@ -285,10 +290,23 @@ export type Mission = {
     contextPct: string
     fiveHour: string
     sevenDay: string
+    /** The same windows as numbers for a bar; null when not observed. */
+    fiveHourPct: number | null
+    sevenDayPct: number | null
+    contextUsed: number | null
+    /** Time until each window resets; null when unknown or already reset. */
+    fiveHourReset: string | null
+    sevenDayReset: string | null
     cost: string
     toolCalls: number
     model: string | null
   }
+}
+
+// A window whose reset time has passed is no longer observed: its percent is stale.
+const windowPct = (pct: number | null, resetsAt: string | null, nowMs: number): number | null => {
+  const at = resetMs(resetsAt)
+  return at !== null && fmtCountdown(at, nowMs) === null ? null : pct
 }
 
 const usageText = (pct: number | null, resetsAt: string | null, nowMs: number): string => {
@@ -362,6 +380,11 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
       contextPct: fmtPct(stats.measured.contextPct) === DASH ? UNAVAILABLE : fmtPct(stats.measured.contextPct),
       fiveHour: usageText(stats.measured.fiveHourPct, stats.measured.fiveHourResetsAt, nowMs),
       sevenDay: usageText(stats.measured.sevenDayPct, stats.measured.sevenDayResetsAt, nowMs),
+      fiveHourPct: windowPct(stats.measured.fiveHourPct, stats.measured.fiveHourResetsAt, nowMs),
+      sevenDayPct: windowPct(stats.measured.sevenDayPct, stats.measured.sevenDayResetsAt, nowMs),
+      contextUsed: stats.measured.contextPct,
+      fiveHourReset: fmtCountdown(resetMs(stats.measured.fiveHourResetsAt), nowMs),
+      sevenDayReset: fmtCountdown(resetMs(stats.measured.sevenDayResetsAt), nowMs),
       cost: stats.measured.costUsd === null ? UNAVAILABLE : `$${stats.measured.costUsd.toFixed(2)}`,
       toolCalls: stats.toolCalls,
       model: stats.measured.model,

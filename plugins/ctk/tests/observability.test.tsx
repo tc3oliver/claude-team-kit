@@ -99,7 +99,7 @@ describe('ordinary subagents, as in the real session', () => {
     expect(text).toContain('Guard ON')
     expect(text).toContain('0/3 active')
     expect(text).toContain('3 ordinary · 3 live · not teammates, so the cap does not count them')
-    expect(text).toContain('Team time    unavailable (no worker started since CTK loaded)')
+    expect(text).toContain('No native team yet.')
   })
 
   test('they never enter the hard limit: more of them than the cap all start', async ($, on) => {
@@ -171,7 +171,7 @@ describe('changing a setting is visible outside the pane', () => {
     const p = await pane($)
     await p.press({ key: 'mc:view:config' })
     const text = flat(await p.drawn())
-    expect(text).toContain('Nothing has changed yet. Press Confirm to apply it, or Cancel.')
+    expect(text).toContain('nothing has changed yet')
   })
 
   test('a quiet band (hudIdle hidden) still appears while a change waits', { options: { hudIdle: 'hidden' } }, async ($, on) => {
@@ -184,7 +184,7 @@ describe('changing a setting is visible outside the pane', () => {
   test('the Config page without a proposal says how a change is made', async ($, on) => {
     await started($, on)
     const text = await view($, 'config')
-    expect(text).toContain('a Confirm button then appears on this page and you press it')
+    expect(text).toContain('then press Confirm')
   })
 })
 

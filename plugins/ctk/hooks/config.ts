@@ -65,6 +65,20 @@ const META: Record<OptionName, Meta> = {
   teamHint: { label: 'Team hint', hint: 'Add one hidden hint line to a prompt that asks for several agents or a team.', allowed: 'on or off' },
 }
 
+/** The sections Mission Control groups the options into, in display order. */
+export const OPTION_GROUPS: { title: string; names: OptionName[] }[] = [
+  { title: 'Team', names: ['maxWorkers'] },
+  { title: 'Models', names: ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel'] },
+  { title: 'Band', names: ['hudBand', 'hudIdle'] },
+  { title: 'Other', names: ['recordStats', 'teamHint'] },
+]
+
+/** The group title for an option label as the pane receives it; unknown labels fall under Other. */
+export const groupOfLabel = (label: string): string => {
+  const name = OPTION_NAMES.find(n => META[n].label === label)
+  return OPTION_GROUPS.find(g => name !== undefined && g.names.includes(name))?.title ?? 'Other'
+}
+
 export type OptionRow = {
   name: OptionName
   label: string

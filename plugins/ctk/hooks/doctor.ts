@@ -131,3 +131,14 @@ export const formatDoctor = (f: Facts): string => {
   const lines = rows.flatMap(r => [`[${r.level}]`.padEnd(9) + r.text, ...(r.fix === undefined ? [] : [`         fix: ${r.fix}`])])
   return ['CTK readiness (read-only; nothing is changed):', ...lines, actions === 0 ? 'ready' : `${actions} action(s) needed`].join('\n')
 }
+
+/** Reads a formatDoctor report back into rows for the Mission Control view; the report stays the one source. */
+export const parseDoctor = (text: string): Row[] => {
+  const rows: Row[] = []
+  for (const l of text.split('\n')) {
+    const m = /^\[(ok|info|action)\]\s+(.*)$/.exec(l)
+    if (m !== null) rows.push({ level: m[1] as Row['level'], text: m[2]! })
+    else if (/^\s+fix: /.test(l) && rows.length > 0) rows[rows.length - 1]!.fix = l.replace(/^\s+fix: /, '')
+  }
+  return rows
+}
