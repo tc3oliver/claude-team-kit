@@ -20,6 +20,10 @@ export const LABEL = 'SYNTHETIC DATA - UI showcase, not a live agent run'
 export const SCENES = ['empty', 'team', 'workers', 'dag', 'usage', 'guard', 'many', 'config', 'stats', 'doctor']
 export const WIDTHS = [60, 80, 100, 130, 200]
 const MAIN_WIDTH = 100
+export const CONTEXTS = ['pane', 'screen']
+export const DOCKED_CAPTION = 'docked beside the transcript'
+// README stills (name -> scene), written to <out>/readme/ for a --context screen set.
+export const README_STILLS = { overview: 'team', workers: 'workers', tasks: 'dag' }
 const ROWS = 70
 
 const USAGE = `usage: node scripts/showcase/render.mjs --out DIR [options]
@@ -29,7 +33,11 @@ const USAGE = `usage: node scripts/showcase/render.mjs --out DIR [options]
   --config DIR     scratch Claude Code config dir, logged in (default: ~/Developer/scratch/ctk-demo/config)
   --cwd DIR        working directory trusted by that config (default: /private/tmp/ctk-demo/wordkit)
   --scenes a,b     default ${SCENES.join(',')}
-  --widths 60,100  default ${WIDTHS.join(',')}; ${MAIN_WIDTH} is the width of the single-scene SVGs
+  --widths 60,100  default ${WIDTHS.join(',')}
+  --main N         width of the single-scene SVGs (default ${MAIN_WIDTH}); always rendered
+  --context C      pane (default) keeps only the pane box when it is inline; screen keeps the whole terminal
+                   (header, /showcase line, docked pane, bottom rows) and writes <out>/readme/ stills
+  --rows N         terminal height (default ${ROWS}; use about 36 with --context screen so the screen is not mostly blank)
   --jobs N         terminals recorded at once (default 3)`
 
 const die = msg => {
@@ -37,7 +45,7 @@ const die = msg => {
 }
 
 export function parseArgs(argv) {
-  const o = { name: 'after', ctk: REPO, config: join(homedir(), 'Developer/scratch/ctk-demo/config'), cwd: '/private/tmp/ctk-demo/wordkit', scenes: SCENES, widths: WIDTHS, jobs: 3 }
+  const o = { name: 'after', ctk: REPO, config: join(homedir(), 'Developer/scratch/ctk-demo/config'), cwd: '/private/tmp/ctk-demo/wordkit', scenes: SCENES, widths: WIDTHS, main: MAIN_WIDTH, rows: ROWS, context: 'pane', jobs: 3 }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '-h' || a === '--help') die(USAGE)
@@ -46,12 +54,14 @@ export function parseArgs(argv) {
     const k = a.slice(2)
     if (k === 'scenes') o.scenes = v.split(',')
     else if (k === 'widths') o.widths = v.split(',').map(Number)
-    else if (k === 'jobs') o.jobs = Number(v)
-    else if (['out', 'name', 'ctk', 'config', 'cwd'].includes(k)) o[k] = v
+    else if (k === 'jobs' || k === 'main' || k === 'rows') o[k] = Number(v)
+    else if (['out', 'name', 'ctk', 'config', 'cwd', 'context'].includes(k)) o[k] = v
     else die(`unknown option ${a}\n${USAGE}`)
   }
   if (!o.out) die(`--out is required\n${USAGE}`)
   for (const s of o.scenes) if (!SCENES.includes(s)) die(`unknown scene ${s} (${SCENES.join(', ')})`)
+  if (!CONTEXTS.includes(o.context)) die(`--context must be ${CONTEXTS.join(' or ')}`)
+  if (!Number.isInteger(o.main) || o.main < 20) die('--main must be an integer')
   if (o.widths.some(w => !Number.isInteger(w) || w < 20)) die('--widths must be integers')
   return o
 }
@@ -73,11 +83,19 @@ export const metaLine = (m, cols) => `ctk ${m.ctkCommit} · claude ${m.claudeCod
 /**
  * What of a captured screen belongs in the picture. Inline (narrow terminals) the pane is a box between
  * the transcript and the prompt: only that box is kept. Docked (wide terminals) it shares the screen with
- * the transcript, so the whole screen is kept down to its last row with content.
+ * the transcript, so the whole screen is kept down to the pane's last row. With context "screen" the whole
+ * terminal is kept either way, down to its last row with content (the bottom rows included).
  */
-export function cropPane(text) {
+export function cropPane(text, context = 'pane') {
   const lines = text.split('\n')
   const plain = plainText(text).split('\n')
+  if (context === 'screen') {
+    if (!plain.some(l => l.includes(LABEL))) return null
+    let end = plain.length
+    while (end > 0 && plain[end - 1].trim() === '') end--
+    // A style reset after a row's last character is redrawn or not depending on timing; it paints nothing.
+    return lines.slice(0, end).map(l => l.replace(/(\x1b\[[0-9;]*m)+$/, '')).join('\n')
+  }
   const top = plain.findIndex(l => l.startsWith('╭'))
   const bottom = plain.findIndex((l, i) => i > top && l.startsWith('╰'))
   if (top >= 0 && bottom >= 0) return lines.slice(top, bottom + 1).join('\n')
@@ -118,7 +136,7 @@ function record({ scene, cols, plugin, work, o, meta }) {
   writeFileSync(script, JSON.stringify(SCRIPT))
   const claude = join(homedir(), '.local/bin/claude')
   const args = [
-    join(REPO, 'scripts/demo/record.mjs'), '--out', out, '--script', script, '--cols', String(cols), '--rows', String(ROWS),
+    join(REPO, 'scripts/demo/record.mjs'), '--out', out, '--script', script, '--cols', String(cols), '--rows', String(o.rows),
     '--cwd', o.cwd, '--home', homedir(), '--path', `${join(homedir(), '.local/bin')}:/usr/bin:/bin`, '--claude-bin', claude,
     '--env', `SHOWCASE_SCENE=${scene}`, '--env', `SHOWCASE_META=${metaLine(meta, cols)}`, '--idle', '1500', '--limit', '90000',
     '--', claude, '--plugin-dir', plugin, '--settings', JSON.stringify({ enabledPlugins: { 'ctk@ctk-kit': false } }),
@@ -131,11 +149,20 @@ function record({ scene, cols, plugin, work, o, meta }) {
   })
 }
 
+/**
+ * The account's plan or billing mode ("Claude Max", "API Usage Billing", ...) follows the logged-in demo
+ * config and is not ours to publish. It is replaced by "plan hidden" in the captured Claude Code header,
+ * never in the pane's own content, padded to the same width so the dock divider stays in its column.
+ */
+export function maskPlan(text) {
+  return text.replace(/(\b\w+ \d+(?:\.\d+)* · )(Claude (?:Max|Pro|Team|Enterprise)\b[^\x1b\n│]*?|API Usage Billing)((?:\x1b\[[0-9;]*m)?)( *)(?=\x1b|\n|│|$)/g, (_, head, plan, esc, pad) => head + 'plan hidden' + esc + ' '.repeat(Math.max(0, plan.length + pad.length - 11)))
+}
+
 /** Raw recording -> one cropped frame that must carry the label and the metadata line. */
-export function pick(rawPath, scene, cols, meta) {
+export function pick(rawPath, scene, cols, meta, context = 'pane') {
   const { frames } = parseFrames(readFileSync(rawPath, 'utf8'))
   for (let i = frames.length - 1; i >= 0; i--) {
-    const pane = cropPane(frames[i].text)
+    const pane = cropPane(maskPlan(frames[i].text), context)
     if (pane === null) continue
     const plain = plainText(pane)
     if (!plain.includes(LABEL)) throw new Error(`${scene} at ${cols} columns: the label is missing from the pane`)
@@ -183,7 +210,7 @@ async function main() {
     buildPlugin(plugin, resolve(o.ctk))
     const check = spawnSync(join(homedir(), '.local/bin/claude'), ['plugin', 'validate', plugin], { encoding: 'utf8' })
     if (check.status !== 0) die(`the generated showcase plugin does not validate:\n${check.stdout}${check.stderr}`)
-    const widths = [...new Set([...o.widths, MAIN_WIDTH])]
+    const widths = [...new Set([...o.widths, o.main])]
     const jobs = o.scenes.flatMap(scene => widths.map(cols => ({ scene, cols })))
     const frames = new Map()
     const queue = [...jobs]
@@ -191,7 +218,7 @@ async function main() {
       Array.from({ length: Math.max(1, o.jobs) }, async () => {
         for (let j = queue.shift(); j; j = queue.shift()) {
           const raw = await record({ ...j, plugin, work, o, meta })
-          frames.set(`${j.scene}-${j.cols}`, pick(raw, j.scene, j.cols, meta))
+          frames.set(`${j.scene}-${j.cols}`, pick(raw, j.scene, j.cols, meta, o.context))
         }
       }),
     )
@@ -202,13 +229,18 @@ async function main() {
       for (const cols of widths) {
         const f = frames.get(`${scene}-${cols}`)
         const m = { ...full, cols, rows: f.text.split('\n').length, scene }
-        const svg = renderStaticSvg([f], 0, { title: `Mission Control - ${scene} - ${LABEL}`, cols }, { ...m, date: `${meta.date}T00:00:00.000Z` })
+        const svg = renderStaticSvg([f], 0, { title: `Mission Control - ${scene} - ${LABEL}${o.context === 'screen' ? ` - ${DOCKED_CAPTION}` : ''}`, cols }, { ...m, date: `${meta.date}T00:00:00.000Z` })
         panels.push({ cols, svg })
-        const stem = cols === MAIN_WIDTH ? scene : `${scene}-${cols}`
-        if (cols === MAIN_WIDTH) writeFileSync(join(dest, `${scene}.svg`), svg)
+        const stem = cols === o.main ? scene : `${scene}-${cols}`
+        if (cols === o.main) writeFileSync(join(dest, `${scene}.svg`), svg)
         writeFileSync(join(dest, `${stem}.frames.jsonl`), `${JSON.stringify({ meta: m })}\n${JSON.stringify(f)}\n`)
       }
-      writeFileSync(join(dest, `${scene}-widths.svg`), sheetSvg(panels, `${scene}: ${widths.join('/')} columns. ${LABEL}`))
+      if (widths.length > 1) writeFileSync(join(dest, `${scene}-widths.svg`), sheetSvg(panels, `${scene}: ${widths.join('/')} columns. ${LABEL}`))
+    }
+    if (o.context === 'screen') {
+      const readme = join(resolve(o.out), 'readme')
+      mkdirSync(readme, { recursive: true })
+      for (const [name, scene] of Object.entries(README_STILLS)) if (o.scenes.includes(scene)) cpSync(join(dest, `${scene}.svg`), join(readme, `${name}.svg`))
     }
     writeFileSync(join(dest, 'METADATA.txt'), `${LABEL}\n${metaLine(meta, widths.join('/'))}\n`)
     console.log(`showcase: ${jobs.length} terminals -> ${dest}`)

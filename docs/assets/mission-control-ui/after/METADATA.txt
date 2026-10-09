@@ -1,2 +1,2 @@
 SYNTHETIC DATA - UI showcase, not a live agent run
-ctk 52fffa2 · claude 2.1.295 · 2026-10-09 · 60/80/100/130/200 cols
+ctk a899a8e · claude 2.1.295 · 2026-10-09 · 60/80/100/130/200 cols

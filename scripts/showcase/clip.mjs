@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// A short clip that steps through the captured scenes of one showcase set, two seconds each. It is cut
+// A short clip that steps through the captured scenes of a --context screen showcase set (the docked,
+// whole-terminal frames), two seconds each. It is cut
 // from the stored frames (<scene>.frames.jsonl): no terminal is started and nothing is redrawn. Every
 // frame is a real capture with its SYNTHETIC DATA label. Needs Chrome and ffmpeg (see render-video.mjs).
 //
-//   node scripts/showcase/clip.mjs docs/assets/mission-control-ui/after docs/assets/mission-control-ui/mission-control-ui-showcase
+//   node scripts/showcase/clip.mjs docs/assets/mission-control-ui/docked docs/assets/mission-control-ui/mission-control-ui-showcase
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -28,7 +29,7 @@ try {
   writeFileSync(src, `${JSON.stringify({ meta: { ...meta.meta, scene: ORDER.join(',') } })}\n${frames.map(f => JSON.stringify(f)).join('\n')}\n`)
   const r = spawnSync(
     'node',
-    [join(HERE, '..', 'demo', 'render-video.mjs'), src, '--work-dir', join(work, 'video'), '--mp4', resolve(`${stem}.mp4`), '--gif', resolve(`${stem}.gif`), '--speed', '1', '--max-gap', '2', '--end-pause', '2', '--title', 'Mission Control - SYNTHETIC DATA, not a live agent run'],
+    [join(HERE, '..', 'demo', 'render-video.mjs'), src, '--work-dir', join(work, 'video'), '--mp4', resolve(`${stem}.mp4`), '--gif', resolve(`${stem}.gif`), '--speed', '1', '--max-gap', '2', '--end-pause', '2', '--title', 'Mission Control docked beside the transcript - SYNTHETIC DATA, not a live agent run'],
     { stdio: 'inherit' },
   )
   process.exitCode = r.status ?? 1

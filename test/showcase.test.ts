@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { plainText } from '../scripts/demo/render-svg.mjs'
-import { buildPlugin, cropPane, LABEL, metaLine, parseArgs, pick, SCENES, sheetSvg, WIDTHS } from '../scripts/showcase/render.mjs'
+import { buildPlugin, cropPane, CONTEXTS, LABEL, maskPlan, metaLine, parseArgs, pick, SCENES, sheetSvg, WIDTHS } from '../scripts/showcase/render.mjs'
 
 const ROOT = join(import.meta.dirname, '..')
 const META = { ctkCommit: 'abc1234', date: '2026-10-09', claudeCodeVersion: '2.1.295' }
@@ -48,6 +48,15 @@ test('cropPane keeps the inline box, or the whole docked screen, and refuses a s
   assert.equal(cropPane('nothing here'), null)
 })
 
+test('cropPane with context screen keeps the whole terminal down to its last row with content', () => {
+  const docked = `left │${LABEL}\nmore │body\n     │\n❯ p│\n\n  footer\n\n`
+  assert.equal(cropPane(docked, 'screen'), `left │${LABEL}\nmore │body\n     │\n❯ p│\n\n  footer`)
+  assert.equal(cropPane('x │'+LABEL+'\x1b[39m', 'screen'), 'x │'+LABEL)
+  assert.equal(cropPane(`header\n╭──╮\n│ ${LABEL} │\n╰──╯\n❯ prompt`, 'screen'), `header\n╭──╮\n│ ${LABEL} │\n╰──╯\n❯ prompt`)
+  assert.equal(cropPane(`x │${LABEL}\x1b[39m\ny\x1b[0m\x1b[39m`, 'screen'), `x │${LABEL}\ny`)
+  assert.equal(cropPane('nothing here', 'screen'), null)
+})
+
 test('pick fails when the label or the metadata line is missing from the captured pane', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ctk-showcase-test-'))
   try {
@@ -81,6 +90,9 @@ test('the width sheet keeps the colour classes of each panel apart', () => {
 
 test('arguments are checked', () => {
   assert.throws(() => parseArgs(['--scenes', 'nope', '--out', 'x']), { name: 'Error' })
+  assert.throws(() => parseArgs(['--context', 'half', '--out', 'x']), { name: 'Error' })
+  assert.deepEqual(CONTEXTS, ['pane', 'screen'])
+  assert.equal(parseArgs(['--context', 'screen', '--main', '130', '--rows', '36', '--out', 'x']).main, 130)
 })
 
 test('every published showcase svg carries the label and a metadata line', { skip: !existsSync(join(ROOT, 'docs/assets/mission-control-ui')) }, () => {
@@ -91,7 +103,7 @@ test('every published showcase svg carries the label and a metadata line', { ski
     for (const f of svgs) {
       const text = readFileSync(join(base, set.name, f), 'utf8')
       assert.ok(text.includes(LABEL), `${set.name}/${f}: label missing`)
-      assert.match(text, /ctk [0-9a-f]{7}(-dirty)? · claude \d+\.\d+\.\d+ · \d{4}-\d\d-\d\d · 100 cols/, `${set.name}/${f}: metadata line missing`)
+      assert.match(text, /ctk [0-9a-f]{7}(-dirty)? · claude \d+\.\d+\.\d+ · \d{4}-\d\d-\d\d · \d+ cols/, `${set.name}/${f}: metadata line missing`)
     }
   }
 })
@@ -99,10 +111,40 @@ test('every published showcase svg carries the label and a metadata line', { ski
 test('every published showcase set holds all scenes, each with a 100-column svg and a width sheet', { skip: !existsSync(join(ROOT, 'docs/assets/mission-control-ui')) }, () => {
   const base = join(ROOT, 'docs/assets/mission-control-ui')
   for (const set of readdirSync(base, { withFileTypes: true }).filter(d => d.isDirectory())) {
+    if (set.name !== 'after' && set.name !== 'before') continue // docked/ and readme/ hold the --context screen stills
     const files = new Set(readdirSync(join(base, set.name)))
     for (const scene of SCENES) {
       assert.ok(files.has(`${scene}.svg`) && files.has(`${scene}-widths.svg`), `${set.name}: ${scene} is missing`)
       for (const w of WIDTHS) assert.ok(files.has(w === 100 ? `${scene}.frames.jsonl` : `${scene}-${w}.frames.jsonl`), `${set.name}: ${scene} at ${w}`)
     }
+  }
+})
+
+test('the docked set and the README stills keep the whole 130-column screen, header and prompt included', { skip: !existsSync(join(ROOT, 'docs/assets/mission-control-ui/docked')) }, () => {
+  const base = join(ROOT, 'docs/assets/mission-control-ui')
+  for (const f of ['docked/team.svg', 'docked/workers.svg', 'docked/dag.svg', 'readme/overview.svg', 'readme/workers.svg', 'readme/tasks.svg']) {
+    const text = readFileSync(join(base, f), 'utf8')
+    assert.ok(text.includes('docked beside the transcript') && text.includes('Claude Code') && text.includes('/showcase') && text.includes('accept edits on'), `${f}: not the whole docked screen`)
+    assert.match(text, /130 cols/, `${f}: not 130 columns`)
+  }
+})
+
+test('the plan or billing mode in the captured header is masked, keeping the column', () => {
+  for (const plan of ['Claude Max', 'Claude Pro', 'Claude Team', 'Claude Enterprise', 'Claude Max 5x', 'API Usage Billing']) {
+    const line = `\x1b[38;5;246mSonnet 5.5 · ${plan}\x1b[39m        │pane`
+    const out = maskPlan(line)
+    assert.ok(out.includes('Sonnet 5.5 · plan hidden') && !out.includes(plan), plan)
+    assert.equal(plainText(out).length, plainText(line).length, `${plan}: width changed`)
+  }
+  assert.equal(maskPlan('Claude Max in the transcript'), 'Claude Max in the transcript')
+})
+
+test('no published showcase frame or picture names a plan, an email or the maintainer', { skip: !existsSync(join(ROOT, 'docs/assets/mission-control-ui')) }, () => {
+  const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]))
+  const files = walk(join(ROOT, 'docs/assets/mission-control-ui')).filter(f => /\.(svg|jsonl|txt)$/.test(f))
+  assert.ok(files.length > 0)
+  for (const f of files) {
+    const text = readFileSync(f, 'utf8')
+    assert.doesNotMatch(text, /Claude (Max|Pro|Team|Enterprise)|[\w.+-]+@[\w-]+\.[\w.]+|oliver/i, f)
   }
 })

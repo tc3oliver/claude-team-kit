@@ -45,7 +45,21 @@ About 70 s for 30 terminals.
 - `<scene>-widths.svg`: the same scene at 60, 80, 100, 130 and 200 columns, one below the other;
 - `METADATA.txt`: the label and the metadata line.
 
-Terminals up to about 110 columns draw the pane as a box above the prompt, and only that box is kept. Wider
+`--context screen` keeps the whole terminal for every width (Claude Code header, the `/showcase` line, the docked
+pane, the prompt and footer rows), never just the pane. The docked set, the README stills and the clip are made so:
+
+```sh
+node scripts/showcase/render.mjs --out docs/assets/mission-control-ui --name docked --widths 130 --main 130 --rows 36 --context screen --scenes empty,team,workers,dag,guard,usage,config
+node scripts/showcase/clip.mjs docs/assets/mission-control-ui/docked docs/assets/mission-control-ui/mission-control-ui-showcase
+```
+
+That writes `docked/<scene>.svg` and `readme/{overview,workers,tasks}.svg` (the `team`, `workers` and `dag` scenes), and
+the clip (mp4 and gif, 2 s a scene, window title "docked beside the transcript"). The docked pane is about 58 cells
+wide at 130 columns and the pictures show it at that width; the pane elides long task titles itself. The account's plan or billing mode in the Claude Code header (Claude Max/Pro/Team/Enterprise, API Usage Billing) is
+masked in the captured frame as `plan hidden` (`maskPlan` in `render.mjs`, column width kept); the pane's own content
+is never touched. A test checks that no published frame or picture names a plan, an email address or the maintainer.
+
+Terminals up to about 110 columns draw the pane as a box above the prompt, and only that box is kept. With the default `--context pane`, wider
 terminals dock it beside the transcript (the docked pane is a fixed width of about 58 cells), so those
 pictures keep the whole screen down to the pane's last row.
 
