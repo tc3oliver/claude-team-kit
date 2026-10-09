@@ -110,6 +110,11 @@ in practice:
   worker's loop to run in this process (not a tmux or iTerm2 pane); "current task" is the in-progress task
   whose owner is the worker's name. Everything else reads *unavailable*. Details:
   [MISSION-CONTROL](MISSION-CONTROL.md#what-it-shows).
+- **Ordinary subagents are listed, not tracked.** An `Agent` call without a `name` is not a teammate: Mission Control
+  lists it from the roster (type, status, description) and counts it, but keeps no model, tool calls or cost for it,
+  and the worker cap does not limit it. Whether the lead starts a team or plain subagents is the model's choice: the
+  `ctk:team` skill guides it and nothing forces it. A plain request to "use CTK" loaded `ctk:team` in one paired run,
+  not a measured rate.
 - **Keyboard entry takes two chords.** Opening the pane from the focused band does not give the pane the
   keys (Claude Code refuses focus while the band holds it). `/ctk-mission` opens it already focused.
 - **An option change reloads the mod.** Claude Code reloads the module a moment after `$.config.set`, so

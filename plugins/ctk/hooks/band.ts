@@ -51,11 +51,15 @@ export type BandOptions = {
   tierColumns?: number
   /** The guard's one-word state (`ON`, `ERR`, `–`), shown as `Guard ON`; left out when not given. */
   guard?: string
+  /** Ordinary subagents live now (not teammates); shown as `Sub 2` only when above zero. */
+  subagentsLive?: number
+  /** An option change waits for the person's Confirm in Mission Control; the band says so until it is answered. */
+  pendingChange?: boolean
 }
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
-const RANK = { fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, guard: 45, tasks: 40, cost: 30, workerModels: 10 }
+const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -80,6 +84,11 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
     const text = `Ctx ${fmtPct(ctx)}`
     out.push({ id: 'ctx', prio: RANK.context, missing: fmtPct(ctx) === DASH, forms: [text, text, text] })
   }
+  if (opts.subagentsLive !== undefined && opts.subagentsLive > 0) {
+    const n = opts.subagentsLive
+    out.push({ id: 'subagents', prio: RANK.subagents, forms: [`Sub ${n}`, `S${n}`, ''] })
+  }
+  if (opts.pendingChange === true) out.push({ id: 'pending', prio: RANK.pending, bold: true, forms: ['Confirm setting: click here', 'Confirm: click', '!'] })
   if (s.tasks !== null) {
     const text = `Tasks ${s.tasks.completed}/${s.tasks.created}`
     out.push({ id: 'tasks', prio: RANK.tasks, forms: [text, text, ''] })

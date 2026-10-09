@@ -369,8 +369,8 @@ async function configTool($: EngineInterface, c: Ctx, input: Record<string, unkn
     change: v.text,
     applied: false,
     next: shown
-      ? 'Nothing has changed. The user must press Confirm in CTK Mission Control (Config). Tell them that; do not say it is done.'
-      : 'Nothing has changed. Mission Control could not be drawn here: the user can run /ctk-mission, or change the option with /plugin configure ctk@ctk-kit.',
+      ? 'Nothing has changed yet. Mission Control is open on its Config page with a Confirm button, and the band above the prompt says "Confirm setting" until it is answered. Tell the user, in their language: "I opened CTK Mission Control; press Confirm there to apply it, or Cancel. Nothing changes until you do." Do not say it is done.'
+      : 'Nothing has changed. Mission Control could not be drawn here. Tell the user to run /ctk-mission and press Confirm on its Config page (the band above the prompt also says "Confirm setting"), or to change the option with /plugin configure ctk@ctk-kit. Do not say it is done.',
   })
 }
 
@@ -407,7 +407,16 @@ export const register: Register = (on, options) => {
     c.stats.spawnsSeen += 1
     c.dirty = true
     if (startsOutsideCap(e, c.teamsEnabled)) c.stats.spawnsOutsideCap += 1
-    if (e.isTeammate !== true) return next(routed(e, c.opts))
+    if (e.isTeammate !== true) {
+      const r = await next(routed(e, c.opts))
+      // Let the band and Mission Control list this subagent now. A failed read never touches the spawn (and must not throw: the spawn already ran).
+      try {
+        await refresh($, c)
+      } catch {
+        // the next refresh will catch up
+      }
+      return r
+    }
 
     // A confirmed option change is being written; the reload after it forgets reservations, so a
     // teammate waits (retryable) rather than starting across it. Counted as neither accepted nor failed.
@@ -619,7 +628,8 @@ export const register: Register = (on, options) => {
     const guard = guardOf(c.stats, c.snap, c.teamsEnabled, c.ready).label
     // Until a teammate has started, the band may show less: only the entry and the guard, or nothing
     // (then /ctk-mission is the way in). Once a team has run, the band always shows in full.
-    const idle = c.mission.workers.size === 0 && (c.snap.live ?? 0) === 0 && c.stats.spawnsAccepted === 0
+    const waiting = sweep(c.cfg, c.lastNow).pending !== null
+    const idle = c.mission.workers.size === 0 && (c.snap.live ?? 0) === 0 && c.stats.spawnsAccepted === 0 && !waiting
     if (idle && c.opts.hudIdle === 'hidden') return next(e)
     const room = e.props.bodyColumns - displayWidth(entry, c.ambiguous)
     const line = idle && c.opts.hudIdle === 'minimal' ? `Guard ${guard}` : formatBand(c.stats, c.snap, room, {
@@ -627,6 +637,8 @@ export const register: Register = (on, options) => {
       ambiguous: c.ambiguous,
       coordinated: c.coordinated,
       guard,
+      subagentsLive: c.snap.subagents.filter(a => !['completed', 'failed', 'killed'].includes(a.status)).length,
+      pendingChange: waiting,
       tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,
     })
     return (

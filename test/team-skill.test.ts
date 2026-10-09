@@ -66,3 +66,13 @@ test('the shutdown request is described as a structured object, the form Claude 
   assert.match(read('skills/team/SKILL.md'), /`message` an\s+object `\{"type":"shutdown_request"\}`, never a JSON string/)
   assert.match(read('skills/team/references/protocol.md'), /`SendMessage` with `message` as an \*\*object\*\*/)
 })
+
+test('the description and the intent gate recognise a plain request to use CTK, and a named worker is the thing Mission Control lists', () => {
+  const skill = readFileSync(join(import.meta.dirname, '..', 'plugins', 'ctk', 'skills', 'team', 'SKILL.md'), 'utf8')
+  const description = /^description: "(.*)"$/m.exec(skill)?.[1] ?? ''
+  assert.match(description, /asked to use CTK/)
+  assert.match(description, /ctk 流程/)
+  assert.ok(description.length < 220, `the always-on description stays short (${description.length} characters)`)
+  assert.match(skill, /or asking to use CTK, counts as one/)
+  assert.match(skill, /named = a teammate the cap counts and Mission Control lists; unnamed = a plain subagent neither does/)
+})

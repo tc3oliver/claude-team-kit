@@ -1,6 +1,6 @@
 import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import type { Snapshot } from './team.ts'
+import type { Snapshot, Subagent } from './team.ts'
 
 // The data behind Mission Control: what CTK observed this session, and the view model built
 // from it. Pure: no host calls (those are in register.tsx). Everything here is held in memory
@@ -166,7 +166,7 @@ export const guardOf = (stats: StatsRecord, snap: Snapshot, teamsEnabled: boolea
     return { state: 'error', label: 'ERR', why: `${snap.live} teammates are live, above the cap of ${stats.maxWorkers}: they started before the cap was lowered, or outside the guard` }
   }
   if (teamsEnabled === true && stats.spawnsSeen > 0) {
-    return { state: 'active', label: 'ON', why: `reached by ${stats.spawnsSeen} spawn(s) this session; a teammate spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED` }
+    return { state: 'active', label: 'ON', why: `reached by ${stats.spawnsSeen} spawn(s) this session, ${stats.spawnsAccepted} of them teammate(s); a teammate spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED` }
   }
   return {
     state: 'available',
@@ -263,6 +263,10 @@ export type Mission = {
   outsideCap: number
   /** Since the first teammate started; null before that. */
   teamElapsedMs: number | null
+  /** Ordinary subagents the roster lists. They are not teammates: the cap does not count them and no worker detail is kept for them. */
+  subagents: { total: number; live: number; rows: Subagent[] }
+  /** Why the Workers and Tasks views are empty, and what to do; null when there is something to show. From observed facts only. */
+  empty: { workers: string | null; tasks: string | null }
   tasks: {
     /** Task rows were built from observed TaskCreate/TaskUpdate calls. */
     detailed: boolean
@@ -305,6 +309,20 @@ export type MissionInput = {
   ready: boolean
 }
 
+const LIVE_STATUS = new Set(['pending', 'running', 'waiting', 'idle'])
+
+const EMPTY_TASKS =
+  'No task list yet. The lead creates one with TaskCreate (the /ctk:team skill does); tasks appear here once it has. On a Claude 5.x model the Task tools also need CLAUDE_CODE_ENABLE_TODO_TOOLS=1.'
+
+/** The reason the Workers view has no teammate to list, from what was observed; null when it has some. */
+const emptyWorkers = (snap: Snapshot, teamsEnabled: boolean | null): string | null => {
+  if (snap.workers.length > 0) return null
+  if (teamsEnabled === false) return 'Agent Teams are off, so no teammate can start. Turn them on (see /ctk-doctor), restart, then ask for a team.'
+  const sub = snap.subagents.length
+  const ran = sub > 0 ? ` ${sub} ordinary subagent${sub === 1 ? '' : 's'} ran or are running (listed below): they are not teammates, so the cap does not count them.` : ''
+  return `No teammate has started this session.${ran} A teammate is a named agent the lead starts for a team: run /ctk:team <goal> or ask for "a team".`
+}
+
 export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }: MissionInput): Mission => {
   const rows = taskRows(state)
   const detailed = state.taskCallsSeen
@@ -322,6 +340,11 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
     rejected: stats.spawnsRejected,
     outsideCap: stats.spawnsOutsideCap,
     teamElapsedMs: state.teamStartedAt === null || nowMs < state.teamStartedAt ? null : nowMs - state.teamStartedAt,
+    subagents: { total: snap.subagents.length, live: snap.subagents.filter(a => LIVE_STATUS.has(a.status)).length, rows: snap.subagents },
+    empty: {
+      workers: emptyWorkers(snap, teamsEnabled),
+      tasks: detailed ? null : EMPTY_TASKS,
+    },
     tasks: {
       detailed,
       partial,
@@ -466,10 +489,13 @@ export const missionText = (m: Mission): string => {
     `  guard:    ${guardWord(m.guard)} - ${m.guard.why}`,
     ...(m.outsideCap > 0 ? [`  outside the cap: ${m.outsideCap} named agent(s) started as ordinary subagents (with isolation); the cap does not count them`] : []),
     `  workers:  ${n(m.active)}/${m.cap} active, ${n(m.running)} running, ${n(m.idle)} idle, ${n(m.completed)} completed, ${n(m.failed)} failed; ${m.rejected} refused`,
+    ...(m.subagents.total > 0 ? [`  subagents: ${m.subagents.total} ordinary (${m.subagents.live} live); not teammates, so the cap does not count them`] : []),
     `  tasks:    ${tasks}`,
     `  team time: ${m.teamElapsedMs === null ? UNAVAILABLE : fmtSpan(m.teamElapsedMs)}`,
     `  usage:    5h ${m.usage.fiveHour}; week ${m.usage.sevenDay}; context ${m.usage.contextPct}; cost ${m.usage.cost}; ${m.usage.toolCalls} tool calls`,
   ]
+  if (m.empty.workers !== null) lines.push(`  note: ${m.empty.workers}`)
+  if (m.empty.tasks !== null) lines.push(`  note: ${m.empty.tasks}`)
   for (const w of m.workers) {
     lines.push(
       `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}`,
@@ -482,6 +508,8 @@ export const missionText = (m: Mission): string => {
 export const missionJson = (m: Mission) => ({
   guard: { state: m.guard.state, why: m.guard.why },
   outsideCap: m.outsideCap,
+  subagents: { total: m.subagents.total, live: m.subagents.live },
+  explain: { workers: m.empty.workers, tasks: m.empty.tasks },
   teamElapsedMs: m.teamElapsedMs,
   running: m.running,
   idle: m.idle,

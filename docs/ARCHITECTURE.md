@@ -160,6 +160,11 @@ Control, `/ctk-doctor`, `/ctk-stats` and the `ctk_team_status` tool (`guard.stat
 | `unavailable` | `–` | Agent Teams are off, or nothing has been read yet |
 | `error` | `ERR` | a spawn was refused because the cap could not be checked, the roster cannot be read, or more teammates are live than the cap (they started before the cap was lowered, or outside the guard) |
 
+`ON` counts every `agent.spawn` event, ordinary subagents included. It says the guard is in the path; the reason
+text adds how many of those spawns were teammates (`0 of them teammate(s)` after three unnamed `Agent` calls), so
+`ON` is never read as "a team started". Ordinary subagents are listed from the roster (`$.agent.list()` rows without
+a teammate address) and never gated.
+
 A Claude Code version that supports Mods is not evidence. Nothing here polls: the state is computed from the
 refresh that already redraws the band, and `/ctk-doctor` reads the roster once.
 

@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Mission Control, the band and the status tool now tell ordinary subagents apart from native teammates. An `Agent`
+  call without a `name` is an ordinary subagent: it is listed in its own "Ordinary subagents" section (type, status,
+  description from the roster), counted as `Subagents` / `Sub n`, and still not counted or limited by the worker cap.
+  Found in a real session where the lead ran three `ctk:*` agents without names: the guard saw three spawns, and the
+  Workers and Tasks pages were empty with no explanation.
+- The empty Workers and Tasks pages say why they are empty and what to do; `ctk_team_status` returns the same text as
+  `explain`. The `Guard ON` reason now says how many of the spawns it saw were teammates.
+- The `ctk:team` description and intent gate recognise a plain request to use CTK ("use ctk's flow", ctk 流程). In one
+  paired run of that sentence, the old description loaded `ctk:ctk` and spawned an unnamed `ctk:implementer`; the new one
+  loaded `ctk:team`. One sample each: not a measured rate.
+- Proposing a setting change now tells the lead to say "press Confirm in Mission Control", and the band shows
+  `Confirm setting: click here` until the change is answered.
+
 ### Added
 
 - `INSTALL.md`, an install checklist for coding agents, and an "Install with your AI Agent" prompt in the README. Both use only the native Plugin Manager.

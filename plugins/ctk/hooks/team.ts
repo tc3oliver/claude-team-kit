@@ -17,6 +17,9 @@ export const isLiveTeammate = (a: AgentInfo): boolean => a.teammateId !== undefi
 
 export type Worker = { name: string; teammateId: string; agentId: string; status: string }
 
+/** An agent the roster lists without a teammate address: an ordinary subagent, which the cap neither counts nor limits. */
+export type Subagent = { agentId: string; type: string; description: string; status: string }
+
 /** What the last refresh saw. A null figure was not reported; it renders as a dash. */
 export type Snapshot = {
   /** Null when the roster could not be read. */
@@ -27,10 +30,12 @@ export type Snapshot = {
   failed: number | null
   live: number | null
   workers: Worker[]
+  /** Ordinary subagents the roster lists (not teammates); empty when the roster could not be read. */
+  subagents: Subagent[]
   elapsedMs: number | null
 }
 
-export const emptySnapshot = (): Snapshot => ({ busy: null, idle: null, done: null, failed: null, live: null, workers: [], elapsedMs: null })
+export const emptySnapshot = (): Snapshot => ({ busy: null, idle: null, done: null, failed: null, live: null, workers: [], subagents: [], elapsedMs: null })
 
 export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | null, now: number): Snapshot => {
   const elapsedMs = usage !== null && usage.startedAt > 0 && now >= usage.startedAt ? now - usage.startedAt : null
@@ -49,6 +54,7 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
       agentId: a.id,
       status: a.status,
     })),
+    subagents: agents.filter(a => a.teammateId === undefined).map(a => ({ agentId: a.id, type: a.type, description: a.description, status: a.status })),
     elapsedMs,
   }
 }

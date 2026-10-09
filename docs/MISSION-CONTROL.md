@@ -30,6 +30,19 @@ beside the transcript; on the main screen it opens above the prompt.
 | Stats | the `/ctk-stats` summary | CTK's counters and Claude Code's figures |
 | Doctor | the `/ctk-doctor` report, read when you open the view | `$.env.get`, `$.settings.read`, `$.tool.list` |
 
+**Teammates and ordinary subagents are shown apart.** The Workers view lists *teammates*: named agents that
+Claude Code started as members of a team, which the worker cap counts. An `Agent` call with no `name` starts an
+ordinary subagent: the cap does not count it, and it is not a worker. Those are listed in their own section
+("Ordinary subagents", with the type, status and description the roster reports), counted on the Overview as
+`Subagents`, and shown on the band as `Sub 2`. Nothing else is known about them: no model, no tool calls, no cost.
+`Guard ON` means a spawn event has reached the guard, and its text says how many of those were teammates; it does
+not mean a team started.
+
+**An empty page says why.** With no teammate, Workers says whether Agent Teams are off, or that none has started
+and how to start one (`/ctk:team <goal>`, or ask for a team); Tasks says the lead has made no task list yet and
+names `TaskCreate` and `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`. The `ctk_team_status` tool returns the same sentences in
+`explain` so the lead can tell you the same thing. CTK never creates a task or an agent to fill the page.
+
 A figure that was not observed reads **unavailable**; nothing is estimated. In particular:
 
 - **Task detail needs task calls.** Claude Code leaves the Task tools out on current models unless
@@ -65,6 +78,10 @@ confirm:
 4. Claude Code writes the value to the plugin's options and reloads the mod a moment later. The worker
    cap in force follows at once; Mission Control's per-worker detail starts over (the counters in the
    stats file continue).
+
+You do not have to know to look: the lead is told to say "press Confirm in Mission Control", Mission Control opens
+on the Config view with the Confirm button, and the band above the prompt reads `Confirm setting: click here` until
+you answer (it shows even when `hudIdle` hides the idle band).
 
 Because step 3 is a button press, auto-approve modes and permission settings cannot confirm it for you.
 Where no pane can be drawn, the answer to the model says to change the option with

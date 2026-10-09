@@ -27,7 +27,7 @@ describe('the model can only propose', () => {
     const r = answer(await ask($, { action: 'propose', option: 'maxWorkers', value: 2 }))
     expect(r).toMatchObject({ status: 'pending_user_confirmation', applied: false })
     expect(r.change).toContain('3 -> 2')
-    expect(r.next).toContain('do not say it is done')
+    expect(r.next).toContain('Do not say it is done')
     expect(w.configSets).toEqual([])
     expect(w.opened[0]).toMatchObject({ id: MC_PANE_ID })
   })

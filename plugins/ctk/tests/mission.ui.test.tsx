@@ -310,7 +310,7 @@ describe('missing data', () => {
     expect(t).toContain('unavailable')
     expect(t).not.toContain('0 failed')
     await p.press({ key: 'mc:view:tasks' })
-    expect(await texts(p)).toContain('Task detail unavailable')
+    expect(await texts(p)).toContain('No task list yet')
     await p.press({ key: 'mc:view:workers' })
     expect(await texts(p)).toContain('No teammate has started this session.')
   })

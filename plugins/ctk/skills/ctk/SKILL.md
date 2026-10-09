@@ -10,9 +10,10 @@ Request: $ARGUMENTS (if empty, use the user's last message). Pick ONE section. A
 The CTK tools are deferred: if `mcp__ctk__ctk_team_status` (or `mcp__ctk__ctk_config`) has no schema loaded, load it
 first with ToolSearch (`select:mcp__ctk__ctk_team_status`). Then call it and answer from its JSON only. Fields:
 `live`, `max`, `workers`, `rejected`, `accepted`, `cap`, `teamsEnabled`, `taskTools`, `guard`, `running`, `idle`,
-`completed`, `failed`, `teamElapsedMs`, `tasks`, and `usage` (`contextPct`, `fiveHour`, `sevenDay`, `cost`,
+`completed`, `failed`, `teamElapsedMs`, `subagents`, `explain`, `tasks`, and `usage` (`contextPct`, `fiveHour`, `sevenDay`, `cost`,
 `toolCalls`, `model`).
 - A field that is missing, null or "unavailable": say "unavailable". Never estimate or guess a number.
+- No workers or tasks: say `explain.workers` / `explain.tasks` in your own words. Agents counted in `subagents` are ordinary subagents, not teammates; never call them workers.
 - Usage questions (5h limit, weekly limit): report only what `usage` contains.
 - Mention once that the clickable CTK band is the live view and `/ctk-mission` opens Mission Control.
 - Tool not registered: the CTK mod is not active here. Say so; do not invent values.
@@ -28,7 +29,8 @@ Option names: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`
 - List current values: `mcp__ctk__ctk_config` with `{"action":"show"}`.
 - Change: `{"action":"propose","option":"maxWorkers","value":2}` (value is a number, boolean or model name).
 - The tool applies NOTHING. It opens a confirmation in the Mission Control pane and the user confirms there.
-  Say that plainly: "I opened a confirmation in Mission Control; nothing changes until you confirm."
+  Say that plainly, in the user's language: "I opened CTK Mission Control; press Confirm there to apply it (or Cancel).
+  Nothing changes until you do." The band shows "Confirm setting" until it is answered.
   Never claim the change happened. Never edit `settings.json`.
 - Tool not registered: say so and point to `/plugin configure ctk@ctk-kit`.
 

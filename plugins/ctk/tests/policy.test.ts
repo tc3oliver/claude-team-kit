@@ -289,7 +289,7 @@ describe('status tool result shape', () => {
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
     expect(typeof r.result).toBe('string')
     expect(Object.keys(JSON.parse(r.result)).sort()).toEqual(
-      ['accepted', 'cap', 'completed', 'failed', 'guard', 'idle', 'live', 'max', 'outsideCap', 'rejected', 'running', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'usage', 'workers'],
+      ['accepted', 'cap', 'completed', 'explain', 'failed', 'guard', 'idle', 'live', 'max', 'outsideCap', 'rejected', 'running', 'subagents', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'usage', 'workers'],
     )
   })
 

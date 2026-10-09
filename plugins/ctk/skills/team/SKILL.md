@@ -1,13 +1,13 @@
 ---
 name: team
-description: "Invoke before spawning several agents, or when asked for a team, multiple agents, split or parallel work (多個 Agent, 平行). Keeps the worker cap."
+description: "Invoke before spawning several agents, or when asked to use CTK, a team or parallel work (多個 Agent, 平行, ctk 流程). Keeps the worker cap."
 argument-hint: "<goal>"
 ---
 
 Goal: $ARGUMENTS. You are the lead.
 
 ## 0. Intent gate
-No clear ask for a team, multiple agents or parallel work (running `/ctk:team` counts as one)? Reply with one
+No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one
 sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
 Asked, but the goal has no 2+ independently verifiable slices? Say so in one line and do the work directly.
 
@@ -35,7 +35,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
 ## 3. Spawn
 - Idle teammate first (`ctk_team_status`): give it the next ready task with `SendMessage`. Spawn only when none
   is idle and live teammates are below the cap (`maxWorkers`, default 3).
-- `Agent` with a `name` on every worker (a named call is the teammate the cap counts); `subagent_type`:
+- `Agent` with a `name` on every worker (named = a teammate the cap counts and Mission Control lists; unnamed = a plain subagent neither does); `subagent_type`:
   `ctk:implementer` to build, `ctk:explorer` to scout. Never set `isolation` on a worker: it then starts as an
   ordinary subagent, outside the team and the cap.
 - One file scope and one owner per task (unless the owner failed or exited); slices that could touch the same
