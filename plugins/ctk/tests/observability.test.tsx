@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
 import { MC_PANE_ID, OPEN_KEY } from '../hooks/mission.ts'
 import { STATUS_TOOL, CONFIG_TOOL } from '../hooks/team.ts'
-import { engine, fresh, spawnInput, statusOf } from './world.ts'
+import { engine, fresh, spawnInput, statusOf, test } from './world.ts'
 
 // What Mission Control, the band and the status tool say when a session used no team, ordinary
 // subagents, native teammates, or teammates without any task events. Modelled on a real session in

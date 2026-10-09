@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The default worker cap is now 5 (was 3), still 1 to 12. An explicit setting is never touched: an installed plugin that was configured to a value keeps it, and one that was never configured follows the new default after it updates.
 - Mission Control, the band and the status tool now tell ordinary subagents apart from native teammates. An `Agent`
   call without a `name` is an ordinary subagent: it is listed in its own "Ordinary subagents" section (type, status,
   description from the roster), counted as `Subagents` / `Sub n`, and still not counted or limited by the worker cap.

@@ -1,10 +1,10 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
 import { TEAMS_FIX } from '../hooks/doctor.ts'
 import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, statusOf } from './world.ts'
+import { engine, fresh, statusOf, test } from './world.ts'
 import type { EngineOptions, World } from './world.ts'
 
 const FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'

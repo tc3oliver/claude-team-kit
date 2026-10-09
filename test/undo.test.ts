@@ -87,7 +87,7 @@ test('rollback with a pre-existing plugin (not uninstalled by ctk) leaves an edi
 
 test('rollback notes each rolled-back key a profile layer still sets, and leaves profile.json alone', async t => {
   const e = makeEnv(t)
-  saveUserLayer(e.ctx.paths, { team: { maxWorkers: 5 }, portable: { settings: { model: 'opus' } } })
+  saveUserLayer(e.ctx.paths, { team: { maxWorkers: 7 }, portable: { settings: { model: 'opus' } } })
   await runInstall(e.ctx, flags, e.root)
   const profileBefore = snapshot(e.ctx.paths.ctk)['/profile.json']
   const r = await rollback(e.ctx)
@@ -141,11 +141,11 @@ test('rollback undoes the install transaction exactly, then reports nothing left
 test('rollback restores the previous value of an updated key', async t => {
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
-  assert.equal((await runConfig(e.ctx, ['set', 'team.maxWorkers', '5'], cfgFlags)).code, 0)
-  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
+  assert.equal((await runConfig(e.ctx, ['set', 'team.maxWorkers', '7'], cfgFlags)).code, 0)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 7)
   const r = await rollback(e.ctx)
   assert.equal(r.code, 0)
-  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
   // the install transaction is still intact and undoable
   assert.equal((await rollback(e.ctx)).code, 0)
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs, undefined)
@@ -154,7 +154,7 @@ test('rollback restores the previous value of an updated key', async t => {
 test('rollback refuses to overwrite a value the user changed after the transaction', async t => {
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
-  await runConfig(e.ctx, ['set', 'team.maxWorkers', '5'], cfgFlags)
+  await runConfig(e.ctx, ['set', 'team.maxWorkers', '7'], cfgFlags)
   const s = readJson(e.ctx.paths.settings)
   s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers = 8
   writeJson(e.ctx.paths.settings, s)
@@ -167,7 +167,7 @@ test('rollback refuses to overwrite a value the user changed after the transacti
 test('rollback --to undoes that transaction and every later one; unknown ids fail', async t => {
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
-  await runConfig(e.ctx, ['set', 'team.maxWorkers', '5'], cfgFlags)
+  await runConfig(e.ctx, ['set', 'team.maxWorkers', '7'], cfgFlags)
   await runConfig(e.ctx, ['set', 'hud.band', 'false'], cfgFlags)
   const ids = loadLedger(e.ctx)?.transactions.map(x => x.id) ?? []
   assert.equal(ids.length, 3)
@@ -175,7 +175,7 @@ test('rollback --to undoes that transaction and every later one; unknown ids fai
   const r = await rollback(e.ctx, ids[1])
   assert.deepEqual(r.undone, [ids[2], ids[1]])
   const o = readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options
-  assert.equal(o.maxWorkers, 3)
+  assert.equal(o.maxWorkers, 5)
   assert.equal(o.hudBand, true)
   assert.equal((await rollback(e.ctx, ids[1])).code, 1)
 })
@@ -314,7 +314,7 @@ const router = async (e: ReturnType<typeof makeEnv>, args: string[]) => {
 test('uninstall prints "removed" for deleted keys and "restored" only when a previous value is put back', async t => {
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
-  await runConfig(e.ctx, ['set', 'team.maxWorkers', '5'], cfgFlags)
+  await runConfig(e.ctx, ['set', 'team.maxWorkers', '7'], cfgFlags)
   const rb = await router(e, ['rollback'])
   assert.equal(rb.code, 0, rb.out.join('\n'))
   assert.ok(rb.out.includes('  restored /pluginConfigs/ctk@ctk-kit/options/maxWorkers'), rb.out.join('\n'))

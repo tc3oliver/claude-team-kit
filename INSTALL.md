@@ -50,7 +50,7 @@ claude plugin marketplace add tc3oliver/claude-team-kit
 claude plugin install ctk@ctk-kit
 ```
 
-Both commands are safe to repeat (they answer "already on disk" and "already installed"). The line `N userConfig options not yet set` is harmless: every option has a default (cap 3). Do not pass `--config`
+Both commands are safe to repeat (they answer "already on disk" and "already installed"). The line `N userConfig options not yet set` is harmless: every option has a default (cap 5). Do not pass `--config`
 unless the person asked for a value; [Options](docs/INSTALLATION.md#options) lists them.
 
 To pin the release instead of the latest commit, add the tag to the first command:

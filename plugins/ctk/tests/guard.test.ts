@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
 import { STATUS_TOOL, startsOutsideCap } from '../hooks/team.ts'
 import { parseStats } from '../shared/stats.ts'
-import { engine, fresh, spawnInput, statusOf } from './world.ts'
+import { engine, fresh, spawnInput, statusOf, test } from './world.ts'
 
 // What the worker limit does and does not cover, and what the guard can honestly say about itself.
 // The facts under the first block were observed live on Claude Code 2.1.295 (docs/REVIEW.md): a named

@@ -138,18 +138,18 @@ test('a key the user deleted after CTK wrote it stays deleted, is noted, and exi
 test('a crash between the ledger save and the settings write is finished by the next run', async t => {
   const e = makeEnv(t)
   await applyProfile(e.ctx, profile())
-  // what a crash leaves: ledger says maxWorkers=5 (pending, settings still 3); settings.json untouched
+  // what a crash leaves: ledger says maxWorkers=7 (pending, settings still 5); settings.json untouched
   const ledger = loadLedger(e.ctx)
   assert.ok(ledger)
   const ptr = '/pluginConfigs/ctk@ctk-kit/options/maxWorkers'
-  ledger.entries = ledger.entries.map(x => (x.kind === 'settings-key' && x.pointer === ptr ? { ...x, written: 5, pending: { value: 3 } } : x))
+  ledger.entries = ledger.entries.map(x => (x.kind === 'settings-key' && x.pointer === ptr ? { ...x, written: 7, pending: { value: 5 } } : x))
   saveLedger(e.ctx, ledger)
-  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
-  const r = await applyProfile(e.ctx, profile({ team: { maxWorkers: 5, hint: true } }))
-  assert.deepEqual(r.conflicts, [])
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
+  const r = await applyProfile(e.ctx, profile({ team: { maxWorkers: 7, hint: true } }))
+  assert.deepEqual(r.conflicts, [])
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 7)
   const entry = loadLedger(e.ctx)?.entries.find(x => x.kind === 'settings-key' && x.pointer === ptr)
-  assert.ok(entry?.kind === 'settings-key' && entry.owned && entry.pending === undefined && entry.written === 5)
+  assert.ok(entry?.kind === 'settings-key' && entry.owned && entry.pending === undefined && entry.written === 7)
   assert.equal(loadLedger(e.ctx)?.entries.some(x => x.kind === 'settings-key' && x.pending !== undefined), false)
 })
 

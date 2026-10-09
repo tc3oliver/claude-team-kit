@@ -44,7 +44,7 @@ test('real claude: native install works on its own, then `ctk install` adopts it
 
   // The mod loads with its defaults although nothing is configured: /ctk-stats needs no login and no model call.
   const stats = await claude('-p', '/ctk-stats')
-  assert.match(stats, /\(cap 3\)/)
+  assert.match(stats, /\(cap 5\)/)
 
   const pluginsDir = join(ctx.configDir, 'plugins')
   const registry = () => ({ installed: readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf8'), known: readFileSync(join(pluginsDir, 'known_marketplaces.json'), 'utf8') })
@@ -57,5 +57,5 @@ test('real claude: native install works on its own, then `ctk install` adopts it
   assert.deepEqual(registry(), registryBefore, 'the plugin was adopted, not reinstalled')
   assert.deepEqual(readJson(ctx.paths.settings).extraKnownMarketplaces, marketplaceBefore, 'the marketplace entry is untouched')
   assert.deepEqual(loadLedger(ctx)?.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: false, pluginInstalledByCtk: false })
-  assert.equal(readJson(ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(readJson(ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
 })

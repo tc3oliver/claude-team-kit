@@ -1,9 +1,9 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
 import { validateChange } from '../hooks/config.ts'
 import { TEAM_HINT, teamHintFor, teamIntent } from '../hooks/team.ts'
 import { DEFAULT_OPTIONS, readOptions } from '../shared/policy.ts'
-import { engine, fresh } from './world.ts'
+import { engine, fresh, test } from './world.ts'
 
 // The natural-language entry: a small, fixed phrase check that attaches one hint line to the prompt. It cannot
 // start a team; the model reads the hint and decides. These tests pin which words count and which prompts are left alone.

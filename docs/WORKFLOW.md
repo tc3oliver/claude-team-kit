@@ -61,7 +61,7 @@ state and not a control.
 ### 3. Bounded parallelism *(mod-enforced, on teammate spawns only)*
 
 CTK's mod answers every spawn Claude Code is about to make as a **teammate**. If the team already has as many live
-teammates as the cap (default 3, settable from 1 to 12), the spawn is refused with `TEAM_CAPACITY_REACHED`. A
+teammates as the cap (default 5, settable from 1 to 12), the spawn is refused with `TEAM_CAPACITY_REACHED`. A
 teammate that is idle still counts as live; a slot frees only when a teammate has exited. If the mod cannot read
 the roster it refuses (`TEAM_GUARD_FAILED`) instead of guessing.
 

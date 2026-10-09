@@ -15,7 +15,7 @@ import {
   validateChange,
 } from '../hooks/config.ts'
 import type { Change, PendingState, ValidateOk } from '../hooks/config.ts'
-import { DEFAULT_OPTIONS } from '../shared/policy.ts'
+import { DEFAULT_OPTIONS, readOptions } from '../shared/policy.ts'
 import type { PolicyOptions } from '../shared/policy.ts'
 
 const T0 = Date.UTC(2026, 9, 9, 3, 0, 0)
@@ -57,15 +57,23 @@ describe('option names', () => {
     expect(Object.keys(DEFAULT_OPTIONS).sort()).toEqual([...OPTION_NAMES].sort())
   })
 
+  test('the default cap is 5; a value that was set is kept, whatever the default', () => {
+    expect(DEFAULT_OPTIONS.maxWorkers).toBe(5)
+    expect(readOptions({}).maxWorkers).toBe(5)
+    expect(readOptions({ maxWorkers: 6 }).maxWorkers).toBe(6)
+    expect(readOptions({ maxWorkers: 3 }).maxWorkers).toBe(3)
+    expect(readOptions({ maxWorkers: 'many' }).maxWorkers).toBe(5)
+  })
+
   test('the $.config row key is <plugin>.<field>', () => {
     expect(optionKey('maxWorkers')).toBe('ctk.maxWorkers')
     expect(OPTION_NAMES.map(optionKey).every(k => k.startsWith('ctk.'))).toBe(true)
   })
 
   test('describeOptions lists every option with its current value', () => {
-    const rows = describeOptions({ ...DEFAULT_OPTIONS, maxWorkers: 5, hudBand: false })
+    const rows = describeOptions({ ...DEFAULT_OPTIONS, maxWorkers: 7, hudBand: false })
     expect(rows.map(r => r.name)).toEqual([...OPTION_NAMES])
-    expect(rows[0]).toMatchObject({ name: 'maxWorkers', value: 5, shown: '5', defaultShown: '3' })
+    expect(rows[0]).toMatchObject({ name: 'maxWorkers', value: 7, shown: '7', defaultShown: '5' })
     expect(rows.find(r => r.name === 'hudBand')).toMatchObject({ value: false, shown: 'off' })
     for (const r of rows) {
       expect(r.label).not.toBe('')
@@ -82,8 +90,8 @@ describe('maxWorkers', () => {
 
   test('the change carries the key, the old and the new value and a line of text', () => {
     const r = good('maxWorkers', 2)
-    expect(r).toMatchObject({ ok: true, name: 'maxWorkers', key: 'ctk.maxWorkers', from: 3, to: 2, value: 2 })
-    expect(r.text).toBe('Max live teammates (maxWorkers): 3 -> 2')
+    expect(r).toMatchObject({ ok: true, name: 'maxWorkers', key: 'ctk.maxWorkers', from: 5, to: 2, value: 2 })
+    expect(r.text).toBe('Max live teammates (maxWorkers): 5 -> 2')
   })
 
   test('a numeric string is read as the number, never stored as a string', () => {
@@ -106,7 +114,7 @@ describe('maxWorkers', () => {
   })
 
   test('the value now is reported as nothing to change', () => {
-    const r = validateChange('maxWorkers', 3, OPTS)
+    const r = validateChange('maxWorkers', 5, OPTS)
     expect(r).toMatchObject({ ok: false, code: 'unchanged' })
   })
 })

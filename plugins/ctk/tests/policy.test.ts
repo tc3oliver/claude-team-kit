@@ -73,14 +73,14 @@ describe('verified acceptance and stats', () => {
     expect(s).toMatchObject({
       schemaVersion: 1,
       sessionId: 'sess/1',
-      maxWorkers: 3,
+      maxWorkers: 5,
       spawnsAccepted: 2,
       spawnsRejected: 0,
       workerModels: { 'claude-haiku-5-5': 1, sonnet: 1 },
     })
   })
 
-  test('refusals and peak live are counted; the file holds counters only', async ($, on) => {
+  test('refusals and peak live are counted; the file holds counters only', { options: { maxWorkers: 3 } }, async ($, on) => {
     const w = fresh()
     engine(on, w)
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
@@ -165,7 +165,7 @@ describe('stats path', () => {
 describe('session.start again (enable, respawn, reload)', () => {
   const START = { cwd: '/w', surface: null, isInteractive: false } as const
 
-  test('counters continue from the stats file', async ($, on) => {
+  test('counters continue from the stats file', { options: { maxWorkers: 3 } }, async ($, on) => {
     const w = fresh()
     engine(on, w)
     await $.session.start(START)
@@ -233,7 +233,7 @@ describe('status tool and command', () => {
     expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor', 'ctk-mission'])
   })
 
-  test('ctk_team_status reports the real roster and counters', async ($, on) => {
+  test('ctk_team_status reports the real roster and counters', { options: { maxWorkers: 3 } }, async ($, on) => {
     const w = fresh()
     engine(on, w)
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })

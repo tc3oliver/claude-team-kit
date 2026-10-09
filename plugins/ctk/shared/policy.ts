@@ -30,7 +30,7 @@ export type PolicyOptions = {
 }
 
 export const DEFAULT_OPTIONS: PolicyOptions = {
-  maxWorkers: 3,
+  maxWorkers: 5,
   explorerModel: 'haiku',
   implementerModel: 'sonnet',
   reviewerModel: 'sonnet',

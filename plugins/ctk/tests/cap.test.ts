@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
-import { engine, fresh, live, spawnInput } from './world.ts'
+import { engine, fresh, live, spawnInput, test } from './world.ts'
 
 const spawnSix = ($: any, from = 0, teammate = true) =>
   Promise.all(Array.from({ length: 6 }, (_, i) => $.agent.spawn(spawnInput(from + i, teammate))))

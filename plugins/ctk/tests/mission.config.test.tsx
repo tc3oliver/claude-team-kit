@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
 import { MC_PANE_ID } from '../hooks/mission.ts'
 import { CONFIG_TOOL } from '../hooks/team.ts'
-import { engine, fresh, spawnInput } from './world.ts'
+import { engine, fresh, spawnInput, test } from './world.ts'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
@@ -46,7 +46,7 @@ describe('the model can only propose', () => {
     await session($, on)
     const r = answer(await ask($, { action: 'show' }))
     expect(r.options.map((o: any) => o.option)).toEqual(['maxWorkers', 'explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'hudBand', 'hudIdle', 'recordStats', 'teamHint'])
-    expect(r.options[0]).toMatchObject({ option: 'maxWorkers', value: '3', default: '3' })
+    expect(r.options[0]).toMatchObject({ option: 'maxWorkers', value: '3', default: '5' })
     expect(r.waiting).toBeNull()
   })
 

@@ -67,7 +67,7 @@ is reported as a conflict, the key is left alone, and the command exits `2`.
 
 | Field | Type | Default | Constraint | Plugin option |
 |---|---|---|---|---|
-| `team.maxWorkers` | integer | `3` | 1 to 12 | `maxWorkers` |
+| `team.maxWorkers` | integer | `5` | 1 to 12 | `maxWorkers` |
 
 The most teammates alive at once. A spawn beyond it is denied with `TEAM_CAPACITY_REACHED`.
 
@@ -148,7 +148,7 @@ CTK writes the effective values to `settings.json`, one key each, under
 
 | `settings.json` key | Profile field | Default | Allowed |
 |---|---|---|---|
-| `maxWorkers` | `team.maxWorkers` | `3` | number, 1-12 |
+| `maxWorkers` | `team.maxWorkers` | `5` | number, 1-12 |
 | `explorerModel` | `routing.explorer.model` | `haiku` | alias, model id or `inherit` |
 | `implementerModel` | `routing.implementer.model` | `sonnet` | same |
 | `reviewerModel` | `routing.reviewer.model` | `sonnet` | same |

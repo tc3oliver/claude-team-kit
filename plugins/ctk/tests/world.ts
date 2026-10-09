@@ -1,7 +1,20 @@
-import { mock } from 'claude-code/testing'
+import { mock, test as baseTest } from 'claude-code/testing'
+import type { TestRest } from 'claude-code/testing'
 import type { AgentInfo, AgentSpawnInput, On } from 'claude-code'
 
 // Shared stand-in for the engine beneath the plugin.
+
+/**
+ * `test` with the cap pinned to 3. The cap mechanics, the band and Mission Control are exercised with a small fixed
+ * cap (a 4th teammate is the first refusal), so those tests say 3 here instead of leaning on the plugin's default,
+ * which is a product choice (5) and tested on its own in policy.test.ts and config.test.ts. A test may still pass
+ * its own options.
+ */
+export const test = (name: string, ...rest: TestRest): void => {
+  if (rest.length === 1) return baseTest(name, { options: { maxWorkers: 3 } }, rest[0])
+  const [opts, body] = rest
+  return baseTest(name, { ...opts, options: { maxWorkers: 3, ...(opts.options ?? {}) } }, body)
+}
 
 export type World = {
   agents: AgentInfo[]

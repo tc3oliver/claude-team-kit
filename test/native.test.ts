@@ -37,7 +37,7 @@ test('ctk install over a native (github) install adopts it: no re-point, no conf
   assert.deepEqual(s.extraKnownMarketplaces, before.extraKnownMarketplaces, 'the marketplace entry is untouched')
   assert.deepEqual(s.enabledPlugins, before.enabledPlugins)
   assert.equal(s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, '1')
-  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
   assert.ok(s.statusLine)
   assert.deepEqual(loadLedger(e.ctx)?.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: false, pluginInstalledByCtk: false })
   const again = snapshot(e.ctx.configDir)

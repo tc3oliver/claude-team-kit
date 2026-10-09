@@ -16,6 +16,7 @@ line) are early access, so it can break when Claude Code changes. Read "Known li
 - **Plain requests for several agents or a team load the team skill more reliably.** A fixed English and Chinese
   phrase check (it names agents or a team; a bare "parallel" does not count) adds one hidden hint line beside your own prompt (no model call, no always-on context). The model still
   decides; one real session showed it working, which is not a measured rate. Turn it off with the plugin option `teamHint`.
+- **The default worker cap is 5 (was 3), still 1 to 12.** A value you set yourself is kept.
 - **Changing the worker cap is visible.** The lead is told to say "press Confirm in Mission Control", and the band shows
   `Confirm setting` until you answer.
 - **Install with your AI agent:** `INSTALL.md` and a README prompt, both through the native Plugin Manager only.
@@ -58,7 +59,7 @@ live with throwaway tags: install pinned to a tag, and update and roll back by m
   before "done"), `/ctk:review` (review depth scaled to risk), `/ctk:debug` (reproduce, hypothesise, fix, regression
   test), and `ctk` (status and settings in plain words). **Agents:** `explorer`, `implementer`, `reviewer`,
   `high-risk-reviewer`, with a model per role unless a spawn names one.
-- **Worker cap (mod):** a teammate spawn above the cap (default 3, 1 to 12) is refused with `TEAM_CAPACITY_REACHED`;
+- **Worker cap (mod):** a teammate spawn above the cap (default 5, 1 to 12) is refused with `TEAM_CAPACITY_REACHED`;
   if the roster cannot be read it is refused with `TEAM_GUARD_FAILED` instead of guessed.
 - **Team line and Mission Control (mod):** one line above the prompt (model, 5-hour and weekly usage with reset
   countdowns, tool calls, agents against the cap, tasks, context, cost, fitted to the terminal width) that you click to

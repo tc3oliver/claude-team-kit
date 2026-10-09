@@ -1,7 +1,8 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock } from 'claude-code/testing'
 import type { AgentInfo, On } from 'claude-code'
 
 import { BAND_MARGIN, bandSegments, formatBand, formatSummary, fmtElapsed, modelLabel } from '../hooks/band.ts'
+import { test } from './world.ts'
 import { snapshotOf } from '../hooks/team.ts'
 import { displayWidth } from '../shared/hudline.ts'
 import { emptyStats } from '../shared/stats.ts'

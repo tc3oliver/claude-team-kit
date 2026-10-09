@@ -83,7 +83,7 @@ in `hooks.json`. The difference was not resolved.
 
 | Project | Concurrent-worker limit | Model selection |
 |---|---|---|
-| CTK | `maxWorkers`, default 3, maximum 12; a spawn above it is denied with `TEAM_CAPACITY_REACHED` (`docs/ARCHITECTURE.md`) | By role through the mod; an explicit model is never overridden |
+| CTK | `maxWorkers`, default 5, maximum 12; a spawn above it is denied with `TEAM_CAPACITY_REACHED` (`docs/ARCHITECTURE.md`) | By role through the mod; an explicit model is never overridden |
 | Agent Teams | "There's no hard limit on the number of teammates, but practical constraints apply"; "Start with 3-5 teammates for most workflows." | Spawn prompt, then definition `model`, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the lead's model; "If an installed mod sets a model in its `agent.spawn` hook, Claude Code uses that model in place of the first source." |
 | OMC 5.3.0 | For `omc team`: 20 (`MAX_WORKER_COUNT`); `ops.maxAgents` exists in the schema but "the current launcher does not consult it" (`skills/team/SKILL.md`, line 894). A cap on native Agent Teams spawns: not stated | Yes, "smart model routing" (README; its "saves 30-50% on tokens" claim was not verified here) |
 | superpowers | Not stated | Not stated |

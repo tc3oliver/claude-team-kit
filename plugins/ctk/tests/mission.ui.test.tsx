@@ -1,7 +1,7 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 
 import { MC_PANE_ID, OPEN_KEY } from '../hooks/mission.ts'
-import { engine, fresh, spawnInput } from './world.ts'
+import { engine, fresh, spawnInput, test } from './world.ts'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 

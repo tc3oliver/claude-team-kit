@@ -31,7 +31,7 @@ test('install writes plugin, statusline, owned keys and a ledger; keeps other se
   assert.deepEqual(s.permissions, { allow: ['Bash(ls)'] })
   assert.equal(s.enabledPlugins['other@market'], true)
   assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
-  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
   assert.equal(s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, '1')
   // POSIX: single-quoted absolute paths. Windows: double-quoted with forward slashes (Git Bash eats backslashes).
   assert.equal(s.statusLine.command, statuslineCommand(process.execPath, e.ctx.paths.statusline))
@@ -211,7 +211,7 @@ test('options Claude deleted with an uninstalled plugin are re-added when instal
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'], undefined)
   const r = await runInstall(e.ctx, flags, e.root)
   assert.equal(r.code, 0, r.lines.join('\n'))
-  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
 })
 
 /** A second package location with the same content, as after moving the checkout. */
@@ -238,7 +238,7 @@ test('moved checkout, marketplace added by CTK: install re-points it in one tran
   assert.equal(stubState(e).marketplaces[0].path, to)
   assert.equal(stubState(e).plugins.length, 1)
   const s = readJson(e.ctx.paths.settings)
-  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3, 'options Claude dropped with the plugin are written again')
+  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5, 'options Claude dropped with the plugin are written again')
   assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
   assert.deepEqual(loadLedger(e.ctx)?.entries.find(x => x.kind === 'plugin'), { kind: 'plugin', marketplaceAddedByCtk: true, pluginInstalledByCtk: true })
   assert.equal(loadLedger(e.ctx)?.transactions.length, 2)

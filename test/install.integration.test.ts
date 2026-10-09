@@ -23,7 +23,7 @@ test('real claude: install, idempotent re-install, doctor, uninstall', { skip: h
   assert.ok(plugin?.enabled)
   assert.ok((await listMarketplaces(ctx)).some(m => m.name === 'ctk-kit'))
   const s = readJson(ctx.paths.settings)
-  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
+  assert.equal(s.pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
   assert.equal(s.enabledPlugins['ctk@ctk-kit'], true)
 
   const before = snapshot(ctx.configDir)
