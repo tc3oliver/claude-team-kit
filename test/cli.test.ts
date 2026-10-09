@@ -110,3 +110,31 @@ test('ctk sync --help prints the sync usage; help for an unknown command falls b
   assert.equal(u.code, 0)
   assert.match(u.out.join('\n'), /Commands:/)
 })
+
+test('a flag-shaped value cannot hijack the command', async t => {
+  const pkg = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }
+  // was: argv.includes('--version') fired on the VALUE and printed the version, exit 0
+  const r = await run(t, ['config', 'set', 'outputStyle', '--version'])
+  assert.equal(r.code, 1)
+  assert.ok(!r.out.join('\n').includes(pkg.version))
+  assert.ok(!r.err.join('\n').includes(pkg.version))
+  // --help/--json are still accepted after the command; --version is not
+  const h = await run(t, ['config', '--help'])
+  assert.equal(h.code, 0)
+  assert.match(h.out.join('\n'), /Usage: ctk config/)
+  const v = await run(t, ['config', '--version'])
+  assert.equal(v.code, 1)
+  assert.ok(!v.out.join('\n').includes(pkg.version))
+})
+
+test('-v before the command prints the version; --config-dir=<dir> inline form works; doctor --json is one document', async t => {
+  const e = makeEnv(t)
+  const out: string[] = []
+  const io = { out: (l: string) => out.push(l), err: () => {}, env: e.ctx.env, cwd: e.dir, claudeBin: e.stub }
+  assert.equal(await main(['-v'], io), 0)
+  assert.match(out[0] as string, /^\d+\.\d+\.\d+$/)
+  out.length = 0
+  assert.equal(await main([`--config-dir=${e.ctx.configDir}`, 'stats', '--json'], io), 0)
+  assert.equal(out.length, 1)
+  assert.equal(JSON.parse(out[0] as string).exitCode, 0)
+})

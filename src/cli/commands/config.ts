@@ -1,4 +1,4 @@
-import { deepEqual, flatten, fromPointer, isObject, pointerDelete, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../../core/jsonx.ts'
+import { deepEqual, flatten, fromPointer, pointerDelete, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../../core/jsonx.ts'
 import { loadDeviceLayer, loadUserLayer, saveDeviceLayer, saveUserLayer } from '../../core/profilestore.ts'
 import { parseLayer, ProfileError, resolveEffective, type Profile, type ProfileLayer } from '../../core/schema.ts'
 import { applyProfile } from '../../install/apply.ts'
@@ -39,7 +39,7 @@ export const runConfig = async (ctx: Ctx, args: string[], flags: ConfigFlags): P
   if (action === 'get') {
     const v = pointerGet(doc, ptr)
     if (v === undefined) return { code: EXIT.error, data: { path, set: false }, lines: [`${path} is not set in the ${layerName}`] }
-    return { code: EXIT.ok, data: { path, value: v }, lines: [isObject(v) ? JSON.stringify(v) : typeof v === 'string' ? v : JSON.stringify(v)] }
+    return { code: EXIT.ok, data: { path, value: v }, lines: [typeof v === 'string' ? v : JSON.stringify(v)] }
   }
 
   const next = structuredClone(doc)

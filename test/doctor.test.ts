@@ -79,6 +79,36 @@ test('doctor judges onboarding before any claude subprocess creates .claude.json
   assert.equal(status(await runDoctor(e.ctx), 'onboarding'), 'pass')
 })
 
+test('doctor loads ledger.json once per run and fails cleanly on a broken one', async t => {
+  const e = makeEnv(t)
+  writeFileSync(join(e.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(e.ctx, flags, e.root)
+  let ledgerAccesses = 0
+  const paths = new Proxy(e.ctx.paths, { get: (o, k) => (k === 'ledger' && ledgerAccesses++, Reflect.get(o, k)) })
+  const r = await runDoctor({ ...e.ctx, paths })
+  assert.equal(r.code, 0, r.lines.join('\n'))
+  // 1 existsSync for the onboarding note + 1 loadLedger: a second parse would make it 3
+  assert.ok(ledgerAccesses <= 2, `ledger.json touched ${ledgerAccesses} times, expected at most 2`)
+
+  const broken = makeEnv(t)
+  writeFileSync(join(broken.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(broken.ctx, flags, broken.root)
+  writeFileSync(broken.ctx.paths.ledger, '{"schemaVersion": 999}')
+  const b = await runDoctor(broken.ctx)
+  assert.equal(status(b, 'ledger'), 'fail')
+  assert.match(b.lines.join('\n'), /move ctk\/ledger.json aside/)
+  assert.equal(b.code, 1)
+})
+
+test('doctor reports a skills path that is not a directory instead of crashing with ENOTDIR', async t => {
+  const e = makeEnv(t)
+  writeFileSync(join(e.ctx.configDir, '.claude.json'), '{}')
+  writeFileSync(e.ctx.paths.skillsDir, 'not a directory') // mkdirSync would be the normal case
+  const r = await runDoctor(e.ctx)
+  assert.equal(status(r, 'skills'), 'warn')
+  assert.match(r.lines.join('\n'), /exists but is not a directory/)
+})
+
 test('doctor compares sync-marked skill directories with the profile skill list', async t => {
   const e = makeEnv(t)
   saveUserLayer(e.ctx.paths, { skills: ['alpha'] })

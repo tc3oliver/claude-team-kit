@@ -56,11 +56,14 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   }
 
   let pluginPresent = false
+  // Parsed once for the whole run; a broken ledger is null here and reported by the ledger check below.
   let ledgerForPlugin: Ledger | null = null
+  let ledgerError: string | null = null
   try {
-    ledgerForPlugin = loadLedger(ctx) // a broken ledger is reported by the ledger check below
-  } catch {
+    ledgerForPlugin = loadLedger(ctx)
+  } catch (e) {
     ledgerForPlugin = null
+    ledgerError = errMsg(e)
   }
   try {
     const plugin = (await listPlugins(ctx)).find(p => p.id === PLUGIN_ID)
@@ -123,40 +126,48 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   else if (onboarded) add('onboarding', 'pass', 'Claude Code has been started once')
   else add('onboarding', 'warn', 'Claude Code not started yet (no .claude.json)', 'run "claude" once and log in')
 
-  try {
-    const ledger = loadLedger(ctx)
-    if (!ledger && pluginPresent) add('ledger', 'info', 'no ctk ledger: the plugin was installed natively; "ctk install" is optional (adds the status line, the teams flag and profile sync)')
-    else if (!ledger) add('ledger', 'warn', 'no ledger: ctk has not installed anything here', 'run "ctk install"')
-    else if (settings) {
-      const owned = ledger.entries.filter(e => e.kind === 'settings-key' && e.owned)
-      const cur = (e: (typeof owned)[number]) => (e.kind === 'settings-key' ? pointerGet(settings.data, e.pointer) : undefined)
-      const missing = owned.filter(e => cur(e) === undefined)
-      const drift = owned.filter(e => e.kind === 'settings-key' && cur(e) !== undefined && !deepEqual(cur(e), e.written))
-      drift.length + missing.length === 0
-        ? add('ledger', 'pass', `ledger matches settings.json (${ledger.entries.length} entries, ${ledger.transactions.length} transactions)`)
-        : add('ledger', 'warn', `${drift.length} key(s) edited and ${missing.length} removed since ctk wrote them`, 'run "ctk install" to see the conflicts, or "ctk rollback"')
-    }
-  } catch (e) {
-    add('ledger', 'fail', errMsg(e), 'move ctk/ledger.json aside and run "ctk install"')
+  if (ledgerError !== null) add('ledger', 'fail', ledgerError, 'move ctk/ledger.json aside and run "ctk install"')
+  else if (!ledgerForPlugin && pluginPresent) add('ledger', 'info', 'no ctk ledger: the plugin was installed natively; "ctk install" is optional (adds the status line, the teams flag and profile sync)')
+  else if (!ledgerForPlugin) add('ledger', 'warn', 'no ledger: ctk has not installed anything here', 'run "ctk install"')
+  else if (settings) {
+    const ledger = ledgerForPlugin
+    const owned = ledger.entries.filter(e => e.kind === 'settings-key' && e.owned)
+    const cur = (e: (typeof owned)[number]) => (e.kind === 'settings-key' ? pointerGet(settings.data, e.pointer) : undefined)
+    const missing = owned.filter(e => cur(e) === undefined)
+    const drift = owned.filter(e => e.kind === 'settings-key' && cur(e) !== undefined && !deepEqual(cur(e), e.written))
+    drift.length + missing.length === 0
+      ? add('ledger', 'pass', `ledger matches settings.json (${ledger.entries.length} entries, ${ledger.transactions.length} transactions)`)
+      : add('ledger', 'warn', `${drift.length} key(s) edited and ${missing.length} removed since ctk wrote them`, 'run "ctk install" to see the conflicts, or "ctk rollback"')
   }
 
   if (wantedSkills !== null) {
     // Skills that "ctk sync" writes carry the sync marker; compare them with the profile's skill list.
-    const managed = existsSync(ctx.paths.skillsDir)
-      ? readdirSync(ctx.paths.skillsDir).filter(n => {
-          try {
-            return statSync(join(ctx.paths.skillsDir, n)).isDirectory() && existsSync(join(ctx.paths.skillsDir, n, MANAGED_MARKER))
-          } catch {
-            return false
-          }
-        })
-      : []
-    const missing = wantedSkills.filter(n => !managed.includes(n))
-    const extra = managed.filter(n => !wantedSkills.includes(n))
-    if (missing.length + extra.length === 0) add('skills', 'pass', managed.length === 0 ? 'no synced skills' : `${managed.length} synced skill(s) match the profile`)
-    else {
-      const parts = [...(missing.length ? [`not installed: ${missing.join(', ')}`] : []), ...(extra.length ? [`not in the profile: ${extra.join(', ')}`] : [])]
-      add('skills', 'warn', `synced skills differ from the profile (${parts.join('; ')})`, 'run "ctk sync" to reconcile')
+    let skillsIsDir = false
+    try {
+      skillsIsDir = statSync(ctx.paths.skillsDir).isDirectory()
+    } catch {
+      // missing is the normal case; anything unreadable is treated as "not there"
+    }
+    if (existsSync(ctx.paths.skillsDir) && !skillsIsDir) {
+      // readdirSync would throw ENOTDIR: report it instead of crashing
+      add('skills', 'warn', `${ctx.paths.skillsDir} exists but is not a directory`, 'move it aside so "ctk sync" can create the skills directory')
+    } else {
+      const managed = skillsIsDir
+        ? readdirSync(ctx.paths.skillsDir).filter(n => {
+            try {
+              return statSync(join(ctx.paths.skillsDir, n)).isDirectory() && existsSync(join(ctx.paths.skillsDir, n, MANAGED_MARKER))
+            } catch {
+              return false
+            }
+          })
+        : []
+      const missing = wantedSkills.filter(n => !managed.includes(n))
+      const extra = managed.filter(n => !wantedSkills.includes(n))
+      if (missing.length + extra.length === 0) add('skills', 'pass', managed.length === 0 ? 'no synced skills' : `${managed.length} synced skill(s) match the profile`)
+      else {
+        const parts = [...(missing.length ? [`not installed: ${missing.join(', ')}`] : []), ...(extra.length ? [`not in the profile: ${extra.join(', ')}`] : [])]
+        add('skills', 'warn', `synced skills differ from the profile (${parts.join('; ')})`, 'run "ctk sync" to reconcile')
+      }
     }
   }
 

@@ -25,6 +25,13 @@ test('config set/get/list/unset on the user layer, applying to settings.json', a
   assert.equal((await runConfig(e.ctx, ['get', 'team.maxWorkers'], f)).code, 1)
 })
 
+test('config get prints a string raw and anything else as JSON', async t => {
+  const e = makeEnv(t)
+  assert.equal((await runConfig(e.ctx, ['set', 'routing.explorer.model', 'haiku'], f)).code, 0)
+  assert.deepEqual((await runConfig(e.ctx, ['get', 'routing.explorer.model'], f)).lines, ['haiku'])
+  assert.deepEqual((await runConfig(e.ctx, ['get', 'routing.explorer'], f)).lines, [JSON.stringify({ model: 'haiku' })])
+})
+
 test('config rejects invalid values and unknown keys without writing', async t => {
   const e = makeEnv(t)
   for (const args of [['set', 'team.maxWorkers', '99'], ['set', 'team.maxWorkers', 'many'], ['set', 'nope.key', '1'], ['set', '__proto__.x', '1'], ['bogus', 'x'], ['set', 'team.maxWorkers']]) {

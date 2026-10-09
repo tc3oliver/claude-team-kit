@@ -111,21 +111,42 @@ export type Io = { out: (line: string) => void; err: (line: string) => void; env
 
 const processIo = (): Io => ({ out: l => console.log(l), err: l => console.error(l), env: process.env, cwd: process.cwd() })
 
-/** The first positional is the command; for `sync` everything else (minus global options) is handed on untouched. */
-const splitSync = (args: string[]): { command: string | undefined; rest: string[] } => {
-  const { tokens } = parseArgs({ args, options: GLOBAL, strict: false, allowPositionals: true, tokens: true })
+/**
+ * One parse of argv against the global options. The first positional is the command; for `sync`
+ * everything else (minus global options) is handed on untouched. --version/--help/--json are
+ * decided from parsed tokens, never from raw argv, so a flag-shaped VALUE cannot hijack the
+ * command (`ctk config set outputStyle --version` is a config error, not the version); --version
+ * counts only before the command word, while --help and --json stay flags wherever they appear.
+ */
+const splitArgs = (args: string[]): {
+  command: string | undefined
+  rest: string[]
+  values: Record<string, string | boolean | undefined>
+  version: boolean
+  help: boolean
+  json: boolean
+} => {
+  const { values, tokens } = parseArgs({ args, options: GLOBAL, strict: false, allowPositionals: true, tokens: true })
   const drop = new Set<number>()
   let command: string | undefined
+  let version = false
+  let help = false
+  let json = false
   for (const t of tokens) {
-    if (t.kind === 'positional' && command === undefined) {
-      command = t.value
-      drop.add(t.index)
+    if (t.kind === 'positional') {
+      if (command === undefined) {
+        command = t.value
+        drop.add(t.index)
+      }
     } else if (t.kind === 'option' && t.name in GLOBAL) {
+      if (t.name === 'version' && command === undefined) version = true
+      if (t.name === 'help') help = true
+      if (t.name === 'json') json = true
       drop.add(t.index)
       if (GLOBAL[t.name as keyof typeof GLOBAL].type === 'string' && t.inlineValue === false) drop.add(t.index + 1)
     }
   }
-  return { command, rest: args.filter((_, i) => !drop.has(i)) }
+  return { command, rest: args.filter((_, i) => !drop.has(i)), values: values as Record<string, string | boolean | undefined>, version, help, json }
 }
 
 const runSync = async (argv: string[], ctx: Ctx): Promise<number> => {
@@ -142,12 +163,13 @@ const runSync = async (argv: string[], ctx: Ctx): Promise<number> => {
 }
 
 export async function main(argv: string[], io: Io = processIo()): Promise<number> {
-  const wantsJson = argv.includes('--json')
+  let wantsJson = false
   try {
-    const first = splitSync(argv)
+    const first = splitArgs(argv)
+    wantsJson = first.json
     const known = ['install', 'doctor', 'sync', 'update', 'rollback', 'uninstall', 'stats', 'config']
-    const help = argv.includes('--help') || argv.includes('-h')
-    if (argv.includes('--version') || argv.includes('-v')) {
+    const help = first.help
+    if (first.version) {
       io.out(ctkVersion())
       return EXIT.ok
     }
@@ -162,7 +184,10 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
       io.err(HELP)
       return EXIT.error
     }
-    const { values, positionals } = first.command === 'sync' ? { values: parseArgs({ args: argv, options: GLOBAL, strict: false, allowPositionals: true }).values, positionals: [] } : parseArgs({ args: argv, options: OPTIONS, strict: true, allowPositionals: true })
+    const { values, positionals }: { values: Record<string, string | boolean | undefined>; positionals: string[] } =
+      first.command === 'sync'
+        ? { values: first.values, positionals: [] } // the parse above already saw every global option; sync parses its own flags again itself
+        : parseArgs({ args: argv, options: OPTIONS, strict: true, allowPositionals: true })
     const configDir = resolveConfigDir(values['config-dir'] as string | undefined, io.env)
     const profile = (values.profile as string | undefined) ?? 'default'
     if (!isValidProfileName(profile)) throw new Error(`invalid profile name "${profile}" (lowercase letters, digits, - and _)`)

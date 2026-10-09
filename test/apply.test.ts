@@ -5,6 +5,7 @@ import { test } from 'node:test'
 
 import { loadLedger, saveLedger } from '../src/core/ledger.ts'
 import { DEFAULT_PROFILE, type Profile } from '../src/core/schema.ts'
+import { readSettings, writeSettings } from '../src/core/settings.ts'
 import { applyProfile } from '../src/install/apply.ts'
 import { isCtkStatusLine, statuslineCommand } from '../src/install/statusline.ts'
 import { makeEnv, readJson, snapshot, writeJson } from './helpers.ts'
@@ -90,6 +91,55 @@ test('the indentation and trailing newline of settings.json are kept', async t =
   const text = readFileSync(e.ctx.paths.settings, 'utf8')
   assert.match(text, /^\{\n\t"theme": "dark",/)
   assert.ok(!text.endsWith('\n'))
+})
+
+test('a minified single-line settings.json stays one line', async t => {
+  const e = makeEnv(t)
+  writeFileSync(e.ctx.paths.settings, '{"theme":"dark"}')
+  await applyProfile(e.ctx, withModel('opus'))
+  const text = readFileSync(e.ctx.paths.settings, 'utf8')
+  assert.ok(!text.trimEnd().includes('\n'), `expected one line, got:\n${text}`)
+  assert.equal(readJson(e.ctx.paths.settings).model, 'opus')
+  assert.ok(!text.endsWith('\n'))
+})
+
+test('writeSettings refuses when settings.json changed since it was read, and keeps the newer content', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, { model: 'sonnet' })
+  const file = readSettings(e.ctx.paths.settings)
+  const theirs = '{"model":"sonnet","mine":true}\n' // Claude Code writes while CTK is working
+  writeFileSync(e.ctx.paths.settings, theirs)
+  assert.throws(() => writeSettings(e.ctx.paths.settings, file, { model: 'opus' }), /changed while ctk was working/)
+  assert.equal(readFileSync(e.ctx.paths.settings, 'utf8'), theirs)
+  // writing the content that was read is a no-op, not a false alarm
+  const fresh = readSettings(e.ctx.paths.settings)
+  writeSettings(e.ctx.paths.settings, fresh, readJson(e.ctx.paths.settings))
+  assert.equal(readFileSync(e.ctx.paths.settings, 'utf8'), theirs)
+})
+
+test('writeSettings twice in one run with the same SettingsFile does not trip its own check', async t => {
+  const e = makeEnv(t)
+  const file = readSettings(e.ctx.paths.settings) // no file yet
+  writeSettings(e.ctx.paths.settings, file, { a: 1 })
+  writeSettings(e.ctx.paths.settings, file, { a: 2 }) // the first write updated the recorded hash
+  assert.deepEqual(readJson(e.ctx.paths.settings), { a: 2 })
+})
+
+test('a stale SettingsFile never reaches the disk through applyProfile: the CAS check re-reads at write time', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, { theme: 'dark' })
+  // hold a SettingsFile read at t0, let the world move on, then use the stale handle exactly as applySettings would
+  const stale = readSettings(e.ctx.paths.settings)
+  const theirs = '{\n  "theme": "dark",\n  "mine": true\n}\n'
+  writeFileSync(e.ctx.paths.settings, theirs)
+  const before = snapshot(e.ctx.configDir)
+  assert.throws(() => writeSettings(e.ctx.paths.settings, stale, { ...stale.data, model: 'opus' }), /changed while ctk was working; nothing was written/)
+  assert.equal(snapshot(e.ctx.configDir)['/settings.json'], before['/settings.json'], 'the refused write changed nothing')
+  // and the very next run, which reads fresh, succeeds and keeps the other writer's key
+  await applyProfile(e.ctx, withModel('opus'))
+  const merged = readJson(e.ctx.paths.settings)
+  assert.equal(merged.mine, true)
+  assert.equal(merged.model, 'opus')
 })
 
 test('statusline command, win32: forward slashes, double quotes, hostile characters refused', () => {
