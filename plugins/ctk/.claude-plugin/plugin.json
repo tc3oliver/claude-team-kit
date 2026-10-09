@@ -49,6 +49,12 @@
       "description": "Model for ctk:high-risk-reviewer: an alias, a full model id, or inherit.",
       "default": "opus"
     },
+    "designerModel": {
+      "type": "string",
+      "title": "Designer model",
+      "description": "Model for ctk:designer: an alias, a full model id, or inherit.",
+      "default": "opus"
+    },
     "hudBand": {
       "type": "boolean",
       "title": "Team band",

@@ -45,7 +45,7 @@ describe('the model can only propose', () => {
   test('show lists the real options and values, and any waiting change', async ($, on) => {
     await session($, on)
     const r = answer(await ask($, { action: 'show' }))
-    expect(r.options.map((o: any) => o.option)).toEqual(['maxWorkers', 'explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'hudBand', 'hudIdle', 'recordStats', 'teamHint'])
+    expect(r.options.map((o: any) => o.option)).toEqual(['maxWorkers', 'explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'designerModel', 'hudBand', 'hudIdle', 'recordStats', 'teamHint'])
     expect(r.options[0]).toMatchObject({ option: 'maxWorkers', value: '3', default: '5' })
     expect(r.waiting).toBeNull()
   })

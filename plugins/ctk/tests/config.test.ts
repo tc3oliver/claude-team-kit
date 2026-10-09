@@ -42,13 +42,14 @@ const changeOf = (name = 'maxWorkers', raw: unknown = 2): Change => {
 }
 
 describe('option names', () => {
-  test('exactly the nine userConfig fields', () => {
+  test('exactly the ten userConfig fields', () => {
     expect([...OPTION_NAMES]).toEqual([
       'maxWorkers',
       'explorerModel',
       'implementerModel',
       'reviewerModel',
       'highRiskModel',
+      'designerModel',
       'hudBand',
       'hudIdle',
       'recordStats',
@@ -130,8 +131,8 @@ describe('model options', () => {
     expect(good('reviewerModel', '  opus ').value).toBe('opus')
   })
 
-  test('all four model options accept a change', () => {
-    for (const name of ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel']) {
+  test('all five model options accept a change', () => {
+    for (const name of ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'designerModel']) {
       expect(good(name, 'inherit')).toMatchObject({ name, key: `ctk.${name}`, value: 'inherit' })
     }
   })

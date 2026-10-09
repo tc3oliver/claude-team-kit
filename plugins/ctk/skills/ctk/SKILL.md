@@ -24,7 +24,7 @@ Never state a result you did not see.
 
 ## Change a setting
 Load the tool with ToolSearch (`select:mcp__ctk__ctk_config`) if its schema is not loaded.
-Option names: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`, `highRiskModel`, `hudBand`,
+Option names: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`, `highRiskModel`, `designerModel`, `hudBand`,
 `hudIdle` (what the band shows before a team starts: full, minimal or hidden), `recordStats`, `teamHint`. Never guess another name; if the request maps to none, say so and list these.
 - List current values: `mcp__ctk__ctk_config` with `{"action":"show"}`.
 - Change: `{"action":"propose","option":"maxWorkers","value":2}` (value is a number, boolean or model name).

@@ -15,6 +15,7 @@ export const OPTION_NAMES = [
   'implementerModel',
   'reviewerModel',
   'highRiskModel',
+  'designerModel',
   'hudBand',
   'hudIdle',
   'recordStats',
@@ -59,6 +60,7 @@ const META: Record<OptionName, Meta> = {
   implementerModel: { label: 'Implementer model', hint: 'Model for ctk:implementer.', allowed: MODEL_ALLOWED },
   reviewerModel: { label: 'Reviewer model', hint: 'Model for ctk:reviewer.', allowed: MODEL_ALLOWED },
   highRiskModel: { label: 'High-risk reviewer model', hint: 'Model for ctk:high-risk-reviewer.', allowed: MODEL_ALLOWED },
+  designerModel: { label: 'Designer model', hint: 'Model for ctk:designer.', allowed: MODEL_ALLOWED },
   hudBand: { label: 'Team band', hint: 'Show the one-line team status band above the prompt.', allowed: 'on or off' },
   hudIdle: { label: 'Band while no team runs', hint: 'What the band shows until a teammate has started.', allowed: 'full, minimal or hidden' },
   recordStats: { label: 'Record stats', hint: 'Write small per-session counters for the ctk stats command.', allowed: 'on or off' },
@@ -68,7 +70,7 @@ const META: Record<OptionName, Meta> = {
 /** The sections Mission Control groups the options into, in display order. */
 export const OPTION_GROUPS: { title: string; names: OptionName[] }[] = [
   { title: 'Team', names: ['maxWorkers'] },
-  { title: 'Models', names: ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel'] },
+  { title: 'Models', names: ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'designerModel'] },
   { title: 'Band', names: ['hudBand', 'hudIdle'] },
   { title: 'Other', names: ['recordStats', 'teamHint'] },
 ]

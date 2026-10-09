@@ -42,7 +42,7 @@ things only the CLI, or you by hand, can provide.
   install / update     │  │ plugin ctk@ctk-kit                     │  │
   config / sync        │  │   skills   team  review  debug         │  │
   doctor / stats       │  │   agents   explorer implementer        │  │
-  rollback / uninstall │  │            reviewer high-risk-reviewer │  │
+  rollback / uninstall │  │   reviewer high-risk-reviewer designer │  │
         │              │  │   mod      hooks/register.tsx          │  │
         │ settings.json│  │            cap · routing · band · stats│  │
         ├─────────────▶│  └────────────────────────────────────────┘  │
@@ -55,7 +55,7 @@ things only the CLI, or you by hand, can provide.
 
 | Part | Where | What it does |
 |---|---|---|
-| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the nine options below. |
+| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the ten options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
 | Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
 | Agents | `plugins/ctk/agents/*.md` | Four role definitions with a pinned `model` and `effort` in their frontmatter. |
@@ -70,7 +70,7 @@ things only the CLI, or you by hand, can provide.
 
 Everything Claude Code loads into context every turn is the frontmatter `description` of the
 skills that allow model invocation (all four: `team` is found from natural language and gates itself on a
-clear ask) and of the four agents. Skill bodies and `references/*.md` are loaded on demand (invoking `team`
+clear ask) and of the five agents. Skill bodies and `references/*.md` are loaded on demand (invoking `team`
 costs about 850 tokens, `review` 330, `debug` 280). The measured fixed cost is +425 tokens over a session
 without the plugin ([NATURAL-LANGUAGE](NATURAL-LANGUAGE.md#always-on-cost)); `node scripts/measure-context.mjs 500`
 checks the descriptions' own text (about 176 tokens) against a 500-token budget and runs in CI.
@@ -87,6 +87,7 @@ checks the descriptions' own text (about 176 tokens) against a 500-token budget 
 | `ctk:implementer` | `sonnet` | `medium` | inherited |
 | `ctk:reviewer` | `sonnet` | `medium` | Read, Grep, Glob |
 | `ctk:high-risk-reviewer` | `opus` | `high` | Read, Grep, Glob |
+| `ctk:designer` | `opus` | `high` | Read, Grep, Glob |
 
 Skills hand workers *context pointers* (spec path, task id, file list, commit sha) rather than
 pasted content, so a worker's context does not carry text the lead already holds.
@@ -175,7 +176,7 @@ result has a `teammate_id` and `ctk_team_status` (a tool the mod registers) list
 `TEAM_CAPACITY_REACHED`, `TEAM_GUARD_FAILED`, or a task row that only shows "Done" means the
 worker did not start, so the task stays `pending`.
 
-**Model routing.** If a spawn has no explicit `model` and its `subagentType` is one of the four
+**Model routing.** If a spawn has no explicit `model` and its `subagentType` is one of the five
 CTK agent types, CTK sets the model from the options (`explorerModel`, ...). An explicit
 `model` is never overridden, and the value `inherit` leaves the spawn unchanged. Routing
 applies to teammate and non-teammate spawns of CTK agents alike. Effort is **not** routed:

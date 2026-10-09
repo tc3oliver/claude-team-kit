@@ -138,7 +138,7 @@ measured (reported by Claude Code):
 
 ## Options
 
-The mod reads nine options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
+The mod reads ten options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
 run for this page) or at install time with `--config KEY=VALUE`:
 
 ```sh
@@ -516,7 +516,7 @@ into `<config>/ctk/backups/<timestamp>-install/`.
 
 | Key | Written when |
 |---|---|
-| `pluginConfigs["ctk@ctk-kit"].options.{maxWorkers, explorerModel, implementerModel, reviewerModel, highRiskModel, hudBand, hudIdle, recordStats}` | each one absent. Defaults are in [CONFIGURATION](CONFIGURATION.md). |
+| `pluginConfigs["ctk@ctk-kit"].options.{maxWorkers, explorerModel, implementerModel, reviewerModel, highRiskModel, designerModel, hudBand, hudIdle, recordStats}` | each one absent. Defaults are in [CONFIGURATION](CONFIGURATION.md). |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` = `"1"` | absent, and `claude.enableAgentTeams` is true |
 | `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` = `"1"` | absent, and `claude.enableTaskTools` is true (default false) |
 | `statusLine` = `'<node>' '<config>/ctk/bin/ctk-statusline.mjs'` on macOS and Linux (each path single-quoted) | absent, and `hud.statusLine` is `auto` |

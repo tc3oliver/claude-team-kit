@@ -22,7 +22,7 @@ const roleSchema = z.strictObject({ model })
 export const profileSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION),
   team: z.strictObject({ maxWorkers: z.number().int().min(1).max(12), hint: z.boolean() }),
-  routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema }),
+  routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema, designer: roleSchema }),
   hud: z.strictObject({ band: z.boolean(), idle: z.enum(HUD_IDLE), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
   claude: z.strictObject({ enableAgentTeams: z.boolean(), enableTaskTools: z.boolean() }),
@@ -51,6 +51,7 @@ export const profileLayerSchema = z.strictObject({
       implementer: partialRole.optional(),
       reviewer: partialRole.optional(),
       highRisk: partialRole.optional(),
+      designer: partialRole.optional(),
     })
     .optional(),
   hud: z.strictObject({ band: z.boolean().optional(), idle: z.enum(HUD_IDLE).optional(), statusLine: z.enum(['auto', 'off']).optional() }).optional(),
@@ -69,6 +70,7 @@ export const DEFAULT_PROFILE: Profile = {
     implementer: { model: DEFAULT_OPTIONS.implementerModel },
     reviewer: { model: DEFAULT_OPTIONS.reviewerModel },
     highRisk: { model: DEFAULT_OPTIONS.highRiskModel },
+    designer: { model: DEFAULT_OPTIONS.designerModel },
   },
   hud: { band: DEFAULT_OPTIONS.hudBand, idle: DEFAULT_OPTIONS.hudIdle, statusLine: 'auto' },
   stats: { record: DEFAULT_OPTIONS.recordStats },
@@ -109,6 +111,7 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   implementerModel: p.routing.implementer.model,
   reviewerModel: p.routing.reviewer.model,
   highRiskModel: p.routing.highRisk.model,
+  designerModel: p.routing.designer.model,
   hudBand: p.hud.band,
   hudIdle: p.hud.idle,
   recordStats: p.stats.record,

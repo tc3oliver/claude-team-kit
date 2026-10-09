@@ -45,6 +45,7 @@ const OPTION_PROFILE_PATHS: Record<string, string> = {
   implementerModel: 'routing.implementer.model',
   reviewerModel: 'routing.reviewer.model',
   highRiskModel: 'routing.highRisk.model',
+  designerModel: 'routing.designer.model',
   hudBand: 'hud.band',
   hudIdle: 'hud.idle',
   recordStats: 'stats.record',

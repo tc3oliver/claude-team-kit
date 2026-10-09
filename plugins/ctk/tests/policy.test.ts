@@ -13,10 +13,10 @@ describe('model routing', () => {
   test('a CTK role without a model gets its configured alias', async ($, on) => {
     const w = fresh()
     engine(on, w)
-    for (const [i, type] of ['ctk:explorer', 'ctk:implementer', 'ctk:reviewer', 'ctk:high-risk-reviewer'].entries()) {
+    for (const [i, type] of ['ctk:explorer', 'ctk:implementer', 'ctk:reviewer', 'ctk:high-risk-reviewer', 'ctk:designer'].entries()) {
       await $.agent.spawn(spawnInput(i, false, { subagentType: type }))
     }
-    expect(w.models).toEqual(['haiku', 'sonnet', 'sonnet', 'opus'])
+    expect(w.models).toEqual(['haiku', 'sonnet', 'sonnet', 'opus', 'opus'])
   })
 
   test('configured models apply, teammates included', { options: { explorerModel: 'claude-haiku-5-5' } }, async ($, on) => {

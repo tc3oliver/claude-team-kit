@@ -1,7 +1,7 @@
 # Configuration
 
 CTK has two configuration paths. A **native install** (`/plugin install ctk@ctk-kit`, see
-[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's nine options with
+[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's ten options with
 `/plugin configure ctk@ctk-kit` or `claude plugin install ctk@ctk-kit --config KEY=VALUE`, and
 every option has a default. With the optional **`ctk` CLI** you configure a **profile**: a small
 JSON document. You never have to write one by hand; `ctk config` edits it and applies the
@@ -79,15 +79,16 @@ The most teammates alive at once. A spawn beyond it is denied with `TEAM_CAPACIT
 | `routing.implementer.model` | string | `sonnet` | `implementerModel` |
 | `routing.reviewer.model` | string | `sonnet` | `reviewerModel` |
 | `routing.highRisk.model` | string | `opus` | `highRiskModel` |
+| `routing.designer.model` | string | `opus` | `designerModel` |
 
 `model` is a model alias, a full model id, or `inherit` (use the session's model). It is applied
 only when a spawn names a CTK agent type (`ctk:explorer`, `ctk:implementer`, `ctk:reviewer`,
-`ctk:high-risk-reviewer`) and gives no `model` of its own. An explicit model is never
+`ctk:high-risk-reviewer`, `ctk:designer`) and gives no `model` of its own. An explicit model is never
 overridden.
 
 **Effort is not a profile field.** Each agent's reasoning effort comes only from the `effort:`
 line in its definition (`plugins/ctk/agents/*.md`): `medium` for `explorer`, `implementer` and
-`reviewer`, `high` for `high-risk-reviewer`. A profile cannot change it, because Claude Code's
+`reviewer`, `high` for `high-risk-reviewer` and `designer`. A profile cannot change it, because Claude Code's
 spawn hook can set a model but not an effort; a layer containing `routing.<role>.effort` is
 rejected. To use a different effort, edit or fork the agent files.
 
@@ -153,6 +154,7 @@ CTK writes the effective values to `settings.json`, one key each, under
 | `implementerModel` | `routing.implementer.model` | `sonnet` | same |
 | `reviewerModel` | `routing.reviewer.model` | `sonnet` | same |
 | `highRiskModel` | `routing.highRisk.model` | `opus` | same |
+| `designerModel` | `routing.designer.model` | `opus` | same |
 | `hudBand` | `hud.band` | `true` | boolean |
 | `hudIdle` | `hud.idle` | `full` | `full`, `minimal` or `hidden` |
 | `recordStats` | `stats.record` | `true` | boolean |
@@ -170,7 +172,7 @@ to 1-12.
 
 | Key | When |
 |---|---|
-| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the nine options above) |
+| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the ten options above) |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | absent and `claude.enableAgentTeams` |
 | `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` | absent and `claude.enableTaskTools` (default off) |
 | `statusLine` | absent (or already CTK's) and `hud.statusLine = auto` |

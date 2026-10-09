@@ -34,7 +34,7 @@ Verify: <command>   Report: files changed, command result, risks
 ## Model routing
 
 Roles map to agents: build -> `ctk:implementer`, scout -> `ctk:explorer`, review -> `ctk:reviewer`
-or `ctk:high-risk-reviewer`. Models come from plugin options; do not pass `model` unless the user asked.
+or `ctk:high-risk-reviewer`, design -> `ctk:designer` (read-only, returns a brief). Models come from plugin options; do not pass `model` unless the user asked.
 
 ## Conflicts
 

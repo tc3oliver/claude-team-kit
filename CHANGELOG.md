@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.1] - Unreleased (candidate)
 
+### Added
+
+- `ctk:designer`, a read-only Opus agent for UI/UX and interface design that returns one design brief (hierarchy, layout per width, every state, colour rules, acceptance checks, risks) for the lead to hand to implementers. Model option `designerModel` (default `opus`, profile field `routing.designer.model`). Skill-guided: the team skill's model-routing note names it, but nothing forces the lead to call it. A named designer is a native teammate and counts against the cap.
+
 ### Changed
 
 - The default worker cap is now 5 (was 3), still 1 to 12. An explicit setting is never touched: an installed plugin that was configured to a value keeps it, and one that was never configured follows the new default after it updates.

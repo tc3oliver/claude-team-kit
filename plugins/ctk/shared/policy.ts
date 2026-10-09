@@ -5,7 +5,7 @@
 // only import their own files) and the CLI imports it too, so defaults can never
 // drift. `test/contract.test.ts` checks plugin.json `userConfig` against this file.
 
-export const ROLES = ['explorer', 'implementer', 'reviewer', 'highRisk'] as const
+export const ROLES = ['explorer', 'implementer', 'reviewer', 'highRisk', 'designer'] as const
 export type Role = (typeof ROLES)[number]
 
 export const HUD_IDLE = ['full', 'minimal', 'hidden'] as const
@@ -19,6 +19,7 @@ export type PolicyOptions = {
   implementerModel: string
   reviewerModel: string
   highRiskModel: string
+  designerModel: string
   /** Draw the team band above the prompt. */
   hudBand: boolean
   /** What the band shows while no teammate has started: everything, only the CTK entry and guard, or nothing. */
@@ -35,6 +36,7 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   implementerModel: 'sonnet',
   reviewerModel: 'sonnet',
   highRiskModel: 'opus',
+  designerModel: 'opus',
   hudBand: true,
   hudIdle: 'full',
   recordStats: true,
@@ -47,6 +49,7 @@ export const DEFAULT_EFFORT: Record<Role, string> = {
   implementer: 'medium',
   reviewer: 'medium',
   highRisk: 'high',
+  designer: 'high',
 }
 
 /** Agent type names as Claude Code reports them for plugin agents (`<plugin>:<name>`). */
@@ -55,6 +58,7 @@ export const AGENT_TYPES: Record<Role, string> = {
   implementer: 'ctk:implementer',
   reviewer: 'ctk:reviewer',
   highRisk: 'ctk:high-risk-reviewer',
+  designer: 'ctk:designer',
 }
 
 /** Error code carried in every capacity refusal. The team skill keys off this exact token. */
@@ -77,6 +81,7 @@ export const readOptions = (raw: unknown): PolicyOptions => {
     implementerModel: str(o.implementerModel, DEFAULT_OPTIONS.implementerModel),
     reviewerModel: str(o.reviewerModel, DEFAULT_OPTIONS.reviewerModel),
     highRiskModel: str(o.highRiskModel, DEFAULT_OPTIONS.highRiskModel),
+    designerModel: str(o.designerModel, DEFAULT_OPTIONS.designerModel),
     hudBand: bool(o.hudBand, DEFAULT_OPTIONS.hudBand),
     hudIdle: (HUD_IDLE as readonly unknown[]).includes(o.hudIdle) ? (o.hudIdle as HudIdle) : DEFAULT_OPTIONS.hudIdle,
     recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
@@ -90,4 +95,5 @@ export const modelFor = (opts: PolicyOptions, role: Role): string =>
     implementer: opts.implementerModel,
     reviewer: opts.reviewerModel,
     highRisk: opts.highRiskModel,
+    designer: opts.designerModel,
   })[role]

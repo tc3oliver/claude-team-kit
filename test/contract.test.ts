@@ -59,6 +59,7 @@ const fileOf: Record<string, string> = {
   implementer: 'implementer',
   reviewer: 'reviewer',
   highRisk: 'high-risk-reviewer',
+  designer: 'designer',
 }
 for (const role of ROLES) {
   test(`agent ${role} frontmatter matches policy defaults`, () => {
@@ -75,7 +76,7 @@ for (const role of ROLES) {
   })
 }
 
-test('agent files are exactly the four roles', () => {
+test('agent files are exactly the five roles', () => {
   assert.deepEqual(readdirSync(join(plugin, 'agents')).sort(), Object.values(fileOf).map((f) => `${f}.md`).sort())
 })
 
