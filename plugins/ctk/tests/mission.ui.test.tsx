@@ -187,27 +187,21 @@ describe('Mission Control views', () => {
     expect(t).toContain('unavailable (no in-progress task owned by this worker was observed)')
   })
 
-  test('task list and detail: owner, dependencies with their states, ready and blocked', async ($, on) => {
+  test('the Tasks page is one line however many tasks there are', async ($, on) => {
     await team($, on)
+    for (let i = 4; i <= 10; i++) await call($, 'TaskCreate', `tc${i}`, { subject: `task ${i}` })
     const p = await pane($)
     await p.press({ key: 'mc:view:tasks' })
-    let t = await texts(p)
-    expect(t).toContain('needs #1,#2')
-    expect(t).toContain('ready')
-    await p.press({ key: 'mc:task:3' })
-    t = await texts(p)
-    for (const want of ['#3 run npm test', 'no, blocked', '#1 (in_progress), #2 (pending)']) expect(t).toContain(want)
-    await p.press({ key: 'mc:back' })
-    await p.press({ key: 'mc:task:1' })
-    t = await texts(p)
-    expect(t).toContain('w-rle')
-    expect(t).toContain('#3')
+    const t = await texts(p)
+    expect(t).toContain('0/10 done')
+    expect(t).not.toContain('task 7')
+    await p.unmount()
   })
 
   test('descriptions the model passed to the task tools are never shown', async ($, on) => {
     await team($, on)
     const p = await pane($)
-    for (const key of ['mc:view:tasks', 'mc:task:1', 'mc:view:stats', 'mc:view:usage']) {
+    for (const key of ['mc:view:tasks', 'mc:view:stats', 'mc:view:usage']) {
       await p.press({ key })
       expect(await texts(p)).not.toContain('PRIVATE')
     }
@@ -281,8 +275,7 @@ describe('Mission Control views', () => {
     expect(t).not.toContain('claude-sonnet-5-5')
     await p.press({ key: 'mc:view:tasks' })
     t = await texts(p)
-    expect(t).toContain('NEEDS')
-    expect(t).toContain('needs 1,2')
+    expect(t).toContain('0/3 done')
     await p.unmount()
   })
 
@@ -338,7 +331,7 @@ describe('what Mission Control never does', () => {
     const w = await team($, on)
     const spawns = w.spawnCalls
     const p = await pane($)
-    for (const key of ['mc:view:workers', 'mc:worker:a1', 'mc:back', 'mc:view:tasks', 'mc:task:3', 'mc:back', 'mc:view:usage', 'mc:view:config', 'mc:hud:compact', 'mc:hud:auto', 'mc:view:stats', 'mc:view:doctor', 'mc:refresh', 'mc:close']) {
+    for (const key of ['mc:view:workers', 'mc:worker:a1', 'mc:back', 'mc:view:tasks', 'mc:view:usage', 'mc:view:config', 'mc:hud:compact', 'mc:hud:auto', 'mc:view:stats', 'mc:view:doctor', 'mc:refresh', 'mc:close']) {
       await p.press({ key })
     }
     expect(w.spawnCalls).toBe(spawns)

@@ -670,7 +670,7 @@ export const register: Register = (on, options) => {
         pending: sweep(c.cfg, c.lastNow).pending === null ? null : { id: sweep(c.cfg, c.lastNow).pending!.id, text: sweep(c.cfg, c.lastNow).pending!.change.text },
         notice: c.notice,
       },
-      e.props,
+      { ...e.props, ambiguous: c.ambiguous },
     )
   })
 }
