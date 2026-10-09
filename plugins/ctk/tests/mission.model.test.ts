@@ -27,7 +27,7 @@ import {
   viewKey,
   workerKey,
 } from '../hooks/mission.ts'
-import { snapshotOf } from '../hooks/team.ts'
+import { isLiveStatus, snapshotOf } from '../hooks/team.ts'
 import { emptyStats } from '../shared/stats.ts'
 
 const NOW = Date.UTC(2026, 9, 9, 3)
@@ -120,6 +120,52 @@ describe('task board', () => {
     const m = newMissionState()
     for (let i = 0; i < MEMORY_LIMIT + 20; i++) create(m, String(i), `t${i}`)
     expect(m.tasks.size).toBe(MEMORY_LIMIT)
+  })
+})
+
+describe('eviction past the memory limit', () => {
+  // Map order is recency (noteTaskCall re-inserts on update), terminal tasks are evicted before
+  // active ones, and a task others still reference outlives an unreferenced one of its own class.
+  test('an actively-updated old task survives while untouched ones are evicted', () => {
+    const m = newMissionState()
+    create(m, '0', 'the long-running one')
+    // Trim fires on each create, so '0' must be touched to stay recent — which is exactly what an
+    // actively-updated task does. Without the touch it would be the oldest and evicted mid-burst.
+    for (let i = 1; i <= MEMORY_LIMIT + 20; i++) {
+      create(m, String(i), `t${i}`)
+      noteTaskCall(m, 'TaskUpdate', { taskId: '0', status: 'in_progress' }, { success: true })
+    }
+    expect(m.tasks.size).toBe(MEMORY_LIMIT)
+    expect(m.tasks.has('0')).toBe(true)
+    expect(taskRows(m).find(t => t.id === '0')).toMatchObject({ status: 'in_progress', seenByUpdateOnly: false })
+  })
+
+  test('terminal tasks are evicted before older active ones', () => {
+    const m = newMissionState()
+    for (let i = 0; i < MEMORY_LIMIT; i++) create(m, String(i), `t${i}`) // all pending (active)
+    for (let i = MEMORY_LIMIT - 20; i < MEMORY_LIMIT; i++) noteTaskCall(m, 'TaskUpdate', { taskId: String(i), status: 'completed' }, { success: true })
+    // The completed ones are now the most-recently-touched, but terminal still goes first.
+    for (let i = MEMORY_LIMIT; i < MEMORY_LIMIT + 10; i++) create(m, String(i), `t${i}`)
+    expect(m.tasks.size).toBe(MEMORY_LIMIT)
+    expect(m.tasks.has('5')).toBe(true) // oldest active, kept
+    const completedLeft = [...m.tasks.values()].filter(t => t.status === 'completed').length
+    expect(completedLeft).toBe(10) // ten completed went before any older active one
+  })
+
+  test('a referenced blocker is not evicted while unreferenced terminal tasks remain', () => {
+    const m = newMissionState()
+    create(m, 'b', 'blocker')
+    create(m, 'w', 'waiter')
+    noteTaskCall(m, 'TaskUpdate', { taskId: 'w', addBlockedBy: ['b'] }, { success: true })
+    for (let i = 0; i < MEMORY_LIMIT - 2; i++) create(m, `x${i}`, `filler ${i}`)
+    // Some unreferenced fillers finish; so does the blocker b (referenced by w).
+    for (let i = 0; i < 20; i++) noteTaskCall(m, 'TaskUpdate', { taskId: `x${i}`, status: 'completed' }, { success: true })
+    noteTaskCall(m, 'TaskUpdate', { taskId: 'b', status: 'completed' }, { success: true })
+    for (let i = MEMORY_LIMIT; i < MEMORY_LIMIT + 10; i++) create(m, `y${i}`, `late ${i}`)
+    expect(m.tasks.size).toBe(MEMORY_LIMIT)
+    expect(m.tasks.has('b')).toBe(true) // referenced: outlives the unreferenced completed fillers
+    expect(m.tasks.has('w')).toBe(true)
+    expect(taskRows(m).find(t => t.id === 'w')).toMatchObject({ blocked: false, ready: true })
   })
 })
 
@@ -260,6 +306,21 @@ describe('guard', () => {
 })
 
 describe('mission model', () => {
+  test('the one live predicate: finished statuses free their slot, anything else — including a word no version knows — holds it', () => {
+    expect(isLiveStatus('completed')).toBe(false)
+    expect(isLiveStatus('failed')).toBe(false)
+    expect(isLiveStatus('killed')).toBe(false)
+    expect(isLiveStatus('running')).toBe(true)
+    expect(isLiveStatus('idle')).toBe(true)
+    // Fail-safe: an unknown status counts as live, so the cap refuses rather than over-admits.
+    expect(isLiveStatus('paused-in-2.3')).toBe(true)
+    expect(isLiveStatus('')).toBe(true)
+    const snap = snapshotOf([agent('a1', 'w1', 'paused-in-2.3' as AgentInfo['status'])], null, NOW)
+    expect(snap).toMatchObject({ live: 1, done: 0, busy: 0, idle: 0 })
+    const m = buildMission({ stats: emptyStats('s', 3, 0), snap, state: newMissionState(), nowMs: NOW, teamsEnabled: true, ready: true })
+    expect(m).toMatchObject({ active: 1, completed: 0, failed: 0 })
+  })
+
   test('counts running, idle, completed and failed from the roster', () => {
     const snap = snapshotOf(
       [agent('a1', 'a', 'running'), agent('a2', 'b', 'idle'), agent('a3', 'c', 'completed'), agent('a4', 'd', 'failed'), agent('a5', 'e', 'killed')],

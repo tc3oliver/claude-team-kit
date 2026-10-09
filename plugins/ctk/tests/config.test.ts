@@ -91,7 +91,7 @@ describe('maxWorkers', () => {
 
   test('the change carries the key, the old and the new value and a line of text', () => {
     const r = good('maxWorkers', 2)
-    expect(r).toMatchObject({ ok: true, name: 'maxWorkers', key: 'ctk.maxWorkers', from: 5, to: 2, value: 2 })
+    expect(r).toMatchObject({ ok: true, name: 'maxWorkers', key: 'ctk.maxWorkers', from: 5, value: 2 })
     expect(r.text).toBe('Max live teammates (maxWorkers): 5 -> 2')
   })
 

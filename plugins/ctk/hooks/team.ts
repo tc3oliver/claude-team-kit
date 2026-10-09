@@ -8,12 +8,20 @@ import type { StatsRecord } from '../shared/stats.ts'
 
 export const GUARD_CODE = 'TEAM_GUARD_FAILED'
 
-/** Statuses that hold a teammate slot. A finished (completed, failed, killed) teammate frees it. */
-const LIVE = new Set(['pending', 'running', 'waiting', 'idle'])
+/** Statuses of an agent that is done, however it ended: it holds no slot and is counted nowhere as live. */
+const TERMINAL = new Set(['completed', 'failed', 'killed'])
+
+/**
+ * The one live-status predicate (the cap, the band's subagent count and Mission Control's all read
+ * it). Anything not terminal is live — an unknown status word counts as live on purpose: the cap
+ * then refuses rather than over-admits, and no view hides an agent that may still be running.
+ */
+export const isLiveStatus = (status: string): boolean => !TERMINAL.has(status)
+
 /** Working or blocked mid-task (`waiting` is stuck on an approval, so not free to reuse). */
 const BUSY = new Set(['pending', 'running', 'waiting'])
 
-export const isLiveTeammate = (a: AgentInfo): boolean => a.teammateId !== undefined && LIVE.has(a.status)
+export const isLiveTeammate = (a: AgentInfo): boolean => a.teammateId !== undefined && isLiveStatus(a.status)
 
 export type Worker = { name: string; teammateId: string; agentId: string; status: string }
 
@@ -45,7 +53,7 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
   return {
     busy: count(BUSY),
     idle: team.filter(a => a.status === 'idle').length,
-    done: team.length - count(LIVE),
+    done: team.filter(a => !isLiveStatus(a.status)).length,
     failed: team.filter(a => a.status === 'failed' || a.status === 'killed').length,
     live: team.filter(isLiveTeammate).length,
     workers: team.map(a => ({
@@ -138,16 +146,23 @@ export const CONFIG_TOOL = `mcp__ctk__${CONFIG_TOOL_NAME}`
 export const PENDING_TTL_MS = 10_000
 
 /**
- * Live teammates for the cap: the roster's live ones plus accepted ones the roster has not
- * listed yet (teammateId -> accepted-at ms). A listed one is dropped from `pending` and the
- * roster's status governs from then on; an unlisted one is dropped after the TTL, so a
- * teammate that finished instantly cannot hold a slot forever. Mutates `pending`.
+ * Drops the accepted spawns the roster has settled: one it now lists (its status governs from
+ * then on) and one older than the TTL, so a teammate that finished instantly cannot hold a slot
+ * forever. Mutates `pending`; what is left in it is still starting.
  */
-export const effectiveLive = (roster: AgentInfo[], pending: Map<string, number>, now: number): number => {
+export const prunePending = (roster: AgentInfo[], pending: Map<string, number>, now: number): void => {
   const listed = new Set(roster.flatMap(a => (a.teammateId === undefined ? [] : [a.teammateId])))
   for (const [id, at] of pending) {
     if (listed.has(id) || now - at >= PENDING_TTL_MS) pending.delete(id)
   }
+}
+
+/**
+ * Live teammates for the cap: the roster's live ones plus accepted ones the roster has not
+ * listed yet (teammateId -> accepted-at ms). Prunes `pending` first (see prunePending).
+ */
+export const effectiveLive = (roster: AgentInfo[], pending: Map<string, number>, now: number): number => {
+  prunePending(roster, pending, now)
   return roster.filter(isLiveTeammate).length + pending.size
 }
 

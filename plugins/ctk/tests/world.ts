@@ -58,7 +58,13 @@ export type World = {
   failWrites: boolean
   /** Teammates the roster does not list yet: id -> list calls left before it appears. */
   lag: Map<string, number>
+  /** Host calls answered since the world was made, by event name (the perf-measurement spy). */
+  hostCalls: Map<string, number>
 }
+
+/** hostCalls for one event name, and the total across all of them. */
+export const calls = (w: World, name?: string): number =>
+  name === undefined ? [...w.hostCalls.values()].reduce((a, b) => a + b, 0) : (w.hostCalls.get(name) ?? 0)
 
 const ENGINE = { plugin: 'engine', tier: 'core' } as const
 
@@ -104,6 +110,7 @@ export const fresh = (): World => ({
   tools: [],
   failWrites: false,
   lag: new Map(),
+  hostCalls: new Map(),
 })
 
 // The test kit may hand a path on as the platform resolves it (`/cfg/x` becomes
@@ -132,7 +139,21 @@ export type EngineOptions = {
 
 // agent.list answers the roster; agent.spawn yields `delay` microtasks (simulating
 // startup) before the teammate appears in the roster. Returns the mocked clock.
+// Every dispatch that reaches these bottom handlers is counted in w.hostCalls, by event
+// name: that is the spy the perf measurements (register.tsx draw and refresh costs) read.
 export const engine = (on: On, w: World, delay: (i: number) => number = () => 3, opts: EngineOptions = {}) => {
+  const base = on
+  on = ((event: string, ...rest: unknown[]) => {
+    const i = rest.length - 1
+    const h = rest[i] as (...a: unknown[]) => unknown
+    if (typeof h === 'function') {
+      rest[i] = (...a: unknown[]) => {
+        w.hostCalls.set(event, (w.hostCalls.get(event) ?? 0) + 1)
+        return h(...a)
+      }
+    }
+    return (base as unknown as (e: string, ...r: unknown[]) => unknown)(event, ...rest)
+  }) as unknown as On
   const clock = mock.clock(on, { now: 1_000_000 })
   if (opts.envFails) {
     on('env.get', () => {

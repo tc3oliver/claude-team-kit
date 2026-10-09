@@ -4,8 +4,12 @@ import type { Ctx } from './ctx.tsx'
 import { COLOR } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
 
+// Hoisted out of unobserved (it ran per segment per frame). Not /g and used with .test, so no
+// lastIndex state; DASH is a single literal character, no metacharacter to escape.
+const UNOBSERVED_RE = new RegExp(`:\\s*(${DASH}|unavailable)(\\s|$)`)
+
 /** `label: value` whose value is the dash (or says unavailable) was not observed: muted, never read as 0. */
-const unobserved = (seg: string) => new RegExp(`:\\s*(${DASH}|unavailable)(\\s|$)`).test(seg)
+export const unobserved = (seg: string) => UNOBSERVED_RE.test(seg)
 
 const TITLES: Record<string, string> = { 'counted by CTK:': 'COUNTED BY CTK', 'measured (reported by Claude Code):': 'MEASURED BY CLAUDE CODE' }
 

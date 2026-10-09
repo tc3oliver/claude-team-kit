@@ -9,13 +9,20 @@ import type { Snapshot } from './team.ts'
 
 const num = (v: number | null): string => (v === null ? DASH : String(v))
 
-export const fmtElapsed = (ms: number | null): string => {
-  if (ms === null) return DASH
+/**
+ * `5s`, `4m`, `1h05m` for a duration in ms; `nullText` stands in for a null duration. The one
+ * body behind the band's `fmtElapsed` (sentinel DASH) and Mission Control's `fmtSpan` (sentinel
+ * UNAVAILABLE): both call sites keep their own null wording, so the formats stay as pinned.
+ */
+export const spanText = (ms: number | null, nullText: string): string => {
+  if (ms === null) return nullText
   const s = Math.floor(ms / 1000)
   if (s < 60) return `${s}s`
   const m = Math.floor(s / 60)
   return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 }
+
+export const fmtElapsed = (ms: number | null): string => spanText(ms, DASH)
 
 /**
  * `claude-sonnet-5-5` -> `Sonnet 5.5`; `claude-opus-4-1-20250805` -> `Opus 4.1`; an alias such
@@ -59,11 +66,11 @@ export type BandOptions = {
   branch?: string | null
 }
 
-// Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
-// the status line's too; the rest is the team's.
 /** Above this many tasks the band points at Mission Control for the whole list. */
 const MORE_TASKS = 6
 
+// Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
+// the status line's too; the rest is the team's.
 const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {

@@ -121,7 +121,7 @@ describe('the teamHint option is the off switch', () => {
 
   test('a change to it goes through the same confirmed path as any option', () => {
     const r = validateChange('teamHint', false, DEFAULT_OPTIONS)
-    expect(r).toMatchObject({ ok: true, name: 'teamHint', key: 'ctk.teamHint', to: false })
+    expect(r).toMatchObject({ ok: true, name: 'teamHint', key: 'ctk.teamHint', value: false })
     expect(validateChange('teamHint', 'maybe', DEFAULT_OPTIONS)).toMatchObject({ ok: false })
   })
 })

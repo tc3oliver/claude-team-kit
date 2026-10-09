@@ -1,5 +1,7 @@
 import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
+import { spanText } from './band.ts'
+import { isLiveStatus } from './team.ts'
 import type { Snapshot, Subagent } from './team.ts'
 
 // The data behind Mission Control: what CTK observed this session, and the view model built
@@ -59,6 +61,34 @@ const trim = <V>(map: Map<string, V>): void => {
     const first = map.keys().next()
     if (first.done === true) break
     map.delete(first.value)
+  }
+}
+
+const isTerminalTask = (t: TaskRec): boolean => t.status === 'completed' || t.status === 'deleted'
+
+/**
+ * Eviction for the task board past MEMORY_LIMIT, one task at a time. A Map keeps insertion order,
+ * and noteTaskCall re-inserts on update, so the first key is the least-recently-touched. Losing a
+ * finished task costs least, so terminal (completed/deleted) go before active ones; and within a
+ * class, a task nothing depends on goes before one a retained task still references in
+ * blockedBy/blocks — evicting a referenced blocker would drop its completed status and leave a
+ * dangling, re-opened edge in the rendered DAG. Oldest wins inside each group.
+ */
+const trimTasks = (tasks: Map<string, TaskRec>): void => {
+  while (tasks.size > MEMORY_LIMIT) {
+    const recs = [...tasks.values()]
+    const referenced = new Set<string>()
+    for (const t of recs) {
+      for (const id of t.blockedBy) referenced.add(id)
+      for (const id of t.blocks) referenced.add(id)
+    }
+    const victim =
+      recs.find(t => isTerminalTask(t) && !referenced.has(t.id)) ??
+      recs.find(isTerminalTask) ??
+      recs.find(t => !referenced.has(t.id)) ??
+      recs[0]
+    if (victim === undefined) break
+    tasks.delete(victim.id)
   }
 }
 
@@ -131,9 +161,11 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
     const id = text(task?.id)
     const subject = text(task?.subject) ?? text(input.subject)
     if (id === null || subject === null) return
+    // delete-then-set so a re-created id moves to the newest slot (recency drives trimTasks).
+    m.tasks.delete(id)
     m.tasks.set(id, { id, subject, status: 'pending', owner: null, blockedBy: [], blocks: [] })
     m.taskCallsSeen = true
-    trim(m.tasks)
+    trimTasks(m.tasks)
     return
   }
   if (tool !== 'TaskUpdate') return
@@ -147,9 +179,12 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
   if (owner !== null) rec.owner = owner
   for (const b of idList(input.addBlockedBy)) if (!rec.blockedBy.includes(b)) rec.blockedBy.push(b)
   for (const b of idList(input.addBlocks)) if (!rec.blocks.includes(b)) rec.blocks.push(b)
+  // An update touches the task, so it moves to the newest slot: an actively-updated old task
+  // outlives one left alone, and cannot be evicted-then-resurrected as seenByUpdateOnly.
+  m.tasks.delete(id)
   m.tasks.set(id, rec)
   m.taskCallsSeen = true
-  trim(m.tasks)
+  trimTasks(m.tasks)
 }
 
 // --- View model --------------------------------------------------------------------------
@@ -268,8 +303,6 @@ export type WorkerRow = {
   elapsedMs: number | null
 }
 
-const busyStatuses = new Set(['pending', 'running', 'waiting'])
-
 export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows: TaskRow[] = taskRows(m)): WorkerRow[] =>
   snap.workers.map(w => {
     const rec = m.workers.get(w.agentId)
@@ -362,8 +395,6 @@ export type MissionInput = {
   ready: boolean
 }
 
-const LIVE_STATUS = new Set(['pending', 'running', 'waiting', 'idle'])
-
 const EMPTY_TASKS =
   'No task list yet. The lead creates one with TaskCreate (the /ctk:team skill does); tasks appear here once it has. On a Claude 5.x model the Task tools also need CLAUDE_CODE_ENABLE_TODO_TOOLS=1.'
 
@@ -376,7 +407,15 @@ const emptyWorkers = (snap: Snapshot, teamsEnabled: boolean | null): string | nu
   return `No teammate has started this session.${ran} A teammate is a named agent the lead starts for a team: run /ctk:team <goal> or ask for "a team".`
 }
 
+/**
+ * How often buildMission has run since this module loaded. Instrumentation for the tests only
+ * (the plugin runs in its own realm, so this is read by tests that drive register.tsx directly);
+ * nothing in the product reads it.
+ */
+export let missionBuilds = 0
+
 export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }: MissionInput): Mission => {
+  missionBuilds += 1
   const rows = taskRows(state)
   const detailed = state.taskCallsSeen
   const partial = rows.some(t => t.seenByUpdateOnly)
@@ -393,7 +432,7 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
     rejected: stats.spawnsRejected,
     outsideCap: stats.spawnsOutsideCap,
     teamElapsedMs: state.teamStartedAt === null || nowMs < state.teamStartedAt ? null : nowMs - state.teamStartedAt,
-    subagents: { total: snap.subagents.length, live: snap.subagents.filter(a => LIVE_STATUS.has(a.status)).length, rows: snap.subagents },
+    subagents: { total: snap.subagents.length, live: snap.subagents.filter(a => isLiveStatus(a.status)).length, rows: snap.subagents },
     empty: {
       workers: emptyWorkers(snap, teamsEnabled),
       tasks: detailed ? null : EMPTY_TASKS,
@@ -436,13 +475,8 @@ export const fmtAge = (ms: number | null): string => {
   return m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m ago`
 }
 
-export const fmtSpan = (ms: number | null): string => {
-  if (ms === null) return UNAVAILABLE
-  const s = Math.floor(ms / 1000)
-  if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60)
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
-}
+/** The same span text the band shows, with Mission Control's `unavailable` for a null figure. */
+export const fmtSpan = (ms: number | null): string => spanText(ms, UNAVAILABLE)
 
 // --- Pane state and presses --------------------------------------------------------------
 
@@ -481,8 +515,6 @@ export const OPEN_KEY = 'ctk-open'
 
 /** What a press asks the host to do besides changing the state. */
 export type McEffect = 'close' | 'refresh' | 'doctor' | 'confirm' | 'cancel'
-
-/** The id of the proposal a Confirm or Cancel press was drawn for. */
 
 const KEY = {
   view: 'mc:view:',

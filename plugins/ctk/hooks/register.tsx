@@ -7,7 +7,7 @@ import type { StatsRecord } from '../shared/stats.ts'
 import { BAND_MARGIN, formatBand, formatSummary } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
-import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, measuredOf, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
+import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
 import type { Snapshot } from './team.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
@@ -31,7 +31,7 @@ import {
   OPEN_KEY,
   pressMc,
 } from './mission.ts'
-import type { McState, MissionState } from './mission.ts'
+import type { McState, Mission, MissionState } from './mission.ts'
 import { renderMission } from './missionui.tsx'
 import { delayFor, motionOf, newMotionState, observe, reducedFrom } from './ui/motion.ts'
 import type { MotionState } from './ui/motion.ts'
@@ -265,9 +265,9 @@ function stopMotion(c: Ctx, ended = false) {
 // One timer at most, and only while the pane is drawing and something moves (a running worker, or a highlight
 // still to end). Each fire redraws the pane, which arms the next; a pane that is gone draws nothing, so the
 // chain ends by itself.
-function armMotion($: EngineInterface, c: Ctx, now: number) {
+function armMotion($: EngineInterface, c: Ctx, mission: Mission, now: number) {
   if (c.moTimer !== null || c.ended) return
-  const ms = delayFor(c.mo, missionOf(c), now)
+  const ms = delayFor(c.mo, mission, now)
   if (ms === null) return
   c.moTimer = $.clock.after(ms, () => {
     c.moTimer = null
@@ -349,16 +349,18 @@ async function decideChange($: EngineInterface, c: Ctx, answer: 'confirm' | 'can
     return
   }
   let now: number
-  let live: number
   try {
     now = await $.clock.now()
-    // Spawns the roster has not listed yet are pruned here, so a settled team does not block the change.
-    live = effectiveLive(await $.agent.list(), c.pending, now)
+    // The gate is "no teammate is STARTING" (docs/MISSION-CONTROL.md): roster-live teammates
+    // deliberately do not block a confirmed change — lowering the cap below the live count is
+    // allowed, and the guard then refuses further spawns. The roster read is not for a count but
+    // for its prune: spawns the roster has settled leave c.pending, so only ones still starting
+    // (c.inflight reservations, c.pending not yet listed) block.
+    prunePending(await $.agent.list(), c.pending, now)
   } catch {
     c.notice = 'Not applied: the clock or the roster could not be read, so CTK cannot tell the team is settled.'
     return
   }
-  void live
   if (c.inflight > 0 || c.pending.size > 0) {
     c.notice = 'Teammates are starting. Confirm again in a moment; nothing changed.'
     return
@@ -517,7 +519,8 @@ export const register: Register = (on, options) => {
         // so a roster that lags behind next() cannot let a spawn past the cap.
         const acceptedAt = await $.clock.now().catch(() => c.lastNow)
         c.pending.set(started.teammateId, acceptedAt)
-        noteSpawn(c.mission, started.agentId, e.name ?? started.teammateId.split('@')[0] ?? started.teammateId, started.model, acceptedAt)
+        // `teammateId.split('@')[0]` is always a string, so the name fallback needs no further `??`.
+        noteSpawn(c.mission, started.agentId, e.name ?? started.teammateId.split('@')[0], started.model, acceptedAt)
       }
       release()
       await refresh($, c)
@@ -611,16 +614,20 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // Read-only counters: these never block a task.
+  // Read-only counters: these never block a task. A task event changes only these counters (the
+  // board rides tool.call/noteTaskCall, the roster rides spawn/measure/turn events), so it goes
+  // through the throttled touch() like tool.call does: a burst of 50 events costs bounded host
+  // calls instead of 50 full refreshes, and the counter reaches the stats file on the next
+  // throttled write at the latest — a session's forced end-write guarantees it.
   on('classic.TaskCreated', async ($, e, next) => {
     c.stats.tasks = { created: (c.stats.tasks?.created ?? 0) + 1, completed: c.stats.tasks?.completed ?? 0 }
-    await refresh($, c)
+    await touch($, c)
     return next(e)
   })
 
   on('classic.TaskCompleted', async ($, e, next) => {
     c.stats.tasks = { created: c.stats.tasks?.created ?? 0, completed: (c.stats.tasks?.completed ?? 0) + 1 }
-    await refresh($, c)
+    await touch($, c)
     return next(e)
   })
 
@@ -718,7 +725,7 @@ export const register: Register = (on, options) => {
       coordinated: c.coordinated,
       branch: c.branch,
       guard,
-      subagentsLive: c.snap.subagents.filter(a => !['completed', 'failed', 'killed'].includes(a.status)).length,
+      subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
       pendingChange: waiting,
       tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,
     })
@@ -734,16 +741,21 @@ export const register: Register = (on, options) => {
     if (e.requestId !== MC_PANE_ID) return next(e)
     const now = await $.clock.now().catch(() => c.lastNow)
     c.paneOpen = true
-    c.mo = observe(c.mo, missionOf(c), now)
-    armMotion($, c, now)
+    // One Mission and one pending-change sweep for the whole frame: observe, the motion timer and
+    // the draw all read the same snapshot, so buildMission (with its O(n²) task rows) runs once,
+    // not three times, and the pane cannot show motion from one draw and rows from another.
+    const mission = missionOf(c)
+    const pending = sweep(c.cfg, c.lastNow).pending
+    c.mo = observe(c.mo, mission, now)
+    armMotion($, c, mission, now)
     return renderMission(
       $.ui.resolve(e),
-      missionOf(c),
+      mission,
       c.mc,
       {
         statsText: formatSummary(c.stats, c.snap, c.lastNow),
         options: describeOptions(c.opts).map(r => ({ label: r.label, value: r.shown })),
-        pending: sweep(c.cfg, c.lastNow).pending === null ? null : { id: sweep(c.cfg, c.lastNow).pending!.id, text: sweep(c.cfg, c.lastNow).pending!.change.text },
+        pending: pending === null ? null : { id: pending.id, text: pending.change.text },
         notice: c.notice,
       },
       { ...e.props, ambiguous: c.ambiguous, motion: motionOf(c.mo) },

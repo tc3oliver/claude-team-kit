@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
 import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { renderStats } from '../../hooks/ui/stats.tsx'
+import { renderStats, unobserved } from '../../hooks/ui/stats.tsx'
 import { MC_PANE_ID } from '../../hooks/mission.ts'
 import { engine, fresh, test } from '../world.ts'
 
@@ -18,6 +18,20 @@ const open = async ($: any, on: any, cols = 100) => {
   const d = await p.drawn()
   return { text: flat(d), rows: textRows(d) }
 }
+
+describe('the unobserved matcher (hoisted out of the per-segment loop)', () => {
+  test('a dash or "unavailable" value is unobserved; a number, and a dash not after the colon, are not', () => {
+    for (const seg of ['cost: –', 'model: –', 'cost: unavailable', 'per-worker cost: unavailable']) expect(unobserved(seg)).toBe(true)
+    for (const seg of ['tool calls: 0', 'spawns: 5 accepted', 'elapsed: 5m', 'refused: 0 – later', 'context: 42%']) expect(unobserved(seg)).toBe(false)
+  })
+
+  test('repeat calls agree: a hoisted non-global regex keeps no lastIndex between segments', () => {
+    for (let i = 0; i < 3; i++) {
+      expect(unobserved('cost: –')).toBe(true)
+      expect(unobserved('tool calls: 3')).toBe(false)
+    }
+  })
+})
 
 describe('stats view', () => {
   test('counted and measured are separate sections', async ($, on) => {

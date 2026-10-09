@@ -8,10 +8,10 @@ import type { Extras, Kit } from './types.ts'
 
 const TWO_COLUMNS = 90
 
-/** Splits "Label (name): old -> new" into its label and values; null when the text has another shape. */
-const parsePending = (text: string): { label: string; from: string; to: string } | null => {
+/** Splits "Label (name): old -> new" into its label and the new value; null when the text has another shape. */
+const parsePending = (text: string): { label: string; to: string } | null => {
   const m = /^(.+?) \(\w+\): (.*) -> (.*)$/.exec(text)
-  return m === null ? null : { label: m[1]!, from: m[2]!, to: m[3]! }
+  return m === null ? null : { label: m[1]!, to: m[3]! }
 }
 
 export const renderConfig = (kit: Kit, m: Mission, mc: McState, extras: Extras, ctx: Ctx) => {

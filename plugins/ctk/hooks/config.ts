@@ -116,8 +116,6 @@ export type Change = {
   value: OptionValue
   /** The value when the change was proposed. */
   from: OptionValue
-  /** The new value (same as `value`). */
-  to: OptionValue
   /** One line for the person: `Max live teammates (maxWorkers): 3 -> 2`. */
   text: string
 }
@@ -204,7 +202,6 @@ export const validateChange = (name: string, raw: unknown, opts: PolicyOptions):
     key: optionKey(name),
     value,
     from,
-    to: value,
     text: `${META[name].label} (${name}): ${showValue(from)} -> ${showValue(value)}`,
   }
 }

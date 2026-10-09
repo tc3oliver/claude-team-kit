@@ -2,7 +2,7 @@ import { describe, expect } from 'claude-code/testing'
 
 import { MC_PANE_ID } from '../hooks/mission.ts'
 import { CONFIG_TOOL } from '../hooks/team.ts'
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { engine, fresh, live, spawnInput, test } from './world.ts'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
@@ -200,6 +200,36 @@ describe('only the confirm button applies', () => {
     await clock.advance(30_000)
     await ask($, { action: 'propose', option: 'maxWorkers', value: 4 })
     await (await pane($)).press({ key: 'mc:cfg:confirm:c1' })
+    expect(w.configSets).toEqual([{ key: 'ctk.maxWorkers', value: 4 }])
+  })
+
+  // The gate is "no teammate is STARTING" (docs/MISSION-CONTROL.md), pinned as documented: a
+  // roster-live team neither blocks Confirm nor keeps the cap from going below its live count.
+  test('a roster-live teammate does not block Confirm, and lowering the cap below the live count is applied', async ($, on) => {
+    const { w } = await session($, on)
+    await $.agent.spawn(spawnInput(0, true, { name: 'w-live' }))
+    expect(live(w)).toBe(1) // roster-live, not starting
+    await ask($, { action: 'propose', option: 'maxWorkers', value: 1 })
+    await (await pane($)).press({ key: 'mc:cfg:confirm:c1' })
+    expect(w.configSets).toEqual([{ key: 'ctk.maxWorkers', value: 1 }])
+    // And the guard then refuses further spawns above the lowered cap.
+    expect((await $.agent.spawn(spawnInput(1, true, { name: 'w-next' }))).deny).toContain('TEAM_CAPACITY_REACHED')
+  })
+
+  test('a pending spawn the roster now lists stops blocking Confirm', async ($, on) => {
+    // A lag of 3 hides the teammate for exactly the three roster reads before and including the
+    // first Confirm press (the spawn's post-start refresh, the proposal's openMission refresh,
+    // and the press's own prune read): still pending — starting, and blocking — at that press,
+    // listed for the next one.
+    const { w } = await session($, on, { rosterLag: 3 })
+    await $.agent.spawn(spawnInput(0, true, { name: 'w-lag' }))
+    await ask($, { action: 'propose', option: 'maxWorkers', value: 4 })
+    const p = await pane($)
+    await p.press({ key: 'mc:cfg:confirm:c1' })
+    expect(w.configSets).toEqual([]) // still starting: refused
+    // The next press reads the roster again, which now lists it: the prune drops it from
+    // pending, so the same proposal applies.
+    await p.press({ key: 'mc:cfg:confirm:c1' })
     expect(w.configSets).toEqual([{ key: 'ctk.maxWorkers', value: 4 }])
   })
 
