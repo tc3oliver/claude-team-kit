@@ -69,22 +69,15 @@ Not sure it is set up? Run `/ctk-doctor`: it changes nothing and prints the exac
 
 The recording asked for this on a small fixture ([`scripts/demo/fixture`](scripts/demo/fixture/README.md), five text modules, no tests):
 
-> Use a team to add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.
+> Use a team to add one node:test file per module in src/, named test/&lt;module&gt;.test.js, one worker per module. Then run npm test and report the results.
 
 ## Why Claude Team Kit?
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/stats-dark.svg">
-    <img src="docs/assets/stats-light.svg" alt="Default worker cap 3; about 425 always-on plugin tokens, measured; 0 extra LLM calls from the HUD" width="720">
-  </picture>
-</p>
 
 - **Structured team execution.** Vertical slices with real dependencies, short handoffs, and a check run before "done" ([how it works](#from-one-prompt-to-a-coordinated-team)). This is skill guidance for the lead, not code that enforces it.
 - **Hard worker limits.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 3, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Ordinary subagents are not counted, and CTK does not queue the refused work: the lead keeps it pending and offers it again.
 - **Clickable Mission Control.** A live, read-only view of workers, tasks and usage, one click away ([below](#mission-control)).
 
-Small footprint: the plugin adds about 425 tokens to a session (measured with a real call; a skill's body loads only when used). No speed, cost or token-saving claim is made.
+Small footprint: the plugin adds about 425 tokens to a session (measured with a real call; a skill's body loads only when used), and the team line makes no model calls. No speed, cost or token-saving claim is made.
 
 ## Mission Control
 
