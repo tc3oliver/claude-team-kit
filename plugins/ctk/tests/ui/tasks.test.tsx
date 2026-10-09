@@ -18,7 +18,7 @@ const taskTools = (e: Record<string, unknown>): unknown =>
 const board = async ($: any, on: any, n: number) => {
   engine(on, fresh(), undefined, { toolResult: taskTools })
   await $.session.start(START)
-  for (let i = 1; i <= n; i++) await call($, 'TaskCreate', `tc${i}`, { subject: `task ${i}` })
+  for (let i = 1; i <= n; i++) await call($, 'TaskCreate', `tc${i}`, { subject: n === 7 ? ['Expand test/caesar.test.js to >=10 cases', 'Expand test/rle.test.js to >=10 cases', 'Expand test/roman.test.js to >=10 cases', 'Expand test/slugify.test.js to >=10 cases', 'Expand test/wordcount.test.js to >=10 cases', 'Run npm test', 'Write TEST-REPORT.md'][i - 1] : `task ${i}` })
 }
 const open = async ($: any, cols = 100) => {
   const p = await pane($, cols)
@@ -43,6 +43,20 @@ describe('Tasks page', () => {
     expect(flat(await wide.drawn())).toContain('─┬▸[○ 3]')
     await wide.unmount()
     expect(flat(await (await open($, 8)).drawn())).not.toContain('─┬')
+  })
+
+  test('the docked 48-cell pane draws the five-test fan-in', async ($, on) => {
+    await board($, on, 7)
+    await call($, 'TaskUpdate', 'tu1', { taskId: '6', addBlockedBy: ['2', '4', '5'] })
+    await call($, 'TaskUpdate', 'tu2', { taskId: '7', addBlockedBy: ['6'] })
+    for (const id of ['1', '3']) await call($, 'TaskUpdate', `tc-${id}`, { taskId: id, status: 'completed' })
+    for (const id of ['2', '4']) await call($, 'TaskUpdate', `tr-${id}`, { taskId: id, status: 'in_progress' })
+    const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: { title: 'CTK Mission Control', isFocused: true, bodyColumns: 48, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} } })
+    await p.press({ key: 'mc:view:tasks' })
+    const t = flat(await p.drawn())
+    expect(t).toContain('─┼▸[○ 6]')
+    expect(t).toContain('──▸[○ 7]')
+    expect(t).toContain('⟦mc:task:3⟧') // the unlinked tasks stay in the list
   })
 
   test('completion is marked complete, not verified', async ($, on) => {

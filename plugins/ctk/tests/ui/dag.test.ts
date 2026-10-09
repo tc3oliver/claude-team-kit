@@ -31,7 +31,20 @@ const draw = (specs: Spec[], width = 80, maxRows = 6): string[] | null => {
 
 const SHOWCASE: Spec[] = [['1', [], 'completed'], ['2', [], 'completed'], ['3', [], 'in_progress'], ['4', [], 'in_progress'], ['5', ['3']], ['6', ['3', '4']], ['7', ['5', '6']]]
 
+const RUN_F: Spec[] = [['1', []], ['2', []], ['3', []], ['4', []], ['5', []], ['6', ['2', '4', '5']], ['7', ['6']]]
+
 describe('layoutDag', () => {
+  test('the real five-test fan-in draws at the docked widths, with one shared trunk', () => {
+    for (const w of [40, 47, 55, 58, 98]) {
+      const d = layoutDag(rows(RUN_F, 'Run npm test'), { width: w, maxRows: 6 })
+      expect(d, `width ${w}`).not.toBeNull()
+      expect(d!.lines.every(l => displayWidth(l.map(s => s.text).join('')) <= w)).toBe(true)
+    }
+    const real = rows(RUN_F).map(r => ({ ...r, subject: ['Expand test/caesar.test.js to >=10 cases', 'Expand test/rle.test.js to >=10 cases', 'Expand test/roman.test.js to >=10', 'Expand test/slugify.test.js to >=10', 'Expand test/wordcount.test.js', 'Run npm test', 'Write TEST-REPORT.md'][Number(r.id) - 1]! }))
+    for (const w of [40, 47, 55, 58, 98]) expect(layoutDag(real, { width: w, maxRows: 6 }), `real ${w}`).not.toBeNull()
+    expect(draw(RUN_F, 47)).toEqual(['[◇ 2]─┐', '[◇ 4]─┼▸[○ 6]──▸[○ 7]', '[◇ 5]─┘'])
+  })
+
   test('chain: one row', () => {
     expect(draw([['1', [], 'completed'], ['2', ['1'], 'in_progress'], ['3', ['2']]])).toEqual(['[✓ 1]──▸[● 2]──▸[○ 3]'])
   })

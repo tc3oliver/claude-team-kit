@@ -80,6 +80,30 @@ describe('overview', () => {
     }
   })
 
+  test('docked below 70 cells the tabs stack in two lines of full labels, each within the room', async ($, on) => {
+    await team($, on)
+    const key = (n: any, k: string): any => (typeof n === 'string' ? undefined : n.props?.key === k ? n : (n.children ?? []).map((c: any) => key(c, k)).find(Boolean))
+    for (const cols of [40, 47, 55, 60, 69, 70, 80]) {
+      const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: { ...PANE, bodyColumns: cols, placement: 'dock', scroll: { offset: 0, bodyRows: 30 } } })
+      const root = await p.drawn()
+      const lines = cols < 70 ? [key(root, 'tabs-a'), key(root, 'tabs-b')] : [key(root, 'tabs')]
+      const labels = lines.map((l: any) => flat(l).split(' '))
+      expect(labels.flat()).toEqual(['Overview', 'Workers', 'Tasks', 'Usage', 'Config', 'Stats', 'Doctor'])
+      for (const l of labels) expect(l.reduce((a: number, t: string) => a + 3 + t.length, 0) + (l.length - 1)).toBeLessThanOrEqual(cols - 1)
+      await p.unmount()
+    }
+  })
+
+  test('inline below the stack width the tabs stay one line and every tab keeps a name', async ($, on) => {
+    await team($, on)
+    for (const cols of [30, 40, 47]) {
+      const p = await pane($, cols)
+      const t = await texts(p)
+      for (const name of ['Ove', 'Wor', 'Tas', 'Usa', 'Con', 'Sta', 'Doc']) expect(t).toContain(name)
+      await p.unmount()
+    }
+  })
+
   test('a docked pane gets the rows the engine reports, an inline one keeps 11', () => {
     expect(bodyRowsFor({ placement: 'inline', scroll: { bodyRows: 60 } })).toBe(11)
     expect(bodyRowsFor({ placement: 'dock', scroll: { bodyRows: 60 } })).toBe(55)

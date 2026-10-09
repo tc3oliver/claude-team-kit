@@ -2,7 +2,7 @@ import type { McState, Mission } from './mission.ts'
 import { bodyRowsFor, createCtx } from './ui/ctx.tsx'
 import { renderConfig } from './ui/config.tsx'
 import { renderDoctor } from './ui/doctor.tsx'
-import { footer, header, tabs } from './ui/frame.tsx'
+import { footer, header, stackedTabs, tabs } from './ui/frame.tsx'
 import { renderOverview } from './ui/overview.tsx'
 import { renderStats } from './ui/stats.tsx'
 import { renderTasks } from './ui/tasks.tsx'
@@ -25,11 +25,13 @@ const VIEWS = { overview: renderOverview, workers: renderWorkers, tasks: renderT
 
 export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion; placement?: 'dock' | 'inline'; scroll?: { bodyRows: number } }) => {
   const { Box } = kit
-  const ctx = createCtx(kit, { ...props, rows: bodyRowsFor(props) })
+  const base = bodyRowsFor(props)
+  const stacked = stackedTabs(Math.max(10, props.bodyColumns - 1), base)
+  const ctx = createCtx(kit, { ...props, rows: stacked ? base - 1 : base })
   return (
     <Box flexDirection="column" width={props.bodyColumns}>
       {header(kit, m, ctx)}
-      {tabs(kit, mc, ctx)}
+      {tabs(kit, mc, ctx, stacked)}
       <Box key="body" flexDirection="column" marginTop={1}>
         {VIEWS[mc.view](kit, m, mc, extras, ctx)}
       </Box>

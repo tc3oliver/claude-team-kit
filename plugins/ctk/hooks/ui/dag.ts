@@ -32,7 +32,7 @@ const R = 8
 const CHAR = [' ', '│', '│', '│', '─', '┘', '┐', '┤', '─', '└', '┌', '├', '─', '┴', '┬', '┼']
 
 type Node = { id: string; layer: number; row: number; task?: TaskRow; parents: string[] }
-type Group = { p: Node; kids: Node[]; lo: number; hi: number; track: number }
+type Group = { ps: Node[]; kids: Node[]; lo: number; hi: number; track: number }
 
 /**
  * Gives each group with a vertical run a track (0..k-1) so that runs on one track never overlap and a
@@ -118,16 +118,26 @@ export const layoutDag = (tasks: TaskRow[], opts: { width: number; maxRows: numb
     for (const p of cols[l]!) {
       const kids = cols[l + 1]!.filter(c => c.parents.includes(p.id))
       if (kids.length === 0) continue
+      // Parents of one sole child share its trunk: a fan-in is one run, not one per parent.
+      const mate = kids.length === 1 ? groups.find(o => o.kids.length === 1 && o.kids[0] === kids[0]) : undefined
       const rs = [p.row, ...kids.map(k => k.row)]
-      const g: Group = { p, kids, lo: Math.min(...rs), hi: Math.max(...rs), track: -1 }
+      if (mate !== undefined) {
+        mate.ps.push(p)
+        mate.lo = Math.min(mate.lo, ...rs)
+        mate.hi = Math.max(mate.hi, ...rs)
+        continue
+      }
+      const g: Group = { ps: [p], kids, lo: Math.min(...rs), hi: Math.max(...rs), track: -1 }
       groups.push(g)
       for (const k of kids) incoming.set(k.id, [...(incoming.get(k.id) ?? []), g])
     }
     const bent = groups.filter(g => g.lo < g.hi)
     const apart: [Group, Group][] = []
     for (const g of bent) {
-      const c = cols[l + 1]!.find(k => k.row === g.p.row)
-      for (const o of c === undefined ? [] : incoming.get(c.id)!) if (o !== g && !g.kids.includes(c!) && o.lo < o.hi) apart.push([g, o])
+      for (const p of g.ps) {
+        const c = cols[l + 1]!.find(k => k.row === p.row)
+        for (const o of c === undefined ? [] : incoming.get(c.id)!) if (o !== g && !g.kids.includes(c!) && o.lo < o.hi) apart.push([g, o])
+      }
     }
     let k = bent.length === 0 ? 0 : 1
     while (k <= MAX_TRACKS && !assignTracks(bent, k, apart)) k++
@@ -147,8 +157,10 @@ export const layoutDag = (tasks: TaskRow[], opts: { width: number; maxRows: numb
       }
       const x = 1 + g.track
       for (let r = g.lo; r <= g.hi; r++) cell[r]![x]! |= (r > g.lo ? U : 0) | (r < g.hi ? D : 0)
-      line(g.p.row, 0, x)
-      cell[g.p.row]![x]! |= L
+      for (const p of g.ps) {
+        line(p.row, 0, x)
+        cell[p.row]![x]! |= L
+      }
       for (const k of g.kids) {
         line(k.row, x + 1, width)
         cell[k.row]![x]! |= R

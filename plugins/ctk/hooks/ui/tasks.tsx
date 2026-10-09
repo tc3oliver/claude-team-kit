@@ -15,7 +15,7 @@ import type { Extras, Kit } from './types.ts'
  * does not fit is summarised as "+N more not shown".
  */
 export const TASK_ROWS = 11
-/** Rows the dependency graph may use; the bar, the frontier and a few list rows keep the rest. */
+/** Rows the dependency graph may use at least; a taller pane gives it up to half its rows. The bar, the frontier and a few list rows keep the rest. */
 const DAG_ROWS = 6
 const LIST_MIN = 3
 
@@ -73,7 +73,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
   const bar = progressBar(pct)
   const partial = t.partial ? [line('t-partial', 'Some tasks were created before CTK loaded, so the detail counts are unavailable.', { dim: true, color: 'warning' })] : []
 
-  const dag = layoutDag(t.rows, { width: room, maxRows: Math.min(DAG_ROWS, rows - 2 - partial.length - LIST_MIN), ambiguous })
+  const dag = layoutDag(t.rows, { width: room, maxRows: Math.min(Math.max(DAG_ROWS, Math.floor(rows / 2)), rows - 2 - partial.length - LIST_MIN), ambiguous })
   if (dag !== null) {
     dag.lines.forEach((segs, i) =>
       out.push(
