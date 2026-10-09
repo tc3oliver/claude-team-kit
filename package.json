@@ -44,6 +44,7 @@
     "!plugins/ctk/statusline/test",
     "!docs/assets/*.gif",
     "!docs/assets/*.mp4",
+  "!docs/assets/*-poster.png",
     "!docs/assets/*.frames.jsonl"
   ],
   "engines": {
@@ -54,7 +55,7 @@
     "prepack": "npm run build",
     "ctk": "node dist/src/cli/bin.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test \"test/**/*.test.ts\" \"plugins/ctk/statusline/test/*.test.mjs\"",
+    "test": "node --test \"test/**/*.test.ts\" \"plugins/ctk/statusline/test/*.test.mjs\" \"scripts/media/**/*.test.mjs\"",
     "test:plugin": "claude plugin test plugins/ctk",
     "validate:plugin": "claude plugin validate plugins/ctk --strict && claude plugin validate . --strict",
     "check": "npm run typecheck && npm test && npm run test:plugin && npm run validate:plugin"

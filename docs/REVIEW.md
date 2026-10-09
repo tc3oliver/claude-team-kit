@@ -446,7 +446,7 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 372 tests (including the status line tests and the TS/`.mjs` layout parity fuzz test), 372 pass, 0 fail. One earlier run had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Unit and integration tests | PASS | `npm test`: 382 tests (including the status line tests, the TS/`.mjs` layout parity fuzz test and the illustration's storyboard and SVG checks), 382 pass, 0 fail. One earlier run had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
 | Plugin tests | PASS | `npm run test:plugin`: 302 pass, 0 fail (10 files, including the HUD layout, tool-call counting, Mission Control model and pane, and the confirmed-config tests) |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |

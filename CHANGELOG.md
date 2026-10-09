@@ -20,6 +20,9 @@ All notable changes to this project are documented here. The format follows
   "unavailable". See docs/MISSION-CONTROL.md.
   In a docked pane (about 50 cells) the Workers and Tasks tables use a compact form.
 - A recording of Mission Control opened by a click after a plain-words request (docs/DEMO.md, Run E).
+- docs/WORKFLOW.md and an animated illustration of the workflow (one goal, a task graph, the ready frontier, three
+  workers, a handoff, a verification), labelled as an illustration; each step says whether Claude Code, a skill or
+  the mod is responsible. Source and checks in scripts/media/how-it-works.
 - `ctk_config` tool: the model can propose an option change in plain words; only the user's Confirm
   button in Mission Control applies it. Option `hudIdle` (full, minimal, hidden) sets what the band shows
   before a team has started.

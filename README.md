@@ -46,6 +46,23 @@ Then `/reload-plugins` (or restart). Needs Claude Code 2.1.287 or newer for the 
 
 Not sure? Run `/ctk-doctor`. It changes nothing and prints the exact fix for anything missing. On Claude 5.x models, also add `"CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"` to the same `env` if you want the shared task list shown in the demo; without it the lead coordinates by messages. Details: [Installation](docs/INSTALLATION.md#one-time-setup-agent-teams).
 
+## How CTK works
+
+**From one prompt to a coordinated team.**
+
+<p align="center">
+  <img src="docs/assets/how-it-works.svg" alt="Illustration: one goal becomes eight vertical-slice tasks with real dependencies; only ready tasks start; three native teammates work at once and a fourth ready task waits; the lead hands the next ready task to an idle teammate; the lead runs the final verification" width="900">
+</p>
+
+<p align="center"><sub><b>An illustration, not a recording</b>: the scenario and the timings are invented. The real session is the recording at the top. Also as <a href="docs/assets/how-it-works.mp4">MP4</a> and a <a href="docs/assets/how-it-works-poster.png">poster image</a>.</sub></p>
+
+- **Plan.** The lead cuts the goal into vertical slices, each one working and checkable on its own, with the dependencies that really exist. *Skill-guided; Claude Code keeps the shared task list when the task tools are on.*
+- **Coordinate.** Blocked tasks cannot be claimed and the skill starts the ready ones; while the mod is active, teammate spawns are capped at three by default. The next ready task goes to an idle teammate with a short handoff: task ID, spec path, file scope, verification command (the skill also names a base commit). *Claude Code holds the dependencies, the CTK mod caps teammate spawns, the lead chooses the handoffs.*
+- **Execute.** Native teammates work in parallel; a ready task beyond the cap waits for a slot. CTK does not queue or schedule it: the lead keeps it pending and offers it again when a slot frees.
+- **Verify.** Done means verified: the lead runs the check and reads the result before closing the last task. *Skill-guided; no code enforces it, and a passing check is not a guarantee.*
+
+**Native Agent Teams. Structured Execution. Controlled Parallelism.** The first is Claude Code, the second is what CTK's skills ask the model to do, the third is the only gate CTK enforces in code, and only on teammate spawns. Step by step, with what was and was not seen live: [How CTK works](docs/WORKFLOW.md).
+
 ## Your first team
 
 Ask in words, or use the command; both reach the same skill:
@@ -113,7 +130,7 @@ Public preview (v0.1.0): not on npm or in an official plugin directory. Agent Te
 
 ## Learn more
 
-[Installation](docs/INSTALLATION.md) · [Limitations](docs/LIMITATIONS.md) · [Demo notes](docs/DEMO.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [Mission Control](docs/MISSION-CONTROL.md) · [Natural language](docs/NATURAL-LANGUAGE.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Threat model](docs/THREAT-MODEL.md) · [Verification record](docs/REVIEW.md) · [Rollback](docs/ROLLBACK.md)
+[Installation](docs/INSTALLATION.md) · [Limitations](docs/LIMITATIONS.md) · [Demo notes](docs/DEMO.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [How CTK works](docs/WORKFLOW.md) · [Mission Control](docs/MISSION-CONTROL.md) · [Natural language](docs/NATURAL-LANGUAGE.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Threat model](docs/THREAT-MODEL.md) · [Verification record](docs/REVIEW.md) · [Rollback](docs/ROLLBACK.md)
 
 ---
 

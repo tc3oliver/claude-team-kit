@@ -77,8 +77,11 @@ Licence: MIT. Copyright (c) Microsoft Corporation.
 The following projects were studied for ideas. No code was copied from them.
 Licences are as reported by GitHub (`gh api repos/OWNER/REPO --jq .license.spdx_id`).
 
-- mattpocock/skills: MIT
-- obra/superpowers: MIT
+- mattpocock/skills: MIT. Ideas reimplemented in CTK's own words: vertical slices, tasks with explicit blockers
+  and working from the frontier, a two-axis (standards and spec) review, building a failing check before
+  diagnosing a bug (see docs/WORKFLOW.md).
+- obra/superpowers: MIT. Ideas reimplemented in CTK's own words: evidence before a completion claim, worker
+  briefs handed over as files, context-lean handoffs, root cause before fix (see docs/WORKFLOW.md).
 - wshobson/agents: MIT
 - jarrodwatts/claude-hud: MIT
 - hoobnn/hoobnn-agent-mods: MIT
@@ -86,3 +89,6 @@ Licences are as reported by GitHub (`gh api repos/OWNER/REPO --jq .license.spdx_
 - kodrunhq/claudefy: MIT
 - baptisterajaut/claude-sync: none reported by GitHub (licence field is empty)
 - mgdickinson/worktree-fleet: MIT
+
+Claude Team Kit is an independent project. It is not affiliated with, sponsored by or endorsed by the authors of
+these projects.
