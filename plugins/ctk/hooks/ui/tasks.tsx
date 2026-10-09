@@ -24,6 +24,7 @@ export const moreHint = (n: number, room: number, ambiguous: 1 | 2 = 1): string 
   const tiers = [
     `+${n} more not shown, done last · enlarge the terminal, or ask Claude for the task list`,
     `+${n} more · enlarge the terminal or ask Claude to list them`,
+    `+${n} more · enlarge, or ask Claude`,
     `+${n} more · enlarge terminal`,
   ]
   return tiers.find(t => displayWidth(t, ambiguous) <= room) ?? tiers[2]!
@@ -108,8 +109,10 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
   for (const r of sorted.slice(0, Math.max(0, shown))) {
     const st = taskStatus(r)
     const id = `#${r.id} `
-    const side = [r.owner === null ? null : `@${r.owner}`, r.openBlockers.length === 0 ? null : `needs ${r.openBlockers.map(b => `#${b}`).join(',')}`].filter(x => x !== null).join(' · ')
     const avail = room - gw - displayWidth(id, ambiguous)
+    // A long owner is cut, not dropped, so the title keeps at least two thirds of the room.
+    const owner = r.owner === null ? null : `@${ctx.clip(r.owner, Math.max(6, Math.floor(avail / 3)) - 1)}`
+    const side = [owner, r.openBlockers.length === 0 ? null : `needs ${r.openBlockers.map(b => `#${b}`).join(',')}`].filter(x => x !== null).join(' · ')
     const showSide = side !== '' && displayWidth(side, ambiguous) * 2 <= avail
     out.push(
       <kit.Button key={taskKey(r.id)} plain label={`Task #${r.id}`} onPress={() => {}}>

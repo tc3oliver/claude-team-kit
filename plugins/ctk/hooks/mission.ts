@@ -156,7 +156,13 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
 
 export type GuardState = 'active' | 'available' | 'unavailable' | 'error'
 
-export type Guard = { state: GuardState; label: string; why: string }
+/** `why` is the full reason (Doctor, text, JSON); `short` is the one-sentence form the Overview wraps. */
+export type Guard = { state: GuardState; label: string; why: string; short: string }
+
+const ordinal = (n: number): string => {
+  const t = n % 100
+  return `${n}${t >= 11 && t <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`
+}
 
 /** The word shown for a guard state: `ON` for active, otherwise the state itself. */
 export const guardWord = (g: Guard): string => (g.state === 'active' ? 'ON' : g.state)
@@ -173,16 +179,27 @@ export const guardWord = (g: Guard): string => (g.state === 'active' ? 'ON' : g.
  */
 export const guardOf = (stats: StatsRecord, snap: Snapshot, teamsEnabled: boolean | null, ready: boolean): Guard => {
   if (stats.spawnsFailedClosed > 0) {
-    return { state: 'error', label: 'ERR', why: `${stats.spawnsFailedClosed} spawn(s) were refused because the cap could not be checked (TEAM_GUARD_FAILED)` }
+    const why = `${stats.spawnsFailedClosed} spawn(s) were refused because the cap could not be checked (TEAM_GUARD_FAILED)`
+    return { state: 'error', label: 'ERR', why, short: why }
   }
-  if (!ready) return { state: 'unavailable', label: DASH, why: 'nothing has been read yet' }
-  if (snap.live === null) return { state: 'error', label: 'ERR', why: 'the roster could not be read at the last refresh' }
-  if (teamsEnabled === false) return { state: 'unavailable', label: DASH, why: 'Agent Teams are not enabled, so no teammate can start' }
+  if (!ready) return { state: 'unavailable', label: DASH, why: 'nothing has been read yet', short: 'nothing has been read yet' }
+  if (snap.live === null) return { state: 'error', label: 'ERR', why: 'the roster could not be read at the last refresh', short: 'the roster could not be read at the last refresh' }
+  if (teamsEnabled === false) return { state: 'unavailable', label: DASH, why: 'Agent Teams are not enabled, so no teammate can start', short: 'Agent Teams are not enabled, so no teammate can start' }
   if (snap.live > stats.maxWorkers) {
-    return { state: 'error', label: 'ERR', why: `${snap.live} teammates are live, above the cap of ${stats.maxWorkers}: they started before the cap was lowered, or outside the guard` }
+    return {
+      state: 'error',
+      label: 'ERR',
+      why: `${snap.live} teammates are live, above the cap of ${stats.maxWorkers}: they started before the cap was lowered, or outside the guard`,
+      short: `${snap.live} teammates are live, above the cap of ${stats.maxWorkers}`,
+    }
   }
   if (teamsEnabled === true && stats.spawnsSeen > 0) {
-    return { state: 'active', label: 'ON', why: `reached by ${stats.spawnsSeen} spawn(s) this session, ${stats.spawnsAccepted} of them teammate(s); a teammate spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED` }
+    return {
+      state: 'active',
+      label: 'ON',
+      why: `reached by ${stats.spawnsSeen} spawn(s) this session, ${stats.spawnsAccepted} of them teammate(s); a teammate spawn above ${stats.maxWorkers} live teammates is refused with TEAM_CAPACITY_REACHED`,
+      short: `${stats.spawnsSeen} spawn(s) reached the guard · refuses a ${ordinal(stats.maxWorkers + 1)} live teammate (TEAM_CAPACITY_REACHED)`,
+    }
   }
   return {
     state: 'available',
@@ -191,6 +208,7 @@ export const guardOf = (stats: StatsRecord, snap: Snapshot, teamsEnabled: boolea
       teamsEnabled === null
         ? 'loaded, but the Agent Teams flag could not be read and no spawn has reached the guard yet'
         : `loaded; no spawn has reached the guard yet. From the first teammate spawn it refuses one above ${stats.maxWorkers} live`,
+    short: teamsEnabled === null ? 'loaded; the Agent Teams flag could not be read and no spawn has reached the guard yet' : `no spawn has reached the guard yet; it refuses the ${ordinal(stats.maxWorkers + 1)} live teammate`,
   }
 }
 

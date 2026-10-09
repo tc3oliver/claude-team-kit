@@ -125,7 +125,42 @@ describe('overview', () => {
 
 describe('overflow line', () => {
   test('says how to see the rest, short at 58 cells and in full at 98', () => {
-    expect(moreText(3, 58)).toBe('+3 more · enlarge terminal')
-    expect(moreText(3, 98)).toBe('+3 more lines not shown · enlarge the terminal')
+    expect(moreText(3, 58)).toBe('+3 more · enlarge terminal or ask Claude')
+    expect(moreText(3, 98)).toBe('+3 more lines not shown · enlarge the terminal or ask Claude')
+    expect(moreText(3, 30)).toBe('+3 more · enlarge terminal')
+    expect(moreText(3, 8)).toBe('+3 more')
+  })
+})
+
+describe('guard sentence and cards', () => {
+  test('the guard reason is a whole sentence with the code intact at 60 and 100 columns', async ($, on) => {
+    await team($, on)
+    for (const cols of [60, 100]) {
+      const p = await pane($, cols)
+      const t = await texts(p)
+      expect(t).toContain('spawn(s) reached the guard')
+      expect(t).toContain('refuses a 4th')
+      expect(t).toContain('TEAM_CAPACITY_REACHED')
+      expect(t).not.toContain('…')
+      await p.unmount()
+    }
+  })
+
+  test('curated tab stubs are whole words, never a cut label', async ($, on) => {
+    await team($, on)
+    const p = await pane($, 60)
+    const t = await texts(p)
+    for (const stub of ['Over', 'Work', 'Task', 'Use', 'Cfg', 'Stat', 'Doc']) expect(t).toContain(stub)
+    for (const cut of ['Usag', 'Conf', 'Doct']) expect(t).not.toContain(cut)
+    await p.unmount()
+  })
+
+  test('four cards sit side by side at 60 columns, two rows in all', async ($, on) => {
+    await team($, on)
+    const p = await pane($, 60)
+    const root: any = await p.drawn()
+    const row = (n: any): any => (typeof n === 'string' ? null : n.type === 'Box' && n.props.flexDirection === 'row' && (n.children ?? []).length === 4 && (n.children ?? []).every((c: any) => c.props?.flexDirection === 'column') ? n : (n.children ?? []).map(row).find(Boolean))
+    expect(row(root)?.children).toHaveLength(4)
+    await p.unmount()
   })
 })

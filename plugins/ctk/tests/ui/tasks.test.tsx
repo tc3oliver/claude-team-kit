@@ -87,6 +87,7 @@ describe('Tasks page', () => {
     }
     expect(moreHint(12, 97)).toContain('ask Claude for the task list')
     expect(moreHint(12, 79)).toContain('ask Claude to list them')
+    expect(moreHint(12, 40)).toContain('ask Claude')
     expect(moreHint(12, 30)).toBe('+12 more · enlarge terminal')
   })
 })

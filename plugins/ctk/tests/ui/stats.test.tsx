@@ -1,5 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
+import { createCtx } from '../../hooks/ui/ctx.tsx'
+import { renderStats } from '../../hooks/ui/stats.tsx'
 import { MC_PANE_ID } from '../../hooks/mission.ts'
 import { engine, fresh, test } from '../world.ts'
 
@@ -34,4 +36,25 @@ describe('stats view', () => {
   test('fits the 16-row pane at 60 columns', async ($, on) => {
     expect((await open($, on, 60)).rows).toBeLessThanOrEqual(16)
   })
+
+  for (const cols of [55, 60]) {
+    test(`no row is cut mid-sentence at ${cols} columns and the weekly reset survives`, () => {
+      const Box = (p: any) => p.children
+      const kit: any = { Box, Text: Box, Button: Box }
+      const ctx = createCtx(kit, { bodyColumns: cols })
+      const statsText = [
+        'CTK session s1',
+        'counted by CTK:',
+        '  teammate spawns: 5 accepted, 0 refused at capacity, 0 failed closed',
+        'measured (reported by Claude Code):',
+        '  model: Opus 5  cost: $1.20  context: 42%',
+        '  5h limit: 28% (resets in 2h34m)  7d limit: 12% (resets in 4d0h)',
+        '  elapsed: 5m  per-worker cost: not available from Claude Code',
+      ].join('\n')
+      const t = JSON.stringify(renderStats(kit, {} as any, {} as any, { statsText } as any, ctx))
+      expect(t).not.toContain('…')
+      expect(t).toContain('7d limit 12% · resets in 4d0h')
+      expect(t).toContain('failed closed')
+    })
+  }
 })

@@ -43,4 +43,13 @@ describe('doctor view', () => {
     const { text: t, rows } = await open($, on, false, 60)
     expect(rows).toBeLessThanOrEqual(16)
   })
+
+  for (const cols of [55, 60]) {
+    test(`wraps the fix and its next step whole at ${cols} columns`, async ($, on) => {
+      const { text: t } = await open($, on, false, cols)
+      expect(t).not.toContain('…')
+      expect(t).toContain('Next:')
+      expect(t).toContain('1 needs a fix')
+    })
+  }
 })

@@ -17,14 +17,25 @@ const open = async ($: any, on: any, bodyColumns: number) => {
 }
 
 describe('config view', () => {
-  for (const cols of [60, 130]) {
-    test(`groups the options and marks the pending change at ${cols} columns`, async ($, on) => {
+  test('groups the options and marks the pending change at 130 columns', async ($, on) => {
+    const t = await open($, on, 130)
+    for (const g of ['Team', 'Models', 'Band', 'Other']) expect(t).toContain(g)
+    expect(t).toContain('PENDING CHANGE')
+    expect(t).toContain('3 → 2 (pending)')
+    expect(t.indexOf('⟦mc:cfg:confirm:c1⟧')).toBeLessThan(t.indexOf('Models'))
+    expect(t).toContain('⟦mc:cfg:cancel:c1⟧')
+  })
+
+  for (const cols of [55, 60]) {
+    test(`at ${cols} columns the pending change and HUD form lead, and any cut says so`, async ($, on) => {
       const t = await open($, on, cols)
-      for (const g of ['Team', 'Models', 'Band', 'Other']) expect(t).toContain(g)
-      expect(t).toContain('PENDING CHANGE')
       expect(t).toContain('3 → 2 (pending)')
-      expect(t.indexOf('⟦mc:cfg:confirm:c1⟧')).toBeLessThan(t.indexOf('Models'))
+      expect(t).toContain('⟦mc:cfg:confirm:c1⟧')
       expect(t).toContain('⟦mc:cfg:cancel:c1⟧')
+      expect(t.indexOf('HUD form')).toBeLessThan(t.indexOf('Band'))
+      // Every option is on the page or the shared notice says how many are not.
+      expect(t.includes('Team hint') || /\n\+\d+ more/.test(t)).toBe(true)
+      expect(t).not.toContain('…')
     })
   }
 })

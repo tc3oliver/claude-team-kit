@@ -17,6 +17,7 @@ const SUBAGENT_ROWS = 8
 const SUBAGENT_ROWS_BESIDE_WORKERS = 2
 const NAME_MIN = 10
 const NAME_MAX = 28
+const TASK_MIN = 12
 
 /** `m:ss`, or `h:mm:ss` past an hour. */
 export const fmtClock = (ms: number): string => {
@@ -33,8 +34,8 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
   const subTotal = m.subagents.total
   const subMax = m.workers.length === 0 ? SUBAGENT_ROWS : SUBAGENT_ROWS_BESIDE_WORKERS
   const subRows = subTotal === 0 ? 0 : 1 + Math.min(subTotal, subMax) + (subTotal > subMax ? 1 : 0)
-  // Two lines per worker while they fit under the hint; past that, one line each with a TASK column.
-  const twoLine = !compact && m.workers.length * 2 <= BODY_ROWS - 1 - subRows
+  // Two lines per worker at any width while they fit under the hint (so the task is always visible); past that, one line each with a TASK column.
+  const twoLine = m.workers.length * 2 <= BODY_ROWS - 1 - subRows
 
   const gw = displayWidth(GLYPH.running, ambiguous) + 1
   const widest = (xs: string[], min = 0) => Math.max(min, ...xs.map(x => displayWidth(x, ambiguous)))
@@ -55,13 +56,15 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
   const heads: Record<string, string> = { status: 'STATUS', activity: 'ACTIV', tools: 'TOOLS', idle: 'IDLE', time: 'TIME', model: 'MODEL', last: 'LAST' }
   // Columns after the name, in the order they are given up when the room is short; widths follow the content.
   const cols = ['status', 'activity', 'tools', 'idle', ...(compact || twoLine ? [] : ['time']), 'model', 'last'].map(id => ({ id, head: heads[id]!, w: widest([heads[id]!, ...m.workers.map(w => cellOf[id]!(w))]) }))
-  let left = room - gw
+  // A one-line row keeps the TASK column in preference to the optional columns.
+  const reserve = twoLine ? 0 : TASK_MIN
+  let left = room - gw - reserve
   const shown = cols.filter(c => (left - c.w - 1 >= NAME_MIN ? ((left -= c.w + 1), true) : false))
   const longest = widest(m.workers.map(w => w.name), 4)
   const pillW = widest(m.workers.map(pill))
   const modelW = widest(m.workers.map(modelOf))
-  const nameW = twoLine ? Math.min(NAME_MAX, longest, Math.max(NAME_MIN, room - gw - pillW - modelW - ACT_W - 3)) : Math.min(NAME_MAX, longest, left)
-  const taskW = compact || twoLine ? 0 : Math.min(left - nameW - 1, widest(m.workers.map(w => w.currentTask ?? DASH), 4))
+  const nameW = twoLine ? Math.min(NAME_MAX, longest, Math.max(NAME_MIN, room - gw - pillW - modelW - 2 - (compact ? 0 : ACT_W + 1))) : Math.min(NAME_MAX, longest, left)
+  const taskW = twoLine ? 0 : Math.min(left + reserve - nameW - 1, widest(m.workers.map(w => w.currentTask ?? DASH), 4))
   const rest = (get: (id: string) => string) => shown.map(c => ` ${pad(get(c.id), c.w)}`).join('')
 
   const oneLine = (w: WorkerRow) => {
@@ -95,7 +98,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
           <Text bold>{pad(w.name, nameW)}</Text>
           <Text color={statusColor(st)} bold>{` ${pad(pill(w), pillW)}`}</Text>
           <Text dimColor={w.model === null}>{` ${pad(modelOf(w), modelW)} `}</Text>
-          <Text color={w.toolCalls === null ? COLOR.muted : statusColor(st)}>{act(w)}</Text>
+          {compact ? null : <Text color={w.toolCalls === null ? COLOR.muted : statusColor(st)}> {act(w)}</Text>}
         </Text>
       </kit.Button>,
       // A Button holds only Text, so the second row sits beside it, not inside.
@@ -123,7 +126,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
       ? []
       : [
           line('sa-head', `SUBAGENTS (${subTotal}) · outside the cap`, { bold: true }),
-          ...m.subagents.rows.slice(-subMax).map((a, i) => line(`sa-${i}`, `${pad(a.type, Math.min(compact ? 14 : 20, widest(m.subagents.rows.map(r => r.type))))} ${pad(a.status, 9)} ${a.description}`, { dim: true })),
+          ...m.subagents.rows.slice(-subMax).map((a, i) => line(`sa-${i}`, `${pad(a.type, Math.min(compact ? 12 : 20, widest(m.subagents.rows.map(r => r.type))))} ${pad(a.status, 9)} ${a.description}`, { dim: true })),
           ...(subTotal > subMax ? [line('sa-more', `+${subTotal - subMax} earlier`, { dim: true })] : []),
         ]
   if (m.workers.length === 0) return [...para('w-none', m.empty.workers ?? 'No teammate has started this session.'), ...subagents()]
@@ -140,11 +143,13 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     .filter(([n]) => n > 0)
     .map(([n, st]) => `${n} ${st}`)
     .join(', ')
+  const hints = ['Select a worker for details · bars: tool calls vs the busiest (activity)', 'Select a worker for details', 'Select for details']
+  const hint = hints.find(h => displayWidth(h, ambiguous) <= room) ?? hints[2]!
   return [
     ...(!twoLine ? [line('w-head', `${' '.repeat(gw)}${pad('NAME', nameW)}${taskW <= 0 ? '' : ` ${pad('TASK', taskW)}`}${rest(id => shown.find(c => c.id === id)?.head ?? '')}`, { dim: true })] : []),
     ...visible.flatMap(twoLine ? twoLines : w => [oneLine(w)]),
     ...(hidden.length > 0 ? [line('w-more', `${moreText(hidden.length, room)}${summary === '' ? '' : ` (${summary})`}`, { dim: true })] : []),
-    line('w-hint', 'Select a worker for details · bars: tool calls vs the busiest (activity)', { dim: true }),
+    line('w-hint', hint, { dim: true }),
     ...subagents(),
   ]
 }

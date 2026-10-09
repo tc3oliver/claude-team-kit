@@ -1,4 +1,4 @@
-import { truncateToWidth } from '../../shared/hudline.ts'
+import { displayWidth, truncateToWidth } from '../../shared/hudline.ts'
 import { STATIC_MOTION } from './motion.ts'
 import type { Motion } from './motion.ts'
 import { padCells, wrapCells } from './text.ts'
@@ -15,8 +15,9 @@ export const BODY_ROWS = 11
 /** From this much room the overview draws its metric cards and the bars grow. */
 export const WIDE_ROOM = 100
 
-/** The overflow line every view uses: how many were left out and how to see them (a taller terminal gives a docked pane more rows). */
-export const moreText = (n: number, room: number): string => (room < TABLE_ROOM ? `+${n} more · enlarge terminal` : `+${n} more lines not shown · enlarge the terminal`)
+/** The overflow line every view uses: how many were left out and how to see them. The longest wording that fits the room; the 'ask Claude' route is kept down to 40 cells. */
+export const moreText = (n: number, room: number): string =>
+  [`+${n} more lines not shown · enlarge the terminal or ask Claude`, `+${n} more · enlarge terminal or ask Claude`, `+${n} more · enlarge terminal`, `+${n} more`].find(t => displayWidth(t) <= room) ?? `+${n}`
 
 export type LineOpts = { dim?: boolean; color?: ThemeColor; bold?: boolean }
 

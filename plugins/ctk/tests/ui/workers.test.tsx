@@ -40,7 +40,7 @@ describe('Workers page', () => {
     test(`${cols} columns: long and CJK names stay inside the room`, opts, async ($, on) => {
       const { p } = await open($, on, ['a-very-long-worker-name-that-keeps-going-and-going', '工作者小明的助手'], cols)
       const rows = await bodyRows(p)
-      expect(rows.join('\n')).toContain(cols < 62 ? 'NAME' : 'tools')
+      expect(rows.join('\n')).toContain('tools')
       for (const r of rows) expect(displayWidth(r)).toBeLessThanOrEqual(cols - 1)
     })
   }
@@ -60,9 +60,16 @@ describe('Workers page', () => {
     expect(rows.join('\n')).toContain('Select a worker')
   })
 
-  test('compact: an unobserved field is a dash', opts, async ($, on) => {
-    const { p } = await open($, on, ['w-a'], 60)
-    expect((await bodyRows(p)).find(r => r.includes('w-a'))).toContain('–')
+  test('docked width: two lines per worker, whole name, task line kept, unobserved field is a dash', opts, async ($, on) => {
+    const { p } = await open($, on, ['frontend-integration-tester'], 55)
+    const rows = await bodyRows(p)
+    expect(rows.find(r => r.includes('frontend-integration-tester'))).toMatch(/RUNNING/)
+    expect(rows.join('\n')).toMatch(/– · 0 tools/)
+  })
+
+  test('12 workers at 60 columns fall back to one line with the TASK column', opts, async ($, on) => {
+    const { p } = await open($, on, Array.from({ length: 12 }, (_, i) => `w${i}`), 60)
+    expect((await bodyRows(p)).join('\n')).toContain('TASK')
   })
 
   test('wide: two lines per worker, elapsed since spawn, unobserved task says unavailable', opts, async ($, on) => {

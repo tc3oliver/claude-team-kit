@@ -11,6 +11,9 @@ const FOOT_SHORT = 34
 const HEAD_FULL = 46
 const PREFIX = 3
 
+/** Whole short words for the narrow tier: a label cut to four letters reads as a typo (Usag, Conf, Doct). */
+const STUB: Record<string, string> = { overview: 'Over', workers: 'Work', tasks: 'Task', usage: 'Use', config: 'Cfg', stats: 'Stat', doctor: 'Doc' }
+
 /** The state pill: guard state, or CAPACITY once the team is full, so a full team is never drawn green. */
 export const header = (kit: Kit, m: Mission, ctx: Ctx) => {
   const { Box, Text } = kit
@@ -26,13 +29,12 @@ export const header = (kit: Kit, m: Mission, ctx: Ctx) => {
   )
 }
 
-/** The longest tier whose measured width fits the room: full labels, four letters, then digits with only the active label spelled out. */
-const tabTier = (room: number): { letters: number | 'digits'; gap: number } => {
-  const row = (label: (l: string) => number, gap: number) => MC_VIEWS.reduce((a, v) => a + PREFIX + label(v.label), 0) + gap * (MC_VIEWS.length - 1)
-  if (row(l => l.length, 2) <= room) return { letters: 0, gap: 2 }
-  if (row(l => l.length, 1) <= room) return { letters: 0, gap: 1 }
-  if (row(l => Math.min(4, l.length), 1) <= room) return { letters: 4, gap: 1 }
-
+/** The longest tier whose measured width fits the room: full labels, curated short words, then digits with only the active label spelled out. */
+const tabTier = (room: number): { letters: 'full' | 'stub' | 'digits'; gap: number } => {
+  const row = (label: (v: { view: string; label: string }) => number, gap: number) => MC_VIEWS.reduce((a, v) => a + PREFIX + label(v), 0) + gap * (MC_VIEWS.length - 1)
+  if (row(v => v.label.length, 2) <= room) return { letters: 'full', gap: 2 }
+  if (row(v => v.label.length, 1) <= room) return { letters: 'full', gap: 1 }
+  if (row(v => (STUB[v.view] ?? v.label).length, 1) <= room) return { letters: 'stub', gap: 1 }
   return { letters: 'digits', gap: 1 }
 }
 
@@ -43,7 +45,7 @@ export const tabs = (kit: Kit, mc: McState, ctx: Ctx) => {
     <Box key="tabs" flexDirection="row" flexWrap="wrap" columnGap={gap}>
       {MC_VIEWS.map(v => {
         const on = mc.view === v.view
-        const label = letters === 'digits' ? (on ? v.label : '') : letters === 0 ? v.label : v.label.slice(0, letters)
+        const label = letters === 'digits' ? (on ? v.label : '') : letters === 'full' ? v.label : (STUB[v.view] ?? v.label)
         return (
           <Button key={viewKey(v.view)} plain hotkey={v.hotkey} label={v.label} onPress={() => {}}>
             <Text bold={on} underline={on}>

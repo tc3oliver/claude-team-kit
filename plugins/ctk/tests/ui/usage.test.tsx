@@ -43,3 +43,17 @@ describe('usage bars', () => {
     expect(b).toContain('[──────────] –')
   })
 })
+
+describe('usage note', () => {
+  for (const cols of [55, 60]) {
+    worldTest(`wraps the note whole at ${cols} columns`, async ($, on) => {
+      engine(on, fresh())
+      await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+      const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: { ...PANE, bodyColumns: cols } })
+      await p.press({ key: 'mc:view:usage' })
+      const t = flat(await p.drawn()).replace(/\s+/g, ' ')
+      expect(t).not.toContain('…')
+      expect(t).toContain('Per-worker cost is not reported.')
+    })
+  }
+})
