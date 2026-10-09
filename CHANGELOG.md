@@ -22,6 +22,16 @@ All notable changes to this project are documented here. The format follows
 - Proposing a setting change now tells the lead to say "press Confirm in Mission Control", and the band shows
   `Confirm setting: click here` until the change is answered.
 
+### Mission Control
+
+- Overview redesigned: a state pill in the header (`ACTIVE`, `READY`, `CAPACITY`, `ERROR`, unavailable), a slot meter, WORKERS, TASKS, REFUSED and COST cards, 5-hour and weekly quota bars, and a short guard sentence. A full team reads `CAPACITY` (amber, red after a refusal) instead of plain `ACTIVE`.
+- Workers: two lines per worker when there is room, an activity bar (tool calls relative to the busiest worker, not progress), and a worker's last tool calls on its detail page (tool name and file base name only).
+- Tasks: a progress bar, the ready frontier and a layered graph drawn only from declared dependencies; a completed task reads "marked complete (TaskUpdate; not verified)".
+- Usage, Config (pending change first, options grouped), Stats (counted and measured) and Doctor (fixes first) reorganised.
+- Text is wrapped instead of cut mid-sentence, the tabs shrink in steps instead of wrapping, and every view stays inside a row budget (11 rows above the prompt, more when docked); what is left out says how to see it. After six tasks the band adds `full list: Mission Control`.
+- Event-driven motion: a running worker's glyph pulses once a second and new workers, completed tasks and refusals are highlighted for three seconds, only while the pane is open and something runs. `CTK_REDUCED_MOTION=1` or `NO_COLOR` turns it off; no timer runs with the pane closed.
+- The Mission Control code is split into `hooks/ui/` modules, one per view.
+
 ### Added
 
 - Natural-language team hint: a fixed English and Chinese phrase check on the person's own prompt (Enter or Remote Control) adds one hidden line asking the model to invoke `ctk:team` when the request is for several agents, a team or parallel work. No model call, no always-on context, not a classifier; the model and the skill's intent gate still decide. The new option `teamHint` (default on) turns it off; the list asks for agents or a team by name, so a bare "parallel" or "in parallel" does not match. One real session showed it working; not a measured rate.

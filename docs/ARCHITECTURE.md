@@ -257,10 +257,25 @@ HUD line: a click anywhere on it, or `Enter` once Claude Code has focused it, ra
 mod's `ui.press` hook lets the button's own no-op handler run first (a redraw releases it) and then opens
 a pane, `$.ui.open({ id: 'ctk-mission', focus, closeOnEscape })`, which a `ui.render` hook for
 `{ component: 'Pane' }` draws. The pane's buttons only change `McState` (view, selection, HUD form) in
-`hooks/mission.ts`; `hooks/missionui.tsx` draws it; `missionText` is the same overview as text for
+`hooks/mission.ts`; `hooks/missionui.tsx` draws it (see below); `missionText` is the same overview as text for
 `/ctk-mission` where no pane can be drawn. Everything is event-driven: a redraw is asked for when a turn
 ends, the roster or usage changes, a task event arrives, or a press happens (and at most once a second
-for tool calls); nothing polls and no model, tool or process is started (`test/mod-calls.test.ts`).
+for tool calls), plus the one slow motion timer described below while a worker is running; nothing polls and no model, tool or process is started (`test/mod-calls.test.ts`).
+
+**The pane's modules.** `hooks/missionui.tsx` is only the entry (`renderMission`): it builds a context and calls one
+render function per view in `hooks/ui/` (`overview`, `workers`, `tasks`, `usage`, `config`, `stats`, `doctor`, each
+`(kit, mission, mc, extras, ctx)`), between the shared header, tabs and footer in `frame.tsx`. `ctx.tsx` holds the
+width-aware primitives (clip, pad and wrap by terminal cells, wrapped fields, metric cards, bars, the shared "+N more"
+line) and the row budget: `ctx.rows` is 11 inline and, docked, the rows the engine reports less the frame. `theme.ts`
+holds the semantic colours (Mods theme keys only) and glyphs; `dag.ts` is the pure layered layout for the task graph.
+Views are pure: they draw what they are given and never call the host.
+
+**Motion.** `hooks/ui/motion.ts` is pure too: `observe` compares this draw with the last to find what is new,
+`delayFor` says when the next redraw is due (or null), and `Motion` (`frame`, `reduced`, highlighted keys) reaches the
+views as `ctx.motion`. The only timer lives in `register.tsx` (`armMotion`): one `$.clock.after`, armed from the
+pane's `ui.render` hook while something is running or highlighted, cancelled when the pane is closed with its button
+and when the session ends. A pane that is gone does not render, so the chain also ends by itself. `CTK_REDUCED_MOTION`
+and `NO_COLOR` are read once at session start.
 
 What it knows comes from event hooks that pass every event on untouched: the spawn result (agent id,
 model), `tool.call` events (per-agent counts, last activity, and the named fields of `TaskCreate` and

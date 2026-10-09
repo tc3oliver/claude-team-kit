@@ -22,13 +22,32 @@ beside the transcript; on the main screen it opens above the prompt.
 
 | View | Contents | Source |
 |---|---|---|
-| Overview | Guard (`ON`, `ready`, unavailable or error, with the reason; `ON` only after a spawn has reached the guard in this session) and, when any, named agents that started outside the cap, workers active/cap with running, idle, completed and failed, refused spawns, team time, usage line | the roster (`$.agent.list`), CTK's counters |
-| Workers | per worker: name, model, status, tool calls, last activity, idle time; select one for its current task | the spawn result (model), `tool.call` events carrying the worker's agent id, turn and `TeammateIdle` events |
-| Tasks | id, status, owner, dependencies, ready or blocked; select one for what it waits for and what waits for it | the `TaskCreate` and `TaskUpdate` calls CTK saw (their named fields only) |
-| Usage | model, context %, 5-hour and weekly usage with reset countdowns, session cost, tool calls | `$.session.usage()`, `$.session.model()`, CTK's tool-call count |
-| Config | the eight CTK options, the HUD form for this session, any change waiting for your confirmation | the plugin's options |
-| Stats | the `/ctk-stats` summary | CTK's counters and Claude Code's figures |
-| Doctor | the `/ctk-doctor` report, read when you open the view | `$.env.get`, `$.settings.read`, `$.tool.list` |
+| Overview | A state pill in the header (`● ACTIVE`, `◇ READY`, `▲ CAPACITY`, `✗ ERROR`, `○ unavailable`); a slot meter with one glyph per cap slot (running, idle, free) and the finished and failed counts; four cards (WORKERS, TASKS, REFUSED, COST); 5-hour and weekly quota bars with reset times; one line each for task states, ordinary subagents, the guard's reason and the session | the roster (`$.agent.list`), CTK's counters, `$.session.usage()` |
+| Workers | two lines per worker when there is room (name, status, model, activity bar; then current task, tool calls, time since spawn, last activity), one line otherwise; select one for its detail page, which also lists its last tool calls | the spawn result (model), `tool.call` events carrying the worker's agent id, turn and `TeammateIdle` events |
+| Tasks | a progress bar with `n/N marked complete`, the ready frontier, a layered graph of the declared dependencies, then the list (id, status, owner, what it waits for); select one for what it waits for and what waits for it | the `TaskCreate` and `TaskUpdate` calls CTK saw (their named fields only) |
+| Usage | model, context, 5-hour and weekly bars with reset countdowns, session cost, tool calls | `$.session.usage()`, `$.session.model()`, CTK's tool-call count |
+| Config | any change waiting for your confirmation first, then the HUD form for this session, then the options in groups | the plugin's options |
+| Stats | the `/ctk-stats` summary in two sections, what CTK counted and what Claude Code measured | CTK's counters and Claude Code's figures |
+| Doctor | the `/ctk-doctor` report with what needs a fix first, then what is unknown or off, then one line for everything that is fine; read when you open the view | `$.env.get`, `$.settings.read`, `$.tool.list` |
+
+The cap is enforced by the CTK mod; Mission Control only displays it and never changes it.
+
+**The state pill.** `ACTIVE` appears only after a spawn has reached the guard in this session. `CAPACITY` appears
+once the live teammates reach the cap: amber while nothing was refused, red once a spawn was refused with
+`TEAM_CAPACITY_REACHED`. A full team is never shown as plain `ACTIVE`. The Overview's guard line is a short
+sentence built from the same counts; the full reason is in Doctor, in `/ctk-mission` text and in the status tool.
+
+**The workers' activity bar** compares a worker's tool calls with the busiest worker's. It is not progress and
+not a share of the work, only a relative count of calls the worker's own loop made.
+
+**Recent calls** (worker detail) show the tool name and, for file tools, the file's base name, nothing else: a
+command, a pattern or any other input can carry a secret, so CTK does not keep it. Only the last six are kept.
+
+**The task graph** is drawn only from the dependencies the model declared (`addBlockedBy`, `addBlocks`). CTK infers
+none. When the declared graph cannot be drawn faithfully (a cycle, more than 12 linked tasks, or no room) the page
+falls back to the list. A task that `TaskUpdate` set to completed is shown as **marked complete (TaskUpdate; not
+verified)**: CTK does not check the work. A task that failed is not observable from these calls, so there is no
+failed state.
 
 **Teammates and ordinary subagents are shown apart.** The Workers view lists *teammates*: named agents that
 Claude Code started as members of a team, which the worker cap counts. An `Agent` call with no `name` starts an
@@ -59,7 +78,7 @@ A figure that was not observed reads **unavailable**; nothing is estimated. In p
 
 ## HUD form
 
-The Overview and Config views have four buttons: Auto (follow the terminal width), Compact, Standard and
+The Config view has four buttons (the Overview shows them only when it has rows to spare): Auto (follow the terminal width), Compact, Standard and
 Full. The choice applies to the band for this session only; it is not saved. To keep a form, there is no
 setting yet: Auto follows the width as [ARCHITECTURE](ARCHITECTURE.md#layout) describes.
 
@@ -94,5 +113,31 @@ Where no pane can be drawn, the answer to the model says to change the option wi
   `/ctk-stats` and `/ctk-doctor` are not available (see [LIMITATIONS](LIMITATIONS.md)).
 - Opening the pane from the band by keyboard does not give it the keys (Claude Code refuses focus while
   the band holds it): press `Ctrl+X` `Tab` once more, or use `/ctk-mission`.
-- The pane's content is redrawn when Claude Code reports something (a turn ends, a worker changes, a tool
-  call, a press), not on a timer.
+- The pane is redrawn when Claude Code reports something (a turn ends, a worker changes, a tool
+  call, a press). The only timer is the one described under Motion.
+- Colours are theme keys, so they follow the theme, but only a dark terminal was checked in real cells.
+
+## How much fits
+
+Every view stays inside a row budget. The pane above the prompt opens 16 rows high, and after the header, tabs,
+spacing and footer a view has **11 body rows**; a longer list would push the prompt off screen. When the pane is
+docked beside the transcript it gets the rows the terminal reports (taller terminal, more rows), and the views
+use that. What does not fit is summarised in one line, for example `+3 more lines not shown · enlarge the
+terminal or ask Claude`, shortened as the pane gets narrower; the Tasks page also says it lists done tasks last.
+Nothing is cut in the middle of a sentence or a word: text wraps, and the code `TEAM_CAPACITY_REACHED` always
+stays whole. The tabs shrink in steps (full labels from 69 columns, then short words, then digits with only the
+current view spelled out). The band, past six tasks, adds `full list: Mission Control`.
+
+## Motion
+
+Motion is small and optional.
+
+- **What moves:** a running worker's glyph dims and brightens once a second; a worker that just started, a task
+  that was just marked complete and a new refusal are highlighted for three seconds.
+- **When a timer exists:** only while the pane is drawn and something is running or a highlight is still to end.
+  There is one timer at most, at least a second long, and each firing redraws the pane and arms the next. With the
+  pane closed, or with nothing running, there is no timer and nothing runs.
+- **Off switches:** `CTK_REDUCED_MOTION=1`, or any non-empty `NO_COLOR`, turns motion off: static glyphs and no
+  timer at all. Claude Code gives mods no reduced-motion setting, so CTK reads these two variables. `NO_COLOR` does
+  not remove colour here; the colours are the theme's.
+- Motion never takes the keyboard, never changes the team and is not saved.

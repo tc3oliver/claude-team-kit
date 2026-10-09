@@ -14,6 +14,8 @@ const sources = readdirSync(HOOKS)
 
 const ALLOWED = new Set([
   'agent.list',
+  // A pane redraw timer: one at most, only while Mission Control is open and something runs (register.tsx armMotion).
+  'clock.after',
   'clock.now',
   'command.register',
   'config.list',
