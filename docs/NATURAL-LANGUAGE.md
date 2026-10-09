@@ -64,6 +64,20 @@ Measured with `claude -p "reply with the single word ok" --output-format json --
 | Old plugin (before this change) | 18,349 (+371 over 17,978) |
 | This plugin | 18,403 (+425 over 17,978) |
 
+Re-measured after the `ctk:designer` agent was added (Claude Code, same command, five interleaved
+runs per setup, each run in a fresh process; the cache state differs from the table above, so
+compare within this table only):
+
+| Setup | Total tokens (each run) |
+|---|---|
+| No plugin | 18,128, 18,128, 18,128, 16,435, 16,435 (the lower value is the same intermittent drop outside the plugin) |
+| Plugin before the designer (4 agents) | 18,557 on all five runs (+429 over 18,128) |
+| Plugin with the designer (5 agents) | 18,607 on all five runs (+479 over 18,128) |
+
+The designer line adds **50 tokens**. The plugin's whole fixed cost is now **+479 tokens**, still
+under the 500-token CI budget (`node scripts/measure-context.mjs 500` checks description text only:
+about 196 tokens) but with little room; another component would need a merge or shorter text first.
+
 This change adds **54 tokens** (old plugin to this plugin). The plugin's whole fixed cost is **+425
 tokens** measured, which is **above the 250-token goal** (and was +371 before this change). Why: the model
 sees one listing line for each of the 4 skills and 4 agents, plus the names of two deferred tools, and

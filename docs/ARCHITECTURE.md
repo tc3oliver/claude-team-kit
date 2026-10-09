@@ -71,7 +71,7 @@ things only the CLI, or you by hand, can provide.
 Everything Claude Code loads into context every turn is the frontmatter `description` of the
 skills that allow model invocation (all four: `team` is found from natural language and gates itself on a
 clear ask) and of the five agents. Skill bodies and `references/*.md` are loaded on demand (invoking `team`
-costs about 850 tokens, `review` 330, `debug` 280). The measured fixed cost is +425 tokens over a session
+costs about 850 tokens, `review` 330, `debug` 280). The measured fixed cost is +479 tokens over a session
 without the plugin ([NATURAL-LANGUAGE](NATURAL-LANGUAGE.md#always-on-cost)); `node scripts/measure-context.mjs 500`
 checks the descriptions' own text (about 176 tokens) against a 500-token budget and runs in CI.
 

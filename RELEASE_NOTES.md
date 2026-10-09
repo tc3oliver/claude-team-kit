@@ -67,7 +67,7 @@ live with throwaway tags: install pinned to a tag, and update and roll back by m
 - **Optional `ctk` CLI** (not needed for the plugin): a status line, profile sync through a git repository you own
   with a secrets scan before publish, an install ledger with rollback and uninstall.
 
-What CTK adds to a session: about 425 tokens of always-on context (measured with a real call), no model calls, no
+What CTK adds to a session: about 480 tokens of always-on context (measured with a real call), no model calls, no
 network calls, no credential reads. A skill's body loads only when it is used.
 
 ## What the worker cap does and does not cover
@@ -88,7 +88,7 @@ Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md). The ones to know first:
 - Skill behaviour is guidance: the lead may follow `/ctk:team`, `/ctk:review` and `/ctk:debug` imperfectly, and no code
   checks that a task was verified. `/ctk:review` and `/ctk:debug` have not been run on real changes.
 - Whether a plain sentence loads the team skill is Claude's decision; the evals were tuned on the same prompts.
-- Always-on context is about 425 tokens, above the 250-token goal.
+- Always-on context is about 480 tokens, above the 250-token goal and close to the 500-token CI budget.
 - The team line can vanish for a few seconds after the lead's turn ends while workers run (cause unknown).
 - A confirmed settings change reloads the mod and loses per-worker and per-task detail until new events arrive.
 - Model routing to different models on live teammates was not shown (the recordings used Sonnet throughout).

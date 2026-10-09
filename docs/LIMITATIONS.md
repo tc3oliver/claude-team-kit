@@ -61,7 +61,7 @@ in practice:
 - **Removal leaves traces.** After `/plugin uninstall` and `/plugin marketplace remove`,
   `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
   counters stay in `<config>/ctk/stats/` until you delete them (Live).
-- **`/team` costs more than the always-on estimate.** The fixed cost is +425 tokens measured; invoking `team`
+- **`/team` costs more than the always-on estimate.** The fixed cost is +479 tokens measured (+425 before the designer agent); invoking `team`
   adds about 850, `review` 330, `debug` 280 (`claude plugin details`, estimates).
 
 ## The hard cap

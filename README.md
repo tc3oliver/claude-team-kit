@@ -98,7 +98,7 @@ The recording asked for this on a small fixture ([`scripts/demo/fixture`](script
 - **Hard worker limits.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 5, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Only teammates are counted: ordinary subagents, forks and agents started with `isolation` are not, so the team skill never uses `isolation`. CTK does not queue the refused work: the lead keeps it pending and offers it again. Whether the guard is working is shown, not assumed: `Guard ON` appears only after a spawn has reached it ([how](docs/ARCHITECTURE.md#the-mod)).
 - **Clickable Mission Control.** A live, read-only view of workers, tasks and usage, one click away ([below](#mission-control)).
 
-Small footprint: the plugin adds about 425 tokens to a session (measured with a real call; a skill's body loads only when used), and the team line makes no model calls. No speed, cost or token-saving claim is made.
+Small footprint: the plugin adds about 480 tokens to a session (measured with a real call; a skill's body loads only when used), and the team line makes no model calls. No speed, cost or token-saving claim is made.
 
 ## Mission Control
 
