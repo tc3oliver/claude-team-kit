@@ -4,10 +4,27 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { EXIT } from '../src/cli/context.ts'
-import { git } from '../src/sync/git.ts'
+import { git, redactUrls } from '../src/sync/git.ts'
 import { device, gitEnv, git as plainGit, registerCleanup, tmp } from './sync.helpers.ts'
 
 registerCleanup()
+
+test('redactUrls hides userinfo in any scheme, encoding or shape, and leaves clean text alone', () => {
+  assert.equal(redactUrls('https://user:hunter2@example.com/org/repo.git'), 'https://***@example.com/org/repo.git')
+  assert.equal(redactUrls('https://ghp_aB3dE6gH9jK2mN5pQ8sT@github.com/o/r'), 'https://***@github.com/o/r')
+  assert.equal(redactUrls('https://abc123@example.com/r'), 'https://***@example.com/r')
+  assert.equal(redactUrls('https://user%3Apass@example.com/r'), 'https://***@example.com/r')
+  assert.equal(redactUrls('ssh://git:pw@host:22/r'), 'ssh://***@host:22/r')
+  assert.equal(redactUrls('git://:@host/r'), 'git://***@host/r')
+  assert.equal(redactUrls('clone https://u:p@host/r and http://t@host/q'), 'clone https://***@host/r and http://***@host/q')
+  // no userinfo: untouched
+  assert.equal(redactUrls('https://example.com/org/repo.git'), 'https://example.com/org/repo.git')
+  assert.equal(redactUrls('user@example.com'), 'user@example.com')
+  assert.equal(redactUrls('a@b without a scheme'), 'a@b without a scheme')
+  assert.equal(redactUrls(''), '')
+  // an email in prose is not a URL userinfo and must survive
+  assert.equal(redactUrls('contact someone@example.com for help'), 'contact someone@example.com for help')
+})
 
 // Print the environment git hands to a child process, using a git alias that runs node.
 const childEnv = async (name: string, env: NodeJS.ProcessEnv = gitEnv()) => {

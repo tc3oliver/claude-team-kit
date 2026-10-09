@@ -50,8 +50,5 @@ export const gitOk = async (cwd: string, args: string[], env: NodeJS.ProcessEnv)
   return r.stdout
 }
 
-/** Hide `user:password@` and `token@` userinfo in any URL inside printed text. */
-export const redactUrls = (text: string): string =>
-  text
-    .replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@]*:[^\s/@]*@/gi, '$1***@')
-    .replace(/\b(https?:\/\/)[^\s/@]+@/gi, '$1***@')
+/** Hide any `userinfo@` in a URL inside printed text, whatever the scheme or encoding. */
+export const redactUrls = (text: string): string => text.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@]*@/gi, '$1***@')

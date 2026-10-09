@@ -46,26 +46,40 @@ export const collectSkill = (dir: string, opts: { ignoreMarker?: boolean } = {})
     out.problems.push(`${dir}: not a plain directory`)
     return out
   }
+  const errKind = (e: unknown) => (e as NodeJS.ErrnoException).code ?? 'error'
   const walk = (abs: string, rel: string) => {
-    for (const ent of readdirSync(abs, { withFileTypes: true })) {
+    let entries
+    try {
+      entries = readdirSync(abs, { withFileTypes: true })
+    } catch (e) {
+      // unreadable, or removed between the parent listing and this walk
+      out.problems.push(`${rel === '' ? dir : stripControl(rel)}: directory unreadable (${errKind(e)})`)
+      return
+    }
+    for (const ent of entries) {
       if (out.files.size > MAX_SKILL_FILES) return
       const r = rel === '' ? ent.name : `${rel}/${ent.name}`
       const full = join(abs, ent.name)
       const shown = stripControl(r)
       if (rel === '' && ent.name === MANAGED_MARKER && opts.ignoreMarker) continue
-      if (ent.isSymbolicLink()) out.problems.push(`${shown}: symlinks are not allowed`)
-      else if (ent.isDirectory()) walk(full, r)
-      else if (!ent.isFile()) out.problems.push(`${shown}: not a regular file`)
-      else if (!isSafeRelPath(r)) out.problems.push(`${shown}: unsafe path`)
-      else if (!SKILL_EXTENSIONS.includes(extname(ent.name).toLowerCase())) out.problems.push(`${shown}: extension not allowed`)
-      else if (lstatSync(full).size > MAX_SKILL_FILE_BYTES) out.problems.push(`${shown}: larger than ${MAX_SKILL_FILE_BYTES / 1024} KiB`)
-      else {
-        const content = readFileSync(full, 'utf8')
-        if (content.includes('\0')) out.problems.push(`${shown}: not a text file`)
+      try {
+        if (ent.isSymbolicLink()) out.problems.push(`${shown}: symlinks are not allowed`)
+        else if (ent.isDirectory()) walk(full, r)
+        else if (!ent.isFile()) out.problems.push(`${shown}: not a regular file`)
+        else if (!isSafeRelPath(r)) out.problems.push(`${shown}: unsafe path`)
+        else if (!SKILL_EXTENSIONS.includes(extname(ent.name).toLowerCase())) out.problems.push(`${shown}: extension not allowed`)
+        else if (lstatSync(full).size > MAX_SKILL_FILE_BYTES) out.problems.push(`${shown}: larger than ${MAX_SKILL_FILE_BYTES / 1024} KiB`)
         else {
-          out.files.set(r, content)
-          out.hashes[r] = sha256(content)
+          const content = readFileSync(full, 'utf8')
+          if (content.includes('\0')) out.problems.push(`${shown}: not a text file`)
+          else {
+            out.files.set(r, content)
+            out.hashes[r] = sha256(content)
+          }
         }
+      } catch (e) {
+        // removed or made unreadable mid-walk: a problem, never a raw throw out of collectSkill
+        out.problems.push(`${shown}: unreadable (${errKind(e)})`)
       }
     }
   }

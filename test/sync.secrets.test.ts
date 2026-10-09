@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { redact, scanFiles, scanText, shannon } from '../src/sync/secrets.ts'
+import { isDeniedKey, redact, scanFiles, scanText, shannon } from '../src/sync/secrets.ts'
 
 // Fixtures are assembled at run time so this file itself never looks like a leaked credential.
 const rnd = 'q7Zk3Vn9Xb2LmP4wR8tY1cHd5FgJ6sAe'
@@ -94,6 +94,46 @@ test('secrets: JSON deny-listed keys are flagged anywhere, case and separator in
   }
   assert.deepEqual(scanText('s.json', '{"maxTokens": 5, "model": "haiku", "environment": "x"}'), [])
   assert.deepEqual(scanText('s.md', '"token": "x"'), [], 'the key deny-list is for JSON files only')
+})
+
+test('secrets: authorization-style JSON keys are denied whatever the value looks like', () => {
+  for (const key of ['authorizationHeader', 'authorization_header', 'AuthorizationValue', 'authHeader', 'authToken']) {
+    assert.equal(isDeniedKey(key), true, key)
+    // synthetic low-entropy values: the key rule must not depend on the value looking secret-like
+    for (const value of ['x', 'required', 'none', 'abc123', 'Bearer abcDEF1234567890xyzQ']) {
+      const found = scanText('s.json', `{\n  "outer": {\n    "${key}": "${value}"\n  }\n}`)
+      assert.ok(found.some(f => f.rule === `denied-key:${key}` && f.line === 3), `${key}=${value}: ${JSON.stringify(found)}`)
+    }
+  }
+  // high-entropy bearer values are caught twice over: denied key and the bearer rule
+  const found = scanText('s.json', `{"authorizationHeader": "Bearer Zx9Qw8Er7Ty6Ui5Op3As1cHd"}`)
+  assert.ok(found.some(f => f.rule === 'denied-key:authorizationHeader'), JSON.stringify(found))
+})
+
+test('secrets: the authorization key rule fires in minified single-line JSON and nested keys', () => {
+  const minified = '{"a":{"b":{"authorizationHeader":"x"}},"authorizationValue":"y","maxTokens":4096}'
+  const found = scanText('s.json', minified)
+  assert.deepEqual(found.map(f => f.rule).sort(), ['denied-key:authorizationHeader', 'denied-key:authorizationValue'])
+  assert.deepEqual(found.map(f => f.line), [1, 1])
+})
+
+test('secrets: ordinary technical-document JSON is not flagged by the authorization key rule', () => {
+  const doc = JSON.stringify(
+    {
+      author: 'Someone',
+      authors: ['a', 'b'],
+      authority: 'example.com',
+      authentication: 'handled by the credential helper',
+      authorizedKeysFile: '~/.ssh/authorized_keys',
+      prose: 'set the authorization header from the keychain',
+      maxTokens: 4096,
+    },
+    null,
+    2,
+  )
+  assert.deepEqual(scanText('readme.json', doc), [])
+  // prose text in non-JSON files is unaffected by the key rule
+  assert.deepEqual(scanText('readme.md', '"authorizationHeader": "Bearer x"\nauthor: Someone\n'), [])
 })
 
 test('secrets: findings never contain the secret, only a redacted preview', () => {

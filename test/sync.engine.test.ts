@@ -4,9 +4,13 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { EXIT } from '../src/cli/context.ts'
+import { staleSkillPaths } from '../src/sync/engine.ts'
 import { bareRemote, tmp, device, git, readProfile, registerCleanup, remoteRefs, snapshot, workClone, writeProfile, writeSkill, type Device } from './sync.helpers.ts'
 
 registerCleanup()
+
+// chmod-based fault injection does not work as root or on Windows (POSIX modes are not enforced).
+const NO_CHMOD_FIXTURE = process.getuid?.() === 0 ? 'root bypasses file permissions' : process.platform === 'win32' ? 'Windows does not enforce POSIX permission bits' : false
 
 // Git for Windows checks symlinks out as plain files unless core.symlinks is on (needs a privilege),
 // and Windows file names cannot hold control characters: those fixtures cannot exist there.
@@ -414,6 +418,73 @@ test('removing a skill from the profile removes it from the repo unless another 
   assert.ok(!files.includes('skills/beta'), 'unreferenced skill removed')
 })
 
+const SIBLING = `${JSON.stringify({ schemaVersion: 1, skills: ['alpha'] })}\n`
+
+/** A tracked profiles/<other>.json that cannot be read/validated must refuse the whole publish (fail closed). */
+const siblingRefusal = async (name: string, sibling: string, breakIt: (a: Device) => void) => {
+  const { remote, a } = await seeded()
+  tamper(remote, w => writeFileSync(join(w, 'profiles', 'team.json'), sibling))
+  writeProfile(a, { ...readProfile(a), skills: [] })
+  assert.equal(await a.sync('pull'), 0, name) // publish's own pull would move HEAD; settle it first
+  // Without this, git reports the broken sibling as an uncommitted change and requireClean refuses
+  // before the sibling check runs; assume-unchanged isolates the branch under test.
+  git(a.repo, 'update-index', '--assume-unchanged', 'profiles/team.json')
+  breakIt(a)
+  const refs = remoteRefs(remote)
+  const head = git(a.repo, 'rev-parse', 'HEAD')
+  assert.equal(await a.sync('publish'), EXIT.error, name)
+  assert.match(a.out.join('\n') + a.err.join('\n'), /profiles\/team\.json/, name)
+  // nothing deleted, committed or pushed
+  const files = git(remote, 'ls-tree', '-r', '--name-only', 'main')
+  assert.ok(files.includes('skills/alpha/SKILL.md'), name)
+  assert.ok(files.includes('skills/alpha/references/notes.md'), name)
+  assert.equal(remoteRefs(remote), refs, name)
+  assert.equal(git(a.repo, 'rev-parse', 'HEAD'), head, name)
+  assert.equal(existsSync(join(a.repo, 'skills', 'alpha', 'SKILL.md')), true, name)
+}
+
+test('publish refuses when a tracked sibling profile is invalid JSON (its skills are not deleted)', async () => {
+  await siblingRefusal('invalid JSON', '{not json\n', () => {})
+})
+
+test('publish refuses when a tracked sibling profile fails the schema', async () => {
+  await siblingRefusal('bad schema', `${JSON.stringify({ schemaVersion: 99, skills: ['alpha'] })}\n`, () => {})
+})
+
+test('publish refuses when a tracked sibling profile is missing from the checkout', async () => {
+  await siblingRefusal('missing', SIBLING, a => rmSync(join(a.repo, 'profiles', 'team.json')))
+})
+
+test('publish refuses when a tracked sibling profile is unreadable (permissions)', { skip: NO_CHMOD_FIXTURE }, async () => {
+  await siblingRefusal('unreadable', SIBLING, a => chmodSync(join(a.repo, 'profiles', 'team.json'), 0o000))
+})
+
+test('a valid sibling profile still keeps its skill on publish', async () => {
+  const { remote, a } = await seeded()
+  tamper(remote, w => writeFileSync(join(w, 'profiles', 'team.json'), SIBLING))
+  writeProfile(a, { ...readProfile(a), skills: [] })
+  assert.equal(await a.sync('publish'), 0, a.out.join('\n'))
+  const files = git(remote, 'ls-tree', '-r', '--name-only', 'main')
+  assert.ok(files.includes('skills/alpha/SKILL.md'), 'still referenced by profiles/team.json')
+})
+
+test('staleSkillPaths: unsafe tracked paths are refused, safe ones filtered', () => {
+  const planned = new Set(['skills/keep/SKILL.md'])
+  const ownSkills = new Set(['keep'])
+  // a crafted `..` path in the tracked list must throw, not reach rmSync
+  assert.throws(
+    () => staleSkillPaths(['skills/keep/SKILL.md', 'skills/../../etc/passwd'], planned, ownSkills, new Set(['etc'])),
+    /unsafe/,
+  )
+  assert.throws(() => staleSkillPaths(['skills/.git/config'], planned, ownSkills, new Set()), /unsafe/)
+  // normal filtering: planned files stay, other profiles' skills stay, own unreferenced skills go
+  const tracked = ['ctk-profile.json', 'profiles/default.json', 'profiles/team.json', 'skills/keep/SKILL.md', 'skills/theirs/SKILL.md', 'skills/mine/old.md']
+  const stale = staleSkillPaths(tracked, planned, new Set(['mine', 'keep']), new Set(['theirs']))
+  assert.deepEqual(stale, ['skills/mine/old.md'])
+  // an unknown skill nobody references is also stale
+  assert.deepEqual(staleSkillPaths(['skills/ghost/SKILL.md'], new Set(), new Set(), new Set()), ['skills/ghost/SKILL.md'])
+})
+
 test('status reports configuration, pending changes and conflicts', async () => {
   const { remote, a, b } = await seeded()
   const un = device('x')
@@ -638,6 +709,16 @@ test('init rejects remote URLs that carry credentials and stores nothing', async
     `https://${'Zk3Vn9Xb2LmP4wR8tY1c'}@example.com/org/repo.git`,
     `ssh://git:secretpw@example.com/org/repo.git`,
     'user:pass@example.com:org/repo.git',
+    // http(s) userinfo is refused even when it looks like a plain user name or low-entropy hex
+    'https://someone@example.com/org/repo.git',
+    'https://abc123@example.com/org/repo.git',
+    'https://9f86d081884c7d659a2feaa0@example.com/org/repo.git',
+    // percent-encoding is decoded before the check
+    'https://user%3Apass@example.com/org/repo.git',
+    'ssh://user%3Asecretpw@example.com/org/repo.git',
+    // malformed or truncated encodings are refused safely, not parsed leniently
+    'ssh://%E0%A4%A@example.com/org/repo.git',
+    'https://%zz@example.com/org/repo.git',
   ]) {
     a.out.length = 0
     a.err.length = 0
@@ -645,15 +726,16 @@ test('init rejects remote URLs that carry credentials and stores nothing', async
     const text = a.out.join('\n') + a.err.join('\n')
     assert.match(text, /credential helper or SSH keys/, remote)
     assert.ok(!text.includes('hunter2') && !text.includes(tok) && !text.includes('secretpw'), 'the secret is not echoed')
+    assert.ok(!text.includes('abc123') && !text.includes('someone') && !text.includes('%E0%A4%A'), 'the userinfo is not echoed')
   }
   assert.equal(existsSync(a.ctx.paths.syncConfig), false)
   assert.equal(existsSync(a.repo), false)
 })
 
-test('init accepts remotes without secrets in the userinfo (git@host:path, ssh://git@host, https://host, plain user)', async () => {
+test('init accepts remotes without userinfo secrets (git@host:path, ssh://git@host, plain https)', async () => {
   const a = device('laptop')
   // unreachable on purpose: the point is that the URL passes validation and fails only on connect
-  for (const remote of ['git@127.0.0.1:org/repo.git', 'ssh://git@127.0.0.1:1/org/repo.git', 'https://someone@127.0.0.1:1/org/repo.git']) {
+  for (const remote of ['git@127.0.0.1:org/repo.git', 'ssh://git@127.0.0.1:1/org/repo.git', 'https://127.0.0.1:1/org/repo.git']) {
     a.out.length = 0
     a.err.length = 0
     assert.equal(await a.sync('init', '--remote', remote), EXIT.error)

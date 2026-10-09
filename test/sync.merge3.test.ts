@@ -37,7 +37,6 @@ for (const [name, base, ours, theirs, want, conflict, applied] of table) {
     assert.deepEqual(r.merged, mk(want))
     assert.equal(r.conflicts.length, conflict ? 1 : 0)
     assert.deepEqual(r.applied, applied ? ['/k'] : [])
-    assert.equal(r.unchanged, !applied)
     if (conflict) {
       const c = r.conflicts[0]!
       assert.equal(c.key, '/k')

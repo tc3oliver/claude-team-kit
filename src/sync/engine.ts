@@ -120,13 +120,25 @@ const SCPISH = /^[\w.-]+@[\w.-]+:/
 
 const NO_CREDENTIALS = 'use a git credential helper or SSH keys instead'
 
-/** A remote URL is stored and printed as typed, so it must not carry a password or token. */
+/**
+ * A remote URL is stored and printed as typed, so it must not carry a password or token.
+ * http(s) userinfo is refused outright: the URL lands in config.json as plaintext, and with
+ * GIT_TERMINAL_PROMPT=0 a username-only http(s) URL cannot authenticate anyway. For other
+ * schemes userinfo is refused when it holds a password, anything the scanner flags, or a
+ * percent-encoding that does not decode (which could hide what follows).
+ */
 const assertNoCredentials = (remote: string) => {
   const m = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)@/i.exec(remote)
   if (m) {
-    const userinfo = m[2] ?? ''
-    const web = /^https?$/i.test(m[1] ?? '')
-    if (userinfo.includes(':') || scanText('remote', userinfo).length > 0 || (web && /^[A-Za-z0-9_-]{20,}$/.test(userinfo) && /\d/.test(userinfo))) {
+    const scheme = (m[1] ?? '').toLowerCase()
+    if (scheme === 'http' || scheme === 'https') throw new SyncError(`the remote URL contains credentials; ${NO_CREDENTIALS}`)
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(m[2] ?? '')
+    } catch {
+      throw new SyncError(`the remote URL contains credentials; ${NO_CREDENTIALS}`)
+    }
+    if (decoded.includes(':') || scanText('remote', decoded).length > 0) {
       throw new SyncError(`the remote URL contains credentials; ${NO_CREDENTIALS}`)
     }
   } else if (!SCPISH.test(remote) && /^[^/\\]*:[^/\\]*@/.test(remote)) {
@@ -422,6 +434,22 @@ export const syncPull = async (ctx: Ctx, deps: SyncDeps): Promise<Outcome> => {
 
 // ---------- publish ----------
 
+/**
+ * Tracked `skills/` files no profile in the repo references any more, i.e. what this publish deletes.
+ * Every path is checked before it can reach `rmSync`: a crafted tracked entry (`../`, `.git`, an
+ * absolute or control-character form) throws instead of deleting something outside the clone.
+ */
+export const staleSkillPaths = (tracked: string[], planned: Set<string>, ownSkills: Set<string>, otherRefs: Set<string>): string[] =>
+  tracked
+    .filter(f => {
+      const name = f.split('/')[1] ?? ''
+      return f.startsWith('skills/') && !planned.has(f) && (ownSkills.has(name) || !otherRefs.has(name))
+    })
+    .map(f => {
+      if (!isSafeRelPath(f)) throw new SyncError(`refusing to remove ${stripControl(f)}: unsafe path in the profile repo; fix or re-clone it`)
+      return f
+    })
+
 export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: string }): Promise<Outcome> => {
   const cfg = requireReady(ctx)
   const pulled = await syncPull(ctx, deps)
@@ -467,20 +495,28 @@ export const syncPublish = async (ctx: Ctx, deps: SyncDeps, opts: { message?: st
   }
 
   // Skill directories no profile in the repo references any more are removed with this commit.
+  // A sibling profile that cannot be read or validated refuses the whole publish: treating it as
+  // "references nothing" would delete the skills it vouches for.
   const ownSkills = new Set(layer.skills ?? [])
   const otherRefs = new Set<string>()
   const tracked = (await hasCommits(ctx)) ? (await runOk(ctx, ['ls-files', '-z'])).split('\0').filter(Boolean) : []
   for (const f of tracked.filter(f => /^profiles\/[^/]+\.json$/.test(f) && f !== `profiles/${ctx.profile}.json`)) {
+    let text: string | null
     try {
-      for (const s of parseLayer(JSON.parse(readTextIfExists(join(repo, f)) ?? '{}'), f).skills ?? []) otherRefs.add(s)
-    } catch {
-      // an unreadable sibling profile cannot vouch for any skill
+      text = readTextIfExists(join(repo, f))
+    } catch (e) {
+      throw new SyncError(`cannot read ${stripControl(f)} in the profile repo (${(e as Error).message}); refusing to publish`)
     }
+    if (text === null) throw new SyncError(`${stripControl(f)} is tracked but missing from the clone; run \`ctk sync pull\` and publish again`)
+    let sibling: ProfileLayer
+    try {
+      sibling = parseLayer(JSON.parse(text), f)
+    } catch (e) {
+      throw new SyncError(`${stripControl(f)} in the profile repo is not a valid profile (${(e as Error).message}); refusing to publish`)
+    }
+    for (const s of sibling.skills ?? []) otherRefs.add(s)
   }
-  const stale = tracked.filter(f => {
-    const name = f.split('/')[1] ?? ''
-    return f.startsWith('skills/') && !planned.has(f) && (ownSkills.has(name) || !otherRefs.has(name))
-  })
+  const stale = staleSkillPaths(tracked, new Set(planned.keys()), ownSkills, otherRefs)
   for (const f of stale) requirePlain(repo, f)
   const changed = [...planned].filter(([p, c]) => readTextIfExists(join(repo, p)) !== c).map(([p]) => p)
   const files = [...changed, ...stale]

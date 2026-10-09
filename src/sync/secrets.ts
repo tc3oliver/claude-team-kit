@@ -79,12 +79,15 @@ const OBJECT_SEGMENTS = new Set(['commit', 'commits', 'blob', 'blobs', 'tree', '
 const tokenSegment = (seg: string) => seg.length >= 32 && /\d/.test(seg) && /[a-zA-Z]/.test(seg) && (isHex(seg) || isBase32(seg))
 
 const DENIED_KEYS = new Set(['apikey', 'token', 'secret', 'password', 'credentials', 'authorization', 'refreshtoken', 'apikeyhelper', 'env'])
+// `authorizationHeader: "Bearer ..."` and friends name a credential even though no rule matches the
+// value on its own. Not plain `auth`: that would flag harmless keys like `author`.
+const DENIED_PREFIXES = ['oauth', 'authorization', 'authheader', 'authvalue']
 const SUFFIXES = ['apikey', 'secret', 'password', 'token']
 const KEY_RE = /"((?:[^"\\]|\\.)+)"\s*:/g
 
 export const isDeniedKey = (key: string): boolean => {
   const k = key.toLowerCase().replace(/[_-]/g, '')
-  return DENIED_KEYS.has(k) || k.startsWith('oauth') || SUFFIXES.some(s => k.endsWith(s))
+  return DENIED_KEYS.has(k) || DENIED_PREFIXES.some(p => k.startsWith(p)) || SUFFIXES.some(s => k.endsWith(s))
 }
 
 type Span = [number, number]

@@ -10,8 +10,6 @@ export type MergeResult = {
   conflicts: Conflict[]
   /** Keys whose merged value is the other side's and differs from ours: what to change locally. */
   applied: string[]
-  /** True when nothing needs to change locally (conflicts keep ours). */
-  unchanged: boolean
 }
 
 const has = (m: Flat, k: string) => Object.hasOwn(m, k)
@@ -39,5 +37,5 @@ export const merge3 = (base: Flat, ours: Flat, theirs: Flat): MergeResult => {
     }
     if (has(from, k)) merged[k] = from[k] as Json
   }
-  return { merged, conflicts, applied, unchanged: applied.length === 0 }
+  return { merged, conflicts, applied }
 }
