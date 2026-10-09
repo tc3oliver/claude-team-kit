@@ -191,8 +191,7 @@ Claude Code has no rollback command of its own and CTK does not add one for it. 
 note your options (`/ctk-doctor` shows the cap), run `/plugin uninstall ctk@ctk-kit` and
 `/plugin marketplace remove ctk-kit`, add the marketplace at a release tag
 (`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; exercised with throwaway tags), install again and pass your options as
-`claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. Once tags exist this is the supported way back; no
-tag has been created yet. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
+`claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. The tag `v0.1.0` exists (a prerelease), so this is the supported way back to it. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
 
 Two things stay behind, both Claude Code's or the mod's, neither CTK's: empty `enabledPlugins`
 and `extraKnownMarketplaces` objects in `settings.json`, and the mod's per-session counters in

@@ -100,11 +100,8 @@ Open an issue at <https://github.com/tc3oliver/claude-team-kit/issues> (bug repo
 version (`claude --version`), your OS and terminal, the output of `/ctk-doctor` and `/ctk-stats`, and what you ran. For a
 security problem use a private advisory instead ([SECURITY.md](SECURITY.md)); do not paste credentials or settings files.
 
-## Not published
+## Published as
 
-No git tag exists and nothing has been published to npm, to GitHub Releases or to an official Claude Code plugin
-directory. The repository works as a plugin marketplace as it is. The release workflow builds and attaches an npm
-tarball, as a prerelease for `v0.*` tags, only when a `v*` tag equal to the package and plugin version is pushed;
-`npm publish` is a manual step after review.
-Run by hand (`workflow_dispatch`) the same workflow is a dry run: it runs the checks and builds the tarball, keeps it as a
-workflow artifact, and creates no release (run 37903587623 passed on `fc5299f`).
+A GitHub **prerelease** (tag `v0.1.0`, commit `6d9799d`) with the npm tarball attached. Not published to npm and not in any
+official Claude Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the tag
+is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.0` does. `npm publish` stays a manual step after review.
