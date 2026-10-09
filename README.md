@@ -86,7 +86,7 @@ Use a team to implement this feature and review the result.
 
 ## Your first team
 
-`/ctk:team <goal>` always loads the team skill; a plain sentence like the one above usually does, but that is Claude's decision, not a CTK classifier ([how it was checked](docs/NATURAL-LANGUAGE.md)). The skill tells the lead to check that teams are on, read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting. `/ctk-stats` shows what the session counted.
+`/ctk:team <goal>` always loads the team skill; a plain sentence like the one above can load it too: CTK matches a fixed list of phrases (English and Chinese) in your own prompt and adds one hidden hint line for the model, but the model still decides and the skill still checks that you asked for a team. It is not a classifier, it makes no model call, and only disabling the plugin turns it off ([details and evidence](docs/NATURAL-LANGUAGE.md)). The skill tells the lead to check that teams are on, read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting. `/ctk-stats` shows what the session counted.
 
 The recording asked for this on a small fixture ([`scripts/demo/fixture`](scripts/demo/fixture/README.md), five text modules, no tests):
 

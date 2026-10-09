@@ -4,9 +4,29 @@ CTK can be used by just saying what you want, in English or Chinese. This is **b
 Claude Code decides, on its own, whether a skill fits your sentence. Nothing here is guaranteed,
 and every entry point keeps a slash command as the reliable fallback.
 
-There is no extra model call, no `CLAUDE.md` injection and no prompt rewriting. The only
-mechanism is Claude Code's native skill discovery: the one-line `description` of each skill is
-visible to the model, and the model may load the skill when your request matches.
+There is no extra model call, no `CLAUDE.md` injection and no prompt rewriting. Two mechanisms
+apply:
+
+- Claude Code's native skill discovery: the one-line `description` of each skill is visible to the
+  model, and the model may load the skill when your request matches.
+- For the team skill only, a small hint from CTK (next section).
+
+## The team hint
+
+The CTK mod checks your own prompt (typed and sent with Enter, or sent through Remote Control)
+against a small fixed list of English and Chinese phrases: several agents, a team, parallel work,
+or "use CTK". When one matches, it adds one hidden line beside your prompt that says: if the request
+asks for several agents, a team or parallel work, invoke `ctk:team` first. Your text is not changed
+and the line is not shown.
+
+- It is a phrase check, not a classifier. It makes no model call and adds nothing to a prompt that
+  does not match, so it has no always-on cost. A slash command, a prompt that already names
+  `/ctk:team`, and anything that is not your own prompt are left alone.
+- The model still decides whether to load the skill, and the skill's own intent gate still applies:
+  a vague or non-team request gets one sentence back, not a team.
+- There is no switch for it other than disabling the plugin.
+- Not measured. In one real session the hint reached the model and `ctk:team` loaded. That is one
+  observation, not a rate; the pass rates below were measured without the hint.
 
 ## What works, and what needs you
 
@@ -28,6 +48,8 @@ A vague big task ("refactor the whole system") does not either; if the team skil
 loaded for it, step 0 of the skill replies with one sentence and waits.
 
 ## Always-on cost
+
+(The team hint above is not part of this: it is added per matching prompt only.)
 
 The model sees one line per model-invocable skill and per agent on every turn. The `team`
 skill used to be hidden (`disable-model-invocation: true`, zero cost) and is now visible; the
@@ -103,7 +125,7 @@ Honest notes:
 
 ## Limits
 
-- Discovery is the model's decision. A question ("can this be done in parallel?") may be answered
+- Loading the skill is the model's decision, with or without the hint. A question ("can this be done in parallel?") may be answered
   with analysis instead of loading the team skill; a long conversation may crowd out the hint.
   Use the slash command when it matters.
 - The English and Chinese keywords are in the `team` description only because they moved the

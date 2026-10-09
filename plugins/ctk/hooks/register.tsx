@@ -7,7 +7,7 @@ import type { StatsRecord } from '../shared/stats.ts'
 import { BAND_MARGIN, formatBand, formatSummary } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
-import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, measuredOf, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME } from './team.ts'
+import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, measuredOf, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
 import type { Snapshot } from './team.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
@@ -463,6 +463,15 @@ export const register: Register = (on, options) => {
     c.stats.spawnsFailedClosed += 1
     return { deny: guardDeny() }
   })
+
+  // A prompt that asks for several agents, a team or parallel work, or to use CTK, gets one hint line beside it
+  // (never shown, no model call): the model then loads the team skill instead of starting plain subagents. The
+  // prompt's own text is untouched, a prompt that is not the person's own is left alone, and any failure here
+  // lets the prompt through as it was.
+  on('prompt.submit', async ($, e, next) => {
+    const hint = teamHintFor(e)
+    return next(hint === null ? e : { ...e, context: [...(e.context ?? []), hint] })
+  }).catch(($, e, next) => next(e))
 
   on('session.start', async ($, e, next) => {
     try {

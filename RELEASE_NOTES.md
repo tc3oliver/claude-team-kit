@@ -1,4 +1,4 @@
-# Claude Team Kit 0.1.0 (prerelease)
+# Claude Team Kit 0.1.1 (prerelease candidate)
 
 A lightweight companion plugin for Claude Code's native Agent Teams: a hard cap on how many teammates run at once, a
 clickable read-only Mission Control, and skills that guide the lead to split work into verifiable tasks. The lead and the
@@ -6,6 +6,20 @@ teammates stay Claude Code's own; CTK is not a second orchestrator or scheduler.
 
 This is a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry the cap and the team
 line) are early access, so it can break when Claude Code changes. Read "Known limitations" before you rely on it.
+
+## Changes since 0.1.0
+
+- **Mission Control tells teammates and ordinary subagents apart.** An `Agent` call without a `name` is an ordinary
+  subagent: it is listed in its own section, counted as `Subagents` and `Sub n`, and still not counted or limited by the
+  worker cap. Empty Workers and Tasks pages say why they are empty and what to do. `Guard ON` now says how many of the
+  spawns it saw were teammates.
+- **Plain requests for several agents or a team load the team skill more reliably.** A fixed English and Chinese
+  phrase check adds one hidden hint line beside your own prompt (no model call, no always-on context). The model still
+  decides; one real session showed it working, which is not a measured rate. The only off switch is disabling the plugin.
+- **Changing the worker cap is visible.** The lead is told to say "press Confirm in Mission Control", and the band shows
+  `Confirm setting` until you answer.
+- **Install with your AI agent:** `INSTALL.md` and a README prompt, both through the native Plugin Manager only.
+- Update to it with `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`; the version changed, so it arrives.
 
 ## Install
 
@@ -102,6 +116,6 @@ security problem use a private advisory instead ([SECURITY.md](SECURITY.md)); do
 
 ## Published as
 
-A GitHub **prerelease** (tag `v0.1.0`, commit `6d9799d`) with the npm tarball attached. Not published to npm and not in any
+The previous release is the GitHub **prerelease** `v0.1.0` (commit `6d9799d`) with the npm tarball attached; 0.1.1 is a candidate and has no tag yet. Not published to npm and not in any
 official Claude Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the tag
 is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.0` does. `npm publish` stays a manual step after review.

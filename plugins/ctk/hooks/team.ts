@@ -150,3 +150,42 @@ export const effectiveLive = (roster: AgentInfo[], pending: Map<string, number>,
   }
   return roster.filter(isLiveTeammate).length + pending.size
 }
+
+// --- Natural-language entry ----------------------------------------------------------------
+
+/**
+ * Whether a prompt asks for several agents, a team or parallel work, or to use CTK. A small, fixed set of
+ * phrases in English and Chinese: it is not a classifier. All it can do is attach a one-line hint (see
+ * TEAM_HINT) that the model reads beside the prompt; the model still decides, and the team skill's own
+ * intent gate still applies. A prompt that is a command, or already names the team skill, is left alone.
+ */
+const TEAM_ASK = [
+  /多\s*(個|个|一個)?\s*(sub-?)?(agents?|代理)/i,
+  /(multi|multiple|several|parallel)[\s-]*(sub-?)?agents?\b/i,
+  /\b(\d+|two|three|four|five|several)\s+(sub-?agents?|teammates?|agents)\b/i,
+  /\bagents?\s+team\b/i,
+  /\b(a|use|as a)\s+team\b/i,
+  /\bteam\s+of\b/i,
+  /(用|使用|開|組|啟動)\s*(一個|個)?\s*(team|團隊|隊伍)/i,
+  /(平行|並行|同時)\s*(處理|執行|進行|做|跑|派)/,
+  /(分頭|分工)/,
+  /\b(in parallel|parallelize|concurrently)\b/i,
+  /\bctk\s*(的)?\s*(流程|workflow|team)/i,
+  /(?<![A-Za-z])(use|using)\s+ctk\b/i,
+  /(用|使用)\s*ctk/i,
+]
+
+export const teamIntent = (text: string): boolean => {
+  const t = text.slice(0, 2000).trim()
+  // A slash command ("/ctk:team ...", "/ctk-doctor") is not a request in words; a path such as /Users/x/repo is not a command.
+  if (t === '' || /^\/[\w:-]+(\s|$)/.test(t)) return false
+  return TEAM_ASK.some(re => re.test(t))
+}
+
+/** What the model reads beside such a prompt. Conditional on purpose: a mention of "team" in another sense is not a request. */
+export const TEAM_HINT =
+  'CTK note: if this request asks for several agents, a team or parallel work, invoke the ctk:team skill first (Skill tool) and follow it. It names every worker, which makes each one a native teammate that the worker cap and Mission Control track; an Agent call without a name is only an ordinary subagent. If the request is not about agents, ignore this note.'
+
+/** The hint for a prompt, or null. Only the person's own words count: the terminal's Enter and the Remote Control bridge. */
+export const teamHintFor = (e: { text: string; origin?: { kind: string } }): string | null =>
+  (e.origin?.kind === 'composer' || e.origin?.kind === 'bridge') && teamIntent(e.text) ? TEAM_HINT : null

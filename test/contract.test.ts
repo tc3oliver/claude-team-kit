@@ -28,9 +28,9 @@ const skillNames = readdirSync(join(plugin, 'skills'), { withFileTypes: true }).
 
 test('plugin.json userConfig keys and defaults equal DEFAULT_OPTIONS', () => {
   assert.equal(manifest.name, 'ctk')
-  assert.equal(manifest.version, '0.1.0')
-  assert.equal(manifest.license, 'MIT')
   const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'))
+  assert.equal(manifest.version, pkg.version, 'the plugin version is the package version, whatever it is')
+  assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository, pkg.repository.url.replace(/^git\+/, '').replace(/\.git$/, ''))
   assert.match(manifest.homepage, /^https:\/\/github\.com\/[^/]+\/claude-team-kit/)
   assert.match(manifest.author?.name ?? '', /^[A-Za-z0-9][A-Za-z0-9-]*$/, 'author is a GitHub-style handle, not a placeholder')
