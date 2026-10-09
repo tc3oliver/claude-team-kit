@@ -1,4 +1,4 @@
-# Claude Team Kit 0.1.1 (prerelease candidate)
+# Claude Team Kit 0.1.1 (prerelease)
 
 A lightweight companion plugin for Claude Code's native Agent Teams: a hard cap on how many teammates run at once, a
 clickable read-only Mission Control, and skills that guide the lead to split work into verifiable tasks. The lead and the
@@ -7,7 +7,23 @@ teammates stay Claude Code's own; CTK is not a second orchestrator or scheduler.
 This is a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry the cap and the team
 line) are early access, so it can break when Claude Code changes. Read "Known limitations" before you rely on it.
 
-## Changes since 0.1.0
+## Highlights
+
+- **A new Mission Control.** A redesigned read-only pane beside the transcript, tuned for the roughly 48 cells it really gets in a 120-column terminal.
+  - **Live workers:** a row per teammate with its task, model, tool calls, elapsed time and last activity; a worker's page lists its last tool calls (tool name and file base name only).
+  - **Task dependency graph:** waiting, ready, running and done nodes drawn only from the dependencies the lead declared, with a progress bar. "Done" means marked complete, not verified.
+  - **Ordinary subagents** are listed in their own section and are never counted against the cap.
+  - **Clearer empty states:** an empty Workers or Tasks page says why and what to do.
+  - Overview, Usage, Config, Stats and Doctor were reorganised; text wraps instead of being cut, and motion is event-driven and off with `CTK_REDUCED_MOTION=1` or `NO_COLOR`.
+- **Designer agent.** `ctk:designer` is a read-only Opus agent that returns a UI/UX design brief for the lead to hand to implementers (option `designerModel`, default `opus`). It is skill-guided and new: it has not been part of a recorded run.
+- **Install with your AI agent.** `INSTALL.md` and a README prompt, both through the native Plugin Manager only.
+- **A README that reads as a product page**, built around a real recording of Mission Control; recording notes are in [docs/DEMO.md](docs/DEMO.md).
+
+## Behaviour change: the default worker cap is 5 (was 3)
+
+The cap is still 1 to 12. A value you set yourself is kept, including through an update. An install that never set one follows the new default after it updates.
+
+## Other changes since 0.1.0
 
 - **Mission Control tells teammates and ordinary subagents apart.** An `Agent` call without a `name` is an ordinary
   subagent: it is listed in its own section, counted as `Subagents` and `Sub n`, and still not counted or limited by the
@@ -16,11 +32,10 @@ line) are early access, so it can break when Claude Code changes. Read "Known li
 - **Plain requests for several agents or a team load the team skill more reliably.** A fixed English and Chinese
   phrase check (it names agents or a team; a bare "parallel" does not count) adds one hidden hint line beside your own prompt (no model call, no always-on context). The model still
   decides; one real session showed it working, which is not a measured rate. Turn it off with the plugin option `teamHint`.
-- **The default worker cap is 5 (was 3), still 1 to 12.** A value you set yourself is kept.
 - **Changing the worker cap is visible.** The lead is told to say "press Confirm in Mission Control", and the band shows
   `Confirm setting` until you answer.
 - **Install with your AI agent:** `INSTALL.md` and a README prompt, both through the native Plugin Manager only.
-- Update to it with `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`; the version changed, so it arrives.
+- Update to it with `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`; from 0.1.0 the version changed, so it arrives.
 
 ## Install
 
@@ -58,7 +73,7 @@ live with throwaway tags: install pinned to a tag, and update and roll back by m
 - **Skills:** `/ctk:team` (a goal into vertical slices with real dependencies, a capped native team, a verification
   before "done"), `/ctk:review` (review depth scaled to risk), `/ctk:debug` (reproduce, hypothesise, fix, regression
   test), and `ctk` (status and settings in plain words). **Agents:** `explorer`, `implementer`, `reviewer`,
-  `high-risk-reviewer`, with a model per role unless a spawn names one.
+  `high-risk-reviewer` and `designer`, with a model per role unless a spawn names one.
 - **Worker cap (mod):** a teammate spawn above the cap (default 5, 1 to 12) is refused with `TEAM_CAPACITY_REACHED`;
   if the roster cannot be read it is refused with `TEAM_GUARD_FAILED` instead of guessed.
 - **Team line and Mission Control (mod):** one line above the prompt (model, 5-hour and weekly usage with reset
@@ -92,7 +107,9 @@ Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md). The ones to know first:
 - The team line can vanish for a few seconds after the lead's turn ends while workers run (cause unknown).
 - A confirmed settings change reloads the mod and loses per-worker and per-task detail until new events arrive.
 - Model routing to different models on live teammates was not shown (the recordings used Sonnet throughout).
-- The recordings were made before the guard-state change: they show `Guard ON` at start where this version shows `ready`.
+- Older recordings (Runs A to E) were made before the guard-state change: they show `Guard ON` at start where this version shows `ready`.
+- The light terminal theme was not checked; the real-cell screenshots are dark.
+- Linux and Windows terminals, and the install prompt run end to end by an agent, were not tried.
 
 ## Platforms
 
@@ -106,7 +123,7 @@ A passing CI run is not interactive support. Matrix: [docs/LIMITATIONS.md](docs/
 
 ## Breaking changes
 
-None: this is the first preview. Option names (`maxWorkers`, `hudBand`, `hudIdle`, `recordStats`, four model options) may
+No removed commands or options. The default cap changed from 3 to 5 (above). Option names (`maxWorkers`, `hudBand`, `hudIdle`, `recordStats`, `teamHint`, five model options) may
 still change before 1.0.
 
 ## Reporting problems
@@ -117,6 +134,6 @@ security problem use a private advisory instead ([SECURITY.md](SECURITY.md)); do
 
 ## Published as
 
-The previous release is the GitHub **prerelease** `v0.1.0` (commit `6d9799d`) with the npm tarball attached; 0.1.1 is a candidate and has no tag yet. Not published to npm and not in any
+This is the GitHub **prerelease** `v0.1.1` with the npm tarball attached; the previous one is the prerelease `v0.1.0` (commit `6d9799d`), which is unchanged. Not published to npm and not in any
 official Claude Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the tag
-is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.0` does. `npm publish` stays a manual step after review.
+is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.1` does. `npm publish` stays a manual step after review.

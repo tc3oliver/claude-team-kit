@@ -144,7 +144,7 @@ Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: O
 - The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
 - The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
 - Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
-- Status: public preview. The `v0.1.0` pre-release predates the redesigned Mission Control, the designer agent and the default limit of 5; this page describes `main`, which the install commands above use.
+- Status: public preview, released as the GitHub pre-release [`v0.1.1`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.1). The earlier `v0.1.0` predates the redesigned Mission Control, the designer agent and the default limit of 5. The install commands above follow `main`.
 
 More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 
