@@ -7,7 +7,7 @@ Agent Teams flag for you, syncs a profile between machines and keeps an undo led
 
 | Path | You need | You get |
 |---|---|---|
-| [Native install](#install-the-plugin-native) (recommended) | Claude Code 2.1.287 or newer, and access to the GitHub repository | Skills (3), agents (4), the mod with default options (cap 5), `/ctk-doctor`, `/ctk-stats` |
+| [Native install](#install-the-plugin-native) (recommended) | Claude Code 2.1.287 or newer, and access to the GitHub repository | Skills (4), agents (5), the mod with default options (cap 5), `/ctk-doctor`, `/ctk-stats` |
 | [Optional CLI](#the-optional-ctk-cli) | Node 22 or newer and a checkout or tarball | Everything above registered from a local directory, plus the status line, the teams-flag edit, profiles and sync, rollback |
 
 ## Prerequisites
@@ -43,10 +43,10 @@ claude plugin install ctk@ctk-kit
 Clone complete, validating marketplace…
 ✔ Successfully added marketplace: ctk-kit (declared in user settings)
 Installing plugin "ctk@ctk-kit"...✔ Successfully installed plugin: ctk@ctk-kit (scope: user)
-9 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
+10 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
 ```
 
-The "9 userConfig options not yet set" line is harmless: every option has a default (cap 5,
+The "10 userConfig options not yet set" line is harmless: every option has a default (cap 5,
 models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them later, see
 [Options](#options). The install writes only what Claude Code writes for any plugin:
 

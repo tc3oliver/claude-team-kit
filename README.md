@@ -5,61 +5,46 @@
   </picture>
 </p>
 
-<p align="center"><b>Control concurrency, see your team, and turn complex work into verifiable tasks.</b></p>
+<h2 align="center">Build with a team. Stay in control.</h2>
+
+<p align="center">
+  Turn complex tasks into coordinated Claude Code agent teams.<br>
+  Set hard limits, watch teammates work, and follow task dependencies live.
+</p>
+
+<p align="center"><b>Native teams. Real visibility. Your rules.</b></p>
+
+<p align="center">
+  <a href="#install"><b>Install CTK</b></a>
+  &nbsp;·&nbsp; <a href="#mission-control"><b>Watch Mission Control</b></a>
+  &nbsp;·&nbsp; <a href="#how-ctk-works"><b>How it works</b></a>
+</p>
 
 <p align="center">
   <a href="https://github.com/tc3oliver/claude-team-kit/actions/workflows/ci.yml"><img src="https://github.com/tc3oliver/claude-team-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
-  &nbsp;·&nbsp; <a href="#install"><b>Quick install ↓</b></a>
 </p>
-
-Claude Team Kit (CTK) is a lightweight companion plugin for Claude Code's native Agent Teams: a hard cap on how many teammates run at once, a clickable Mission Control for the team, and skills that guide the lead to split work into verifiable tasks. The lead and the teammates stay Claude Code's own; CTK is not a second orchestrator.
 
 <p align="center">
-  <img src="docs/assets/mission-control-f.svg" alt="Recording of a live Claude Code session: one plain-words request starts a team, the lead creates seven tasks and starts three workers, and a click on the CTK line above the prompt opens Mission Control beside the transcript, with the workers, a task graph whose nodes turn from ready to running to done, and usage" width="900">
+  <img src="docs/assets/mission-control-f.svg" alt="Recording of a real Claude Code session: one plain sentence starts a team, three teammates work, and a click on the CTK line above the prompt opens Mission Control beside the transcript with workers, a task graph whose nodes turn from ready to running to done, and usage" width="900">
 </p>
 
-<p align="center"><sub><b>Live Claude Code session.</b> One plain sentence starts the team; a real click on <code>CTK ▸</code> opens Mission Control beside the transcript. One run on a small fixture, played back at 185 s in 45 s; another run may behave differently. The account name, e-mail and organisation are masked. Recording notes: <a href="docs/DEMO.md#run-f-the-redesigned-mission-control-docked-beside-a-live-team">docs/DEMO.md</a> (also <a href="docs/assets/mission-control-f.gif">GIF</a>, <a href="docs/assets/mission-control-f.mp4">MP4</a>).</sub></p>
+<p align="center"><sub><b>A real Claude Code session, not a mockup.</b> One sentence starts the team; one click opens Mission Control. Account details are masked, and results vary from run to run. <a href="docs/DEMO.md#run-f-the-redesigned-mission-control-docked-beside-a-live-team">Recording notes</a> · <a href="docs/assets/mission-control-f.mp4">MP4</a> · <a href="docs/assets/mission-control-f.gif">GIF</a></sub></p>
 
-## From one prompt to a coordinated team
+## Three reasons to use CTK
 
-*Break down work. Run agents in parallel. Respect dependencies. Verify the result.*
+### Coordinated native teams
+One goal, several teammates, clear tasks and dependencies. Claude Code's own Agent Teams do the work; CTK's skill guides the lead to split the goal into verifiable tasks and to check the result before calling it done.
 
-<p align="center">
-  <img src="docs/assets/how-it-works.svg" alt="Illustration: one goal becomes eight vertical-slice tasks with real dependencies; only ready tasks start; three native teammates work at once and a fourth ready task waits; the lead hands the next ready task to an idle teammate; the lead runs the final verification" width="900">
-</p>
+### Hard worker limits
+Choose how many native teammates may be live at once (default 5, from 1 to 12). A spawn above the limit is refused and its task stays pending. Claude Code itself documents no such limit.
 
-<p align="center"><sub><b>Conceptual workflow visualization.</b> The scenario and the timings are invented; the recording above is the real session. Also as <a href="docs/assets/how-it-works.mp4">MP4</a> and a <a href="docs/assets/how-it-works-poster.png">still image</a>.</sub></p>
-
-**Plan** — Turn goals into verifiable vertical slices.<br>
-**Coordinate** — Track dependencies and ready tasks.<br>
-**Execute** — Run native teammates within a hard concurrency limit.<br>
-**Verify** — Integrate and check results before completion.
-
-Who does what: Claude Code provides the agent team and its shared task list with dependencies. CTK's skill guides the lead to split and verify the work, which the model may follow imperfectly. CTK's mod enforces the teammate limit, and only that. CTK has no scheduler of its own. Each step, and what was and was not seen live: [How CTK works](docs/WORKFLOW.md).
+### Mission Control
+See workers, tasks, dependencies and usage without leaving Claude Code. It is read-only: it never starts, stops or changes anything.
 
 ## Install
 
-Two ways, both through Claude Code's own Plugin Manager: do it yourself, or paste a prompt to your agent.
-
-### Manual install
-
-In Claude Code:
-
-```
-/plugin marketplace add tc3oliver/claude-team-kit
-/plugin install ctk@ctk-kit
-```
-
-Then run `/reload-plugins` (or restart). CTK needs Claude Code 2.1.287 or newer; Claude Code may print `9 userConfig options not yet set`, which is harmless because every option has a default.
-
-**Turn on Agent Teams.** They are experimental and off by default, and a plugin cannot switch them on. Add this entry to the `env` object in `~/.claude/settings.json` (create the object if there is none; leave your other settings as they are), then restart:
-
-```json
-"env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" }
-```
-
-Not sure it is set up? Run `/ctk-doctor`: it changes nothing and prints the exact fix for anything missing. On Claude 5.x models the shared task list needs one more variable; see [Installation](docs/INSTALLATION.md#one-time-setup-agent-teams).
+Two ways, both through Claude Code's own Plugin Manager.
 
 ### Install with your AI Agent
 
@@ -76,86 +61,96 @@ settings. Do not uninstall or disable anything else, including OMC. Tell me whic
 (`/reload-plugins` or a restart, then `/ctk-doctor`) and what the result should look like.
 ```
 
-The agent installs with the same two commands as above, adds the Agent Teams entry only after you agree, and then asks you to reload and run `/ctk-doctor`. Right after an install the doctor reads `Guard ready`; `Guard ON` appears once a spawn has reached the guard. [INSTALL.md](INSTALL.md) is the page the agent follows. The commands in it are the ones exercised in [Installation](docs/INSTALLATION.md); the prompt itself has not yet been run end to end with an agent, and Linux, Windows and WSL are [not verified interactively](docs/LIMITATIONS.md#platforms).
+The agent follows [INSTALL.md](INSTALL.md): it installs with the two commands below, adds the Agent Teams setting only after you agree, and asks you to reload and run `/ctk-doctor`.
 
-Then ask in words:
+### Manual install
+
+In Claude Code:
 
 ```
-Use a team to implement this feature and review the result.
+/plugin marketplace add tc3oliver/claude-team-kit
+/plugin install ctk@ctk-kit
 ```
+
+Then run `/reload-plugins` (or restart). CTK needs Claude Code 2.1.287 or newer.
+
+**Turn on Agent Teams.** They are experimental and off by default, and a plugin cannot switch them on. Add this to the `env` object in `~/.claude/settings.json` (keep your other settings), then restart:
+
+```json
+"env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" }
+```
+
+Run `/ctk-doctor` to check the setup: it changes nothing and prints the exact fix for anything missing. Details, Claude 5.x notes and options: [Installation](docs/INSTALLATION.md).
 
 ## Your first team
 
-`/ctk:team <goal>` always loads the team skill; a plain sentence like the one above can load it too: CTK matches a fixed list of phrases (English and Chinese) in your own prompt and adds one hidden hint line for the model, but the model still decides and the skill still checks that you asked for a team. It is not a classifier, it makes no model call, and the plugin option `teamHint` turns it off ([details and evidence](docs/NATURAL-LANGUAGE.md)). The skill tells the lead to check that teams are on, read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting. `/ctk-stats` shows what the session counted.
+Ask in plain words:
 
-The recording asked for this on a small fixture ([`scripts/demo/fixture`](scripts/demo/fixture/README.md), five text modules, no tests):
+```
+Use a team to implement this feature, write tests, and review the result.
+```
 
-> Use a team to add one node:test file per module in src/, named test/&lt;module&gt;.test.js, one worker per module. Then run npm test and report the results.
+Or be explicit with `/ctk:team <goal>`. The explicit command always loads the team skill. A plain sentence usually does too, but the model decides, so use the command when you want to be sure ([how it works](docs/NATURAL-LANGUAGE.md)). Then click `CTK ▸` above the prompt to open Mission Control.
 
-## Why Claude Team Kit?
+## How CTK works
 
-- **Structured team execution.** Vertical slices with real dependencies, short handoffs, and a check run before "done" ([how it works](#from-one-prompt-to-a-coordinated-team)). This is skill guidance for the lead, not code that enforces it.
-- **Hard worker limits.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 5, settable from 1 to 12. A teammate spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses. Only teammates are counted: ordinary subagents, forks and agents started with `isolation` are not, so the team skill never uses `isolation`. CTK does not queue the refused work: the lead keeps it pending and offers it again. Whether the guard is working is shown, not assumed: `Guard ON` appears only after a spawn has reached it ([how](docs/ARCHITECTURE.md#the-mod)).
-- **Clickable Mission Control.** A live, read-only view of workers, tasks and usage, one click away ([below](#mission-control)).
+<p align="center">
+  <img src="docs/assets/how-it-works.svg" alt="Illustration: one goal becomes eight tasks with dependencies; only ready tasks start; three native teammates work at once and a fourth ready task waits; the lead hands the next ready task to an idle teammate; the lead runs the final verification" width="900">
+</p>
 
-Small footprint: the plugin adds about 480 tokens to a session (measured with a real call; a skill's body loads only when used), and the team line makes no model calls. No speed, cost or token-saving claim is made.
+<p align="center"><sub><b>Conceptual illustration.</b> The scenario and timings are invented; the recording at the top is the real session. <a href="docs/assets/how-it-works.mp4">MP4</a></sub></p>
+
+**Plan** → **Coordinate** → **Execute** → **Verify**
+
+Claude Code provides the agent team and its shared task list. CTK's skill guides the lead through the four steps, and CTK's mod enforces the limit on native teammates. CTK has no scheduler of its own. Full division of work: [How CTK works](docs/WORKFLOW.md).
 
 ## Mission Control
 
-The `CTK ▸` line above the prompt is a button: click it, or run `/ctk-mission`, to open a read-only dashboard beside the transcript. Nothing in it spawns, stops or changes anything.
+Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: Overview, Workers, Tasks, Usage, Config, Stats and Doctor; keys `1` to `7` switch, `Esc` closes. Figures come from Claude Code's own events and API, and anything CTK could not observe reads `unavailable`, never a made-up zero.
 
 <p align="center">
-  <a href="docs/assets/mission-control-f-workers.svg"><img src="docs/assets/mission-control-f-workers.svg" alt="Mission Control, Workers view, docked beside the transcript: three workers on Sonnet 5.5, each with its task, tool-call count, elapsed time and last activity" width="720"></a>
+  <a href="docs/assets/mission-control-f-workers.svg"><img src="docs/assets/mission-control-f-workers.svg" alt="Mission Control Workers view beside the transcript: three workers on Sonnet 5.5, each with its task, tool-call count, elapsed time and last activity" width="640"></a><br>
+  <b>Live workers</b><br>
+  <sub>Who is running what, on which model, and how recently it did something.</sub>
 </p>
 
 <p align="center">
-  <a href="docs/assets/mission-control-f-poster.svg"><img src="docs/assets/mission-control-f-poster.svg" alt="Mission Control, Tasks view, docked beside the transcript: five finished tasks fan in to a running npm test task, which leads to the report task" width="720"></a>
-</p>
-
-<p align="center"><sub>Stills from the recording above: the workers with their live rows, then the task graph with its dependencies. The pane is about 48 cells wide in a 120-column terminal, so titles are short. Layouts at other widths are in the <a href="docs/DEMO.md#mission-control-screenshots-synthetic-data">synthetic-data screenshots</a>. Tap an image for full size.</sub></p>
-
-- **Views:** Overview (guard, workers, tasks, team time, usage), Workers, Tasks (owner, ready or blocked, what it needs and blocks), Usage, Config, Stats, Doctor. Digits `1` to `7` switch views; `Esc` returns to the prompt.
-- **Only what was observed.** Figures come from Claude Code's own events and API; anything CTK could not observe reads `unavailable`, never a made-up zero.
-- **Settings from plain words.** "Set the worker cap to 2" makes the model propose the change; it applies only when you press Confirm in the pane ([notes](docs/MISSION-CONTROL.md)).
-
-## More features
-
-- **A team line above the prompt.** Model, 5-hour and weekly usage with reset countdowns, tool calls, agents against the cap, tasks, context and cost, fitted to your terminal width. It reads only what Claude Code hands it: no network calls, no credential reads, no model calls.
-- **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus, unless a spawn names a model.
-- **Review and debugging skills.** `/ctk:review` scales reviewer depth to risk; `/ctk:debug` asks for a failing reproduction before a fix. Neither has been run on a real change yet ([Limitations](docs/LIMITATIONS.md)).
-- **Honest numbers.** `/ctk-stats` labels each figure as counted by CTK or measured by Claude Code; Claude Code reports no per-worker cost, so CTK shows none.
-
-<p align="center">
-  <a href="docs/assets/hud-widths.svg"><img src="docs/assets/hud-widths.svg" alt="The CTK team line in real captures at 200, 130, 100, 80 and 60 terminal columns, alone above the prompt and split with the optional status line" width="760"></a>
-</p>
-
-<p align="center"><sub>The team line at five terminal widths, from live captures (Claude Code 2.1.295; usage figures are the maintainer's account at that moment). Tap for full size. Details: <a href="docs/ARCHITECTURE.md#layout">layout</a>.</sub></p>
-
-### The cap in a recorded run
-
-<p align="center">
-  <a href="docs/assets/team-demo-d-tasks.svg"><img src="docs/assets/team-demo-d-tasks.svg" alt="Three workers live at the cap; the lead keeps two tasks pending; the task list shows the final run blocked by tasks 4 and 5; the team line reads team 3 busy, cap 3, tasks 3/6" width="720"></a>
+  <a href="docs/assets/mission-control-f-poster.svg"><img src="docs/assets/mission-control-f-poster.svg" alt="Mission Control Tasks view beside the transcript: five finished tasks fan in to a running npm test task, which leads to the report task" width="640"></a><br>
+  <b>Task dependency graph</b><br>
+  <sub>Drawn only from the dependencies the lead declared; waiting, ready, running and done are distinct.</sub>
 </p>
 
 <p align="center">
-  <a href="docs/assets/team-demo-refusal.svg"><img src="docs/assets/team-demo-refusal.svg" alt="A spawn refused live with TEAM_CAPACITY_REACHED: live=3 starting=0 max=3; the team line shows rejected 1" width="720"></a>
+  <a href="docs/assets/mission-control-f-usage.svg"><img src="docs/assets/mission-control-f-usage.svg" alt="Mission Control Usage view beside the transcript: 5-hour and weekly limits with reset times, context use, session cost and tool calls" width="640"></a><br>
+  <b>Usage</b><br>
+  <sub>5-hour and weekly limits, context and session cost, as Claude Code reports them.</sub>
 </p>
 
-<p align="center"><sub><b>Top (an earlier recording, Run D):</b> at the cap, the lead keeps tasks #4 and #5 pending instead of spawning; no spawn was refused in this run. <b>Bottom (an earlier attempt, not the published demo):</b> the only recorded live refusal. The lead read it and reused idle workers through <code>SendMessage</code> (<a href="docs/DEMO.md#attempt-1-the-cap-refusing-live-not-the-published-run">notes</a>).</sub></p>
+<p align="center"><sub>Stills from the recording above; tap one for full size. More layouts, at other widths, are in the <a href="docs/DEMO.md#mission-control-screenshots-synthetic-data">synthetic-data screenshots</a>, which are labelled as such.</sub></p>
 
-### Configuration and the optional CLI
+## Everything else
 
-Change the cap, the model per role, the team line and stats recording with `/plugin configure ctk@ctk-kit` ([options](docs/INSTALLATION.md#options)). An explicit model in a spawn is never overridden.
+- **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus, unless a spawn names a model. An optional read-only `designer` on Opus writes UI/UX briefs; it is new on main and has not yet been part of a recorded run.
+- **Risk-based review.** `/ctk:review` scales reviewer depth to the risk of the change.
+- **Debugging workflow.** `/ctk:debug` asks for a failing reproduction before a fix.
+- **Natural-language control.** Ask in words for a team or for a setting change, such as "set the worker cap to 2"; the change applies only after you press Confirm in Mission Control ([details](docs/NATURAL-LANGUAGE.md)).
+- **Usage HUD.** A team line above the prompt with the model, 5-hour and weekly usage, agents against the limit, tasks and cost, fitted to your terminal width. It reads only what Claude Code hands it: no network calls, no model calls.
+- **Portable configuration.** Change options with `/plugin configure ctk@ctk-kit`. The optional `ctk` CLI syncs a profile between machines through a git repository you own, with a secrets scan before every publish ([Configuration](docs/CONFIGURATION.md)).
+- **Small footprint.** The plugin adds about 480 tokens to a session (measured with a real call). No speed, cost or token-saving claim is made.
 
-**Advanced:** the optional `ctk` CLI syncs profiles between machines through a git repository you own (whitelisted keys, a secrets scan before every publish, three-way merge) and keeps an install ledger with `ctk rollback` and `ctk uninstall`. It is built from a checkout, not from npm: see [the optional CLI](docs/INSTALLATION.md#the-optional-ctk-cli) and [Configuration](docs/CONFIGURATION.md).
+## Limitations
 
-## Status and limitations
+- Agent Teams are experimental, and Mods, which carry the limit and the team line, are early access. Where Mods are missing, `/ctk:team` says the limit and the team line are off.
+- The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
+- The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
+- Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
+- Status: public preview. The `v0.1.0` pre-release predates the redesigned Mission Control, the designer agent and the default limit of 5; this page describes `main`, which the install commands above use.
 
-Public preview (v0.1.0): not on npm or in an official plugin directory. Agent Teams are experimental and Mods, which carry the cap and the team line, are early access; where Mods are missing (older builds, reportedly WSL) `/ctk:team` says the cap and team line are off. Used interactively on macOS; Windows and Linux are covered by [CI](https://github.com/tc3oliver/claude-team-kit/actions/workflows/ci.yml) only ([platform matrix](docs/LIMITATIONS.md#platforms)). What was never run live is listed in [Limitations](docs/LIMITATIONS.md).
+More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 
 ## Documentation
 
-[Installation](docs/INSTALLATION.md) · [How CTK works](docs/WORKFLOW.md) · [Mission Control](docs/MISSION-CONTROL.md) · [Natural language](docs/NATURAL-LANGUAGE.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [Limitations](docs/LIMITATIONS.md) · [Demo notes](docs/DEMO.md) · [Verification record](docs/REVIEW.md) · [Threat model](docs/THREAT-MODEL.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Rollback](docs/ROLLBACK.md)
+[Installation](docs/INSTALLATION.md) · [How CTK works](docs/WORKFLOW.md) · [Mission Control](docs/MISSION-CONTROL.md) · [Natural language](docs/NATURAL-LANGUAGE.md) · [Configuration](docs/CONFIGURATION.md) · [Architecture](docs/ARCHITECTURE.md) · [Limitations](docs/LIMITATIONS.md) · [Recordings](docs/DEMO.md) · [Verification record](docs/REVIEW.md) · [Comparison with OMC, superpowers and claude-hud](docs/COMPARISON.md) · [Coming from OMC](docs/MIGRATION-FROM-OMC.md) · [Rollback](docs/ROLLBACK.md)
 
 ---
 

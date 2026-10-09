@@ -17,13 +17,13 @@ const reference = text('docs/INSTALLATION.md')
 /** Fenced code blocks of a markdown file. */
 const fences = (md: string): string[] => [...md.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map(m => m[1] as string)
 
-test('the README offers both installs, the manual one first and complete', () => {
+test('the README offers both installs, the agent prompt first and the manual one complete', () => {
   const install = readme.slice(readme.indexOf('\n## Install\n'), readme.indexOf('\n## Your first team'))
   assert.ok(install.includes('### Manual install'), 'manual install keeps its own heading')
   assert.ok(install.includes('### Install with your AI Agent'))
-  assert.ok(install.indexOf('### Manual install') < install.indexOf('### Install with your AI Agent'), 'the native commands are not pushed down')
+  assert.ok(install.indexOf('### Install with your AI Agent') < install.indexOf('### Manual install'), 'the prompt comes first, the native commands stay in the install section')
   for (const cmd of ['/plugin marketplace add tc3oliver/claude-team-kit', '/plugin install ctk@ctk-kit', '/reload-plugins', '/ctk-doctor', 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS']) {
-    assert.ok(install.slice(0, install.indexOf('### Install with your AI Agent')).includes(cmd), `manual install shows ${cmd}`)
+    assert.ok(install.slice(install.indexOf('### Manual install')).includes(cmd), `manual install shows ${cmd}`)
   }
 })
 

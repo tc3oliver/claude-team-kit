@@ -21,7 +21,7 @@ Compared: CTK (this repository), Claude Code's native **Agent Teams**,
   (`plugin.json`). The claude-hud version was not checked. All four repositories are MIT licensed
   (GitHub API); CTK is MIT (`LICENSE`).
 - No performance, cost or total-token comparison is made. Fixed context for CTK and OMC is
-  discussed, with its limits, in the [README](../README.md#why-claude-team-kit).
+  discussed, with its limits, in the [README](../README.md#everything-else).
 - "Not stated" means the sources listed here do not say. It is not a claim that the feature is
   absent.
 
