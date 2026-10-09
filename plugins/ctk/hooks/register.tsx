@@ -31,6 +31,8 @@ import {
 } from './mission.ts'
 import type { McState, MissionState } from './mission.ts'
 import { renderMission } from './missionui.tsx'
+import { delayFor, motionOf, newMotionState, observe, reducedFrom } from './ui/motion.ts'
+import type { MotionState } from './ui/motion.ts'
 
 // Every host call is here because `$` may only be handed to top-level functions of this
 // file. Anything pure (cap text, routing, snapshot math, band text) is in team.ts / band.ts.
@@ -74,6 +76,12 @@ type Ctx = {
   notice: string | null
   /** True from just before a confirmed change is written until it is refused: teammate spawns wait, because the reload that follows forgets spawns in flight. */
   applying: boolean
+  /** Mission Control's motion: highlights and the slow frame. Memory only; reduced motion keeps it static. */
+  mo: MotionState
+  /** The one pending redraw timer, armed only while the pane draws and something moves. */
+  moTimer: { cancel: () => void } | null
+  /** True from a pane draw until the pane is closed by its own button; the timer does nothing otherwise. */
+  paneOpen: boolean
 }
 
 async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
@@ -217,8 +225,35 @@ async function boot($: EngineInterface, c: Ctx) {
   } catch {
     // Keep one-cell ambiguous characters.
   }
+  try {
+    c.mo = newMotionState(reducedFrom(await $.env.get('CTK_REDUCED_MOTION'), await $.env.get('NO_COLOR')))
+  } catch {
+    // Keep motion on its default.
+  }
   await detectEnvironment($, c)
   await refresh($, c)
+}
+
+// Stops the redraw timer. Called when the pane closes and when the session ends.
+function stopMotion(c: Ctx) {
+  c.moTimer?.cancel()
+  c.moTimer = null
+  c.paneOpen = false
+}
+
+// One timer at most, and only while the pane is drawing and something moves (a running worker, or a highlight
+// still to end). Each fire redraws the pane, which arms the next; a pane that is gone draws nothing, so the
+// chain ends by itself.
+function armMotion($: EngineInterface, c: Ctx, now: number) {
+  if (c.moTimer !== null) return
+  const ms = delayFor(c.mo, missionOf(c), now)
+  if (ms === null) return
+  c.moTimer = $.clock.after(ms, () => {
+    c.moTimer = null
+    if (!c.paneOpen) return
+    c.mo = { ...c.mo, frame: c.mo.frame + 1 }
+    $.ui.invalidate('ui.render')
+  })
 }
 
 const noop = () => {}
@@ -259,7 +294,10 @@ async function handlePress($: EngineInterface, c: Ctx, key: string) {
     }
     const r = pressMc(c.mc, key)
     c.mc = r.mc
-    if (r.effect === 'close') await $.ui.close({ id: MC_PANE_ID })
+    if (r.effect === 'close') {
+      stopMotion(c)
+      await $.ui.close({ id: MC_PANE_ID })
+    }
     else if (r.effect === 'doctor') await loadDoctor($, c)
     else if (r.effect === 'refresh') await refresh($, c)
     else if (r.effect === 'confirm' || r.effect === 'cancel') await decideChange($, c, r.effect, r.id ?? '')
@@ -396,6 +434,9 @@ export const register: Register = (on, options) => {
     cfg: emptyPending(),
     notice: null,
     applying: false,
+    mo: newMotionState(),
+    moTimer: null,
+    paneOpen: false,
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -536,6 +577,7 @@ export const register: Register = (on, options) => {
   })
 
   on('session.end', async ($, e, next) => {
+    stopMotion(c)
     await persist($, c, true)
     return next(e)
   })
@@ -660,6 +702,10 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== MC_PANE_ID) return next(e)
+    const now = await $.clock.now().catch(() => c.lastNow)
+    c.paneOpen = true
+    c.mo = observe(c.mo, missionOf(c), now)
+    armMotion($, c, now)
     return renderMission(
       $.ui.resolve(e),
       missionOf(c),
@@ -670,7 +716,7 @@ export const register: Register = (on, options) => {
         pending: sweep(c.cfg, c.lastNow).pending === null ? null : { id: sweep(c.cfg, c.lastNow).pending!.id, text: sweep(c.cfg, c.lastNow).pending!.change.text },
         notice: c.notice,
       },
-      { ...e.props, ambiguous: c.ambiguous },
+      { ...e.props, ambiguous: c.ambiguous, motion: motionOf(c.mo) },
     )
   })
 }

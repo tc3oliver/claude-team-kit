@@ -1,4 +1,6 @@
 import { truncateToWidth } from '../../shared/hudline.ts'
+import { STATIC_MOTION } from './motion.ts'
+import type { Motion } from './motion.ts'
 import { padCells, wrapCells } from './text.ts'
 import { COLOR, dividerText, GLYPH, progressBar, statusColor } from './theme.ts'
 import type { Status, ThemeColor } from './theme.ts'
@@ -21,7 +23,7 @@ const noop = () => {}
  * The drawing kit one render shares: the width it has, and primitives bound to the host's components.
  * Every line is cut or wrapped to `room` because a Text inside a Button wraps instead of truncating.
  */
-export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 | 2 }) => {
+export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion }) => {
   const { Box, Text, Button } = kit
   const ambiguous = props.ambiguous ?? 1
   const room = Math.max(10, props.bodyColumns - 1)
@@ -81,7 +83,7 @@ export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 
     </Text>
   )
 
-  return { kit, room, ambiguous, rows: BODY_ROWS, wide: room >= WIDE_ROOM, compact: room < TABLE_ROOM, fieldWrap, fit, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
+  return { kit, room, ambiguous, motion: props.motion ?? STATIC_MOTION, rows: BODY_ROWS, wide: room >= WIDE_ROOM, compact: room < TABLE_ROOM, fieldWrap, fit, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
 }
 
 export type Ctx = ReturnType<typeof createCtx>

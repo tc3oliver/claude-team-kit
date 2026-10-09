@@ -47,8 +47,9 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
   // Narrow panes show this row only when it has something to say; the wide cards always carry the refused count.
   const cap = [
     ...(m.subagents.total > 0 ? [`${m.subagents.total} ordinary · ${m.subagents.live} live · not teammates, so the cap does not count them`] : []),
-    `${m.rejected} spawn(s) refused above the cap`,
+    `${m.rejected} spawn(s) refused above the cap${m.rejected > 0 ? ' (TEAM_CAPACITY_REACHED)' : ''}`,
   ].join(' · ')
+  const atCapacity = m.active !== null && m.active >= m.cap
   const showCap = wide || m.rejected > 0 || m.subagents.total > 0
 
   const taskText =
@@ -66,10 +67,10 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
   ].join(' · ')
 
   const rows = [
-    ...fieldWrap('guard', 'Guard', `${GUARD_BANNER[m.guard.state]} (${guardWord(m.guard)}) · ${m.guard.why}`, guardColor(m)),
+    ...fieldWrap('guard', 'Guard', `${GUARD_BANNER[m.guard.state]} (${guardWord(m.guard)})${atCapacity ? ' · capacity reached' : ''} · ${m.guard.why}`, ctx.motion.hot.has('guard') ? 'error' : guardColor(m)),
     ...cards,
     ...teamBlock,
-    ...(showCap ? fieldWrap('cap', 'Cap', cap) : []),
+    ...(showCap ? fieldWrap('cap', 'Cap', cap, m.rejected > 0 ? 'error' : undefined) : []),
     ...(m.outsideCap > 0 ? fieldWrap('outside', 'Outside cap', `${m.outsideCap} named agent(s) started with isolation as ordinary subagents; the cap does not count them`, 'warning') : []),
     // With no team and no task event there is nothing to say about tasks; the empty state already says it.
     ...(empty && m.tasks.total === null ? [] : fieldWrap('tasks', 'Tasks', taskText)),

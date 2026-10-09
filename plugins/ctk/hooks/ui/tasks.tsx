@@ -4,6 +4,7 @@ import type { McState, Mission, TaskRow } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
 import { layoutDag, taskStatus } from './dag.ts'
 import { backButton } from './frame.tsx'
+import { glyphProps } from './motion.ts'
 import { COLOR, GLYPH, progressBar, statusColor } from './theme.ts'
 import type { Status } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
@@ -94,7 +95,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
     out.push(
       <kit.Button key={taskKey(r.id)} plain label={`Task #${r.id}`} onPress={() => {}}>
         <Text wrap="truncate-end">
-          <Text color={statusColor(st)}>{GLYPH[st]} </Text>
+          <Text color={statusColor(st)} {...glyphProps(ctx.motion, st === 'running', `task:${r.id}`)}>{GLYPH[st]} </Text>
           <Text bold>{id}</Text>
           <Text>{ctx.pad(r.subject, showSide ? avail - displayWidth(side, ambiguous) - 1 : avail)}</Text>
           {showSide ? <Text dimColor> {side}</Text> : null}

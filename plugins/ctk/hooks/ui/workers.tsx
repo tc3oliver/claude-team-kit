@@ -4,6 +4,7 @@ import { fmtAge, fmtSpan, UNAVAILABLE, workerKey } from '../mission.ts'
 import type { McState, Mission, WorkerRow } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
 import { backButton } from './frame.tsx'
+import { glyphProps } from './motion.ts'
 import { GLYPH, statusColor, statusOf } from './theme.ts'
 import type { Status } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
@@ -57,7 +58,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     return (
       <kit.Button key={workerKey(w.agentId)} plain label={`Worker ${w.name}`} onPress={() => {}}>
         <Text wrap="truncate-end">
-          <Text color={statusColor(st)}>{GLYPH[st]} </Text>
+          <Text color={statusColor(st)} {...glyphProps(ctx.motion, st === 'running', `worker:${w.agentId}`)}>{GLYPH[st]} </Text>
           <Text bold>{pad(w.name, nameW)}</Text>
           <Text dimColor={w.currentTask === null}>{taskW === 0 ? '' : ` ${pad(w.currentTask ?? DASH, taskW)}`}</Text>
           <Text>{rest(id => cell(w, id))}</Text>
@@ -77,7 +78,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     return [
       <kit.Button key={workerKey(w.agentId)} plain label={`Worker ${w.name}`} onPress={() => {}}>
         <Text wrap="truncate-end">
-          <Text color={statusColor(st)}>{GLYPH[st]} </Text>
+          <Text color={statusColor(st)} {...glyphProps(ctx.motion, st === 'running', `worker:${w.agentId}`)}>{GLYPH[st]} </Text>
           <Text bold>{pad(w.name, nameW)}</Text>
           <Text dimColor={w.model === null}> {pad(w.model ?? DASH, 17)} </Text>
           <Text color={statusColor(st)}>{clip(w.status.toUpperCase(), 10)}</Text>

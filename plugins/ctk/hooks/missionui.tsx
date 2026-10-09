@@ -6,6 +6,7 @@ import { footer, header, tabs } from './ui/frame.tsx'
 import { renderOverview } from './ui/overview.tsx'
 import { renderStats } from './ui/stats.tsx'
 import { renderTasks } from './ui/tasks.tsx'
+import type { Motion } from './ui/motion.ts'
 import type { Extras, Kit } from './ui/types.ts'
 import { renderUsage } from './ui/usage.tsx'
 import { renderWorkers } from './ui/workers.tsx'
@@ -22,7 +23,7 @@ export const PANE_ROWS = 16
 
 const VIEWS = { overview: renderOverview, workers: renderWorkers, tasks: renderTasks, usage: renderUsage, config: renderConfig, stats: renderStats, doctor: renderDoctor }
 
-export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras, props: { bodyColumns: number; ambiguous?: 1 | 2 }) => {
+export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion }) => {
   const { Box } = kit
   const ctx = createCtx(kit, props)
   return (

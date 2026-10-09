@@ -187,6 +187,24 @@ describe('Mission Control views', () => {
     expect(t).toContain('unavailable (no in-progress task owned by this worker was observed)')
   })
 
+  test('many workers and subagents stay within the 16 rows the pane opens with', { options: { maxWorkers: 12 } }, async ($, on) => {
+    await team($, on)
+    for (let i = 2; i < 9; i++) await $.agent.spawn(spawnInput(i, true, { name: `w-extra${i}` }))
+    for (let i = 20; i < 32; i++) {
+      const { name: _name, ...rest } = spawnInput(i, false, { subagentType: 'Explore', description: `scout ${i}`, background: false })
+      await $.agent.spawn(rest as never)
+    }
+    const p = await pane($)
+    await p.press({ key: 'mc:view:workers' })
+    const rows = (n: any): number => (typeof n === 'string' || n.type === 'Text' ? 1 : n.type === 'Box' && n.props.flexDirection === 'row' ? 1 : (n.children ?? []).reduce((a: number, c: any) => a + rows(c), 0))
+    expect(rows(await p.drawn())).toBeLessThanOrEqual(16)
+    const t = await texts(p)
+    expect(t).toMatch(/\+\d+ more/)
+    expect(t).toContain('ORDINARY SUBAGENTS (12)')
+    expect(t).toContain('earlier')
+    await p.unmount()
+  })
+
   test('descriptions the model passed to the task tools are never shown', async ($, on) => {
     await team($, on)
     const p = await pane($)

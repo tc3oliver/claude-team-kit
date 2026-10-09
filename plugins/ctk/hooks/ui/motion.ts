@@ -70,3 +70,9 @@ export const delayFor = (s: MotionState, m: Mission, now: number): number | null
 
 /** A running glyph is drawn dim on odd frames; with motion off it never is. */
 export const pulseDim = (mo: Motion): boolean => !mo.reduced && mo.frame % 2 === 1
+
+/** Text props for a status glyph: a running one dims on odd frames, a freshly changed row (`key`) is inverted. */
+export const glyphProps = (mo: Motion, running: boolean, key: string): { dimColor: boolean; inverse: boolean } => ({
+  dimColor: running && pulseDim(mo),
+  inverse: mo.hot.has(key),
+})
