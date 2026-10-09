@@ -40,6 +40,10 @@ Who does what: Claude Code provides the agent team and its shared task list with
 
 ## Install
 
+Two ways, both through Claude Code's own Plugin Manager: do it yourself, or paste a prompt to your agent.
+
+### Manual install
+
 In Claude Code:
 
 ```
@@ -55,13 +59,30 @@ Then run `/reload-plugins` (or restart). CTK needs Claude Code 2.1.287 or newer;
 "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" }
 ```
 
+Not sure it is set up? Run `/ctk-doctor`: it changes nothing and prints the exact fix for anything missing. On Claude 5.x models the shared task list needs one more variable; see [Installation](docs/INSTALLATION.md#one-time-setup-agent-teams).
+
+### Install with your AI Agent
+
+Paste this into Claude Code (or another coding agent that can run shell commands):
+
+```text
+Install Claude Team Kit (CTK), a Claude Code plugin, by following the checklist at
+https://raw.githubusercontent.com/tc3oliver/claude-team-kit/main/INSTALL.md
+
+Rules: use only Claude Code's native Plugin Manager (`claude plugin ...`); no other installer, no `curl | bash`,
+no `npm install`. Check `claude --version` and any existing CTK install first. Show me the exact change to
+settings.json and wait for my yes before editing it; merge only, and keep my other plugins, MCP servers, hooks and
+settings. Do not uninstall or disable anything else, including OMC. Tell me which steps only I can run
+(`/reload-plugins` or a restart, then `/ctk-doctor`) and what the result should look like.
+```
+
+The agent installs with the same two commands as above, adds the Agent Teams entry only after you agree, and then asks you to reload and run `/ctk-doctor`. Right after an install the doctor reads `Guard ready`; `Guard ON` appears once a spawn has reached the guard. [INSTALL.md](INSTALL.md) is the page the agent follows. The commands in it are the ones exercised in [Installation](docs/INSTALLATION.md); the prompt itself has not yet been run end to end with an agent, and Linux, Windows and WSL are [not verified interactively](docs/LIMITATIONS.md#platforms).
+
 Then ask in words:
 
 ```
 Use a team to implement this feature and review the result.
 ```
-
-Not sure it is set up? Run `/ctk-doctor`: it changes nothing and prints the exact fix for anything missing. On Claude 5.x models the shared task list needs one more variable; see [Installation](docs/INSTALLATION.md#one-time-setup-agent-teams).
 
 ## Your first team
 

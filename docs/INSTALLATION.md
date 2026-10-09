@@ -18,6 +18,9 @@ Agent Teams flag for you, syncs a profile between machines and keeps an undo led
 | git | for the native install (Claude Code clones the repository) and for `ctk sync` | `git --version` |
 | Node.js | only for the optional CLI: 22 or newer (CI tests 22 and 24) | `node --version` |
 
+To see what is already installed before you change anything, run `claude plugin list` and `claude plugin marketplace list`.
+The install commands below are safe to repeat: they answer "already on disk" and "already installed".
+
 Installing needs no login: every command on this page was run against a logged-out Claude
 Code in a scratch config directory. You do need to log in to use a team.
 

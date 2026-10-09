@@ -19,7 +19,7 @@ const docsDir = (): string[] => (existsSync(join(ROOT, 'docs')) ? readdirSync(jo
 /** Every tracked markdown document. */
 const ALL = (): string[] => [...rootDocs(), ...docsDir()]
 /** Documents whose commands and links are checked. */
-const COMMAND_DOCS = (): string[] => ['README.md', 'CONTRIBUTING.md', ...docsDir()].filter(f => existsSync(join(ROOT, f)))
+const COMMAND_DOCS = (): string[] => ['README.md', 'INSTALL.md', 'CONTRIBUTING.md', ...docsDir()].filter(f => existsSync(join(ROOT, f)))
 
 const read = (f: string): string => readFileSync(join(ROOT, f), 'utf8')
 

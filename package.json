@@ -36,6 +36,7 @@
     "docs",
     "LICENSE",
     "README.md",
+    "INSTALL.md",
     "CHANGELOG.md",
     "THIRD_PARTY_NOTICES.md",
     "!**/.omc",
