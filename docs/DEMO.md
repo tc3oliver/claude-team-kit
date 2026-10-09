@@ -323,6 +323,15 @@ appear before any worker starts, and the HUD tasks count follows the list to 6/6
 slower and messier than Run C (message crossing, a worker trimming a test) but those are lead and worker behaviors,
 not plugin faults; one run each cannot say which is typical.
 
+## The HUD at five widths
+
+`docs/assets/hud-widths.svg` is not a recording: it draws the rows in `docs/assets/hud-widths.json`,
+which were copied from tmux captures of two live sessions (Claude Code 2.1.295, the working-tree
+plugin loaded with `--plugin-dir`, one `ls` and one `Read` as the only tool calls), the terminal
+resized between captures. The second session also had CTK's status line configured through
+`--settings`. Usage figures are the maintainer account's at that moment. Rebuild the image with
+`node scripts/render-hud-widths.mjs`.
+
 ## Reproduce
 
 `scripts/demo/team-demo.sh` rebuilds everything: the fixture repository, the CTK install into a dedicated config

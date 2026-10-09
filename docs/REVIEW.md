@@ -202,11 +202,35 @@ The mutations were made at the time of writing, one at a time, and are not a CI 
   `git status`.
 - **Validator output (this tree):**
   `calls: $.agent.list, $.clock.now, $.command.register, $.env.get, $.fs.read, $.fs.write,
-  $.session.id, $.session.usage, $.settings.read, $.tool.list, $.tool.register, $.ui.invalidate,
-  $.ui.resolve`; `env reads: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, CLAUDE_CONFIG_DIR, HOME,
-  USERPROFILE`; `env writes: nothing`. Hooks include `command.run{command=ctk-doctor}`.
-- **Tests:** `plugins/ctk/tests/hud.test.tsx` (band content, 80-column truncation, missing
-  figures as dashes, hidden when `hudBand` is false, yields to the survey prompt), stats tests in
+  $.session.id, $.session.model, $.session.usage, $.settings.read, $.tool.list, $.tool.register,
+  $.ui.invalidate, $.ui.resolve`; `env reads: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS,
+  CLAUDE_CONFIG_DIR, CTK_AMBIGUOUS_WIDTH, HOME, USERPROFILE`; `env writes: nothing`. Hooks include
+  `command.run{command=ctk-doctor}` and a `tool.call` hook that reads only the call's `tool_use_id`.
+- **HUD v2 (usage, reset countdowns, tool calls, widths), checked live on Claude Code 2.1.295 in a
+  scratch config:**
+  - the status line JSON carries `rate_limits.five_hour` and `seven_day` as `used_percentage`
+    (number) and `resets_at` (a 10-digit number: epoch seconds), only after the first API
+    response; `COLUMNS` is set to the terminal width, and is 100 / 90 / 70 / 110 for the four
+    sizes tried, re-read on each run;
+  - Claude Code draws the status line after a 2-column indent and cuts a line longer than
+    `COLUMNS - 4` cells with `…` (a line of exactly that fits; one more is cut; at 70, 90 and 100
+    columns); it does not run the command again on resize, only on its next update;
+  - the band's `bodyColumns` is the terminal width minus 5 (125, 115, 95, 75, 55 at 130, 120, 100,
+    80, 60);
+  - tool calls: a prompt that made one `ls` and one `Read` showed `Tools 2` (Claude Code's own
+    summary: "Read 1 file, listed 1 directory"); with CTK's status line configured the band showed
+    only `Tools 2 │ Agents 0/3` and the status line the model, usage, context, cost and branch;
+  - **not verified:** `Tools` while a team runs (calls inside teammates are counted by their own
+    `tool_use_id`; the live team recording is still to be re-done with this format), and the
+    countdown of a window that resets while a session is open.
+- **Tests:** `plugins/ctk/tests/hudline.test.ts` (width, CJK, ANSI, countdown, tiers, layout
+  snapshots at 30 to 200 columns, never wider than the terminal at any width 1 to 250),
+  `plugins/ctk/tests/hud.test.tsx` (band content and tiers, the status line coordination,
+  missing figures as dashes, hidden when `hudBand` is false, yields to the survey prompt, resize),
+  `plugins/ctk/tests/toolcalls.test.ts` (counting, de-duplication by `tool_use_id`, subagent
+  calls, persistence, a failing write), `test/hudline.parity.test.ts` (the band's and the status
+  line's copies of the layout code agree on 5000 random inputs; a one-constant change to either
+  fails it), stats tests in
   `cap.test.ts`/`policy.test.ts` (file content, throttling, a failing write never affects a spawn,
   `recordStats=false` writes nothing), `plugins/ctk/statusline/test/statusline.test.mjs`.
 - **Stats file content:** counters, percentages, cost, model names, session id. No prompts, paths
@@ -422,8 +446,8 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 345 tests (31 of them the status line tests), 345 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
-| Plugin tests | PASS | `npm run test:plugin`: 94 pass, 0 fail (4 files, including `doctor.test.ts`) |
+| Unit and integration tests | PASS | `npm test`: 366 tests (51 of them the status line tests), 366 pass, 0 fail. One earlier run in the same session had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Plugin tests | PASS | `npm run test:plugin`: 173 pass, 0 fail (6 files, including `hudline.test.ts`, `toolcalls.test.ts` and `doctor.test.ts`) |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |
 | Always-on context budget | PASS | `scripts/measure-context.mjs`: 664 chars, about 166 tokens (budget 500); `claude plugin details` estimate: about 187 tokens |

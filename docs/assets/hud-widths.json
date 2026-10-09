@@ -1,0 +1,47 @@
+{
+  "recorded": "2026-10-09",
+  "claudeCode": "2.1.295",
+  "note": "Rows copied from tmux captures of a live session after one ls and one read tool call; the terminal was resized between captures. Usage figures are the maintainer account at that moment.",
+  "widths": [
+    {
+      "columns": 200,
+      "bandOnly": "Sonnet 5.5 │ 5h 5% (4h13m) │ Wk 51% (4d8h) │ Tools 2 │ Agents 0/3 │ Ctx 4% │ $0.06 (12s)",
+      "withStatusLine": {
+        "band": "Tools 2 │ Agents 0/3",
+        "statusLine": "Sonnet 5.5 medium │ 5h 5% (4h12m) │ Wk 51% (4d8h) │ Ctx 4% │ $0.07 (35s) │ main"
+      }
+    },
+    {
+      "columns": 130,
+      "bandOnly": "Sonnet 5.5 │ 5h 5% (4h13m) │ Wk 51% (4d8h) │ Tools 2 │ Agents 0/3 │ Ctx 4% │ $0.06 (12s)",
+      "withStatusLine": {
+        "band": "Tools 2 │ Agents 0/3",
+        "statusLine": "Sonnet 5.5 medium │ 5h 5% (4h12m) │ Wk 51% (4d8h) │ Ctx 4% │ $0.07 (39s) │ main"
+      }
+    },
+    {
+      "columns": 100,
+      "bandOnly": "Sonnet 5.5 │ 5h 5% 4h13m │ Wk 51% 4d8h │ T2 │ A0/3 │ Ctx 4% │ $0.06",
+      "withStatusLine": {
+        "band": "T2 │ A0/3",
+        "statusLine": "Sonnet 5.5 │ 5h 5% 4h12m │ Wk 51% 4d8h │ Ctx 4% │ $0.07 │ main"
+      }
+    },
+    {
+      "columns": 80,
+      "bandOnly": "Sonnet 5.5 │ 5h 5% 4h13m │ Wk 51% 4d8h │ T2 │ A0/3 │ Ctx 4% │ $0.06",
+      "withStatusLine": {
+        "band": "T2 │ A0/3",
+        "statusLine": "Sonnet 5.5 │ 5h 5% 4h12m │ Wk 51% 4d8h │ Ctx 4% │ $0.07 │ main"
+      }
+    },
+    {
+      "columns": 60,
+      "bandOnly": "5h 5% 4h13m │ Wk 51% 4d8h │ T2",
+      "withStatusLine": {
+        "band": "T2 │ A0/3",
+        "statusLine": "5h 5% 4h12m │ Wk 51% 4d8h │ Ctx 4%"
+      }
+    }
+  ]
+}

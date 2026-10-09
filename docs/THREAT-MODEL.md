@@ -46,9 +46,10 @@ scratch config directory; it is not an audit.
 | `/proc/version` (Linux) | To detect WSL. |
 | The profile repo clone | `ctk sync` reads `ctk-profile.json`, `profiles/<name>.json` and listed `skills/<name>/**` files. |
 | The packaged plugin directory | To copy the status line script and compare versions. |
-| Claude Code's status line JSON on stdin | The status line script only: model, effort, context %, rate-limit %, cost, duration, directory. |
+| Claude Code's status line JSON on stdin | The status line script only: model, effort, context %, rate-limit % and reset times, cost, duration, directory. |
 | `.git/HEAD` and the git config files of your working directory's repository, and one `git status --porcelain -uno` | The status line script only, for the branch and a dirty marker (250 ms timeout; any failure shows nothing). The config files are read to decide whether it is safe to run `git status` at all (see Process execution). |
 | The mod's host API | Roster (`agent.list`), session id and usage, clock, its own stats file (`fs.read`, to continue counters), and the env vars `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. `claude plugin validate` reports the exact list. |
+| Tool events (`tool.call`) | The mod, to count them: only the call's `tool_use_id`. Tool names, inputs and results are not read or stored. |
 | `/ctk-doctor` and the status tool: the settings the mods API exposes (`$.settings.read`), the tool names (`$.tool.list`) and the teams flag | To report whether the teams flag is set, whether a plugin option sets the cap, whether `statusLine` is configured, and whether `TaskCreate` is listed. The report is read-only: nothing is written. The call hands the mod the whole settings object, which can include `env` values you keep there; only the derived yes/no facts are kept or printed. |
 
 ## What CTK writes

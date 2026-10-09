@@ -25,7 +25,7 @@ Claude Team Kit (CTK) is a Claude Code plugin for the built-in Agent Teams. It c
   <img src="docs/assets/team-demo-d.svg" alt="Recording of a live /ctk:team session: the lead checks the cap, creates six tasks, starts three workers for five modules, and the team line counts tasks from 0/6 to 6/6" width="900">
 </p>
 
-<p align="center"><sub>One live session, installed through the Plugin Manager. A Sonnet lead checks the cap, creates six tasks (the final test run blocked by the module tasks), starts three workers for five modules and hands the last two to whoever finishes first. The <code>tasks</code> count above the prompt goes from 0/6 to 6/6, matching the lead's report: 43 tests, 0 failures, $0.94, 117 s played back in 40 s. Recording notes, including what went less smoothly: <a href="docs/DEMO.md#run-d-the-same-recipe-after-the-plugin-fixes">docs/DEMO.md</a> (also as <a href="docs/assets/team-demo-d.gif">GIF</a> and <a href="docs/assets/team-demo-d.mp4">MP4</a>).</sub></p>
+<p align="center"><sub>One live session, installed through the Plugin Manager. A Sonnet lead checks the cap, creates six tasks (the final test run blocked by the module tasks), starts three workers for five modules and hands the last two to whoever finishes first. The <code>tasks</code> count above the prompt goes from 0/6 to 6/6, matching the lead's report: 43 tests, 0 failures, $0.94, 117 s played back in 40 s. This recording predates the current line format (the first band showed team figures only). Recording notes, including what went less smoothly: <a href="docs/DEMO.md#run-d-the-same-recipe-after-the-plugin-fixes">docs/DEMO.md</a> (also as <a href="docs/assets/team-demo-d.gif">GIF</a> and <a href="docs/assets/team-demo-d.mp4">MP4</a>).</sub></p>
 
 ## Install
 
@@ -63,10 +63,16 @@ Before spawning anything, `/ctk:team` checks that teams are on and reads the cap
 ## Why Claude Team Kit?
 
 - **A hard worker limit.** Claude Code's docs say there is "no hard limit on the number of teammates". CTK enforces one: default 3, settable from 1 to 12. A spawn above it is refused with `TEAM_CAPACITY_REACHED` and its task stays pending; if CTK cannot count the team, it refuses rather than guesses.
-- **Live team visibility.** One line above the prompt: busy and idle workers, the cap, tasks completed of created, models, session cost and time. It reads only what Claude Code hands it: no network calls, no credential reads, no model calls.
+- **Live team visibility.** One line above the prompt: model, 5-hour and weekly usage with reset countdowns, tool calls, agents against the cap, tasks, context and cost, fitted to your terminal (full, abbreviated or essentials only; whole figures are dropped, never cut in half). It reads only what Claude Code hands it: no network calls, no credential reads, no model calls.
 - **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus.
 - **Three skills, small footprint.** `/ctk:team`, `/ctk:review` (scaled to risk) and `/ctk:debug`. About 187 tokens load on every turn; a skill's body loads only when you use it (`/ctk:team` about 850).
 - **Honest numbers.** `/ctk-stats` labels each figure as counted by CTK or measured by Claude Code. Claude Code does not report per-worker cost, so CTK shows none.
+
+<p align="center">
+  <img src="docs/assets/hud-widths.svg" alt="The CTK HUD in real captures at 200, 130, 100, 80 and 60 terminal columns, alone above the prompt and split with the optional status line" width="760">
+</p>
+
+<p align="center"><sub>The HUD at five terminal widths, copied from live captures (Claude Code 2.1.295; usage figures are the maintainer's account at that moment). Wide terminals get full wording, narrower ones abbreviations, and the narrowest only the three figures that matter most. Details: <a href="docs/ARCHITECTURE.md#layout">layout</a>.</sub></p>
 
 ## Hard limit and team line
 

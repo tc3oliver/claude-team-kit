@@ -96,9 +96,16 @@ describe('ctk-doctor', () => {
     expect(row(configured, 'statusLine')).toMatch(/^\[info\]   statusLine: yours is configured and left untouched/)
     expect(configured.join('\n')).not.toContain('secret-looking-command')
     w.settings = {}
-    expect(row(await doctor($), 'statusLine')).toBe('[info]   statusLine: none configured (optional)')
+    expect(row(await doctor($), 'statusLine')).toMatch(/^\[info\]   statusLine: none configured \(optional\)/)
     w.settings = null
     expect(row(await doctor($), 'statusLine')).toBe('[info]   statusLine: not checked (settings not readable)')
+  })
+
+  test('statusLine: CTK’s own script is recognised and its command is not printed', async ($, on) => {
+    setup(on, { settings: { statusLine: { type: 'command', command: 'node "/Users/someone/.claude/ctk/bin/ctk-statusline.mjs"' } } })
+    const out = await doctor($)
+    expect(row(out, 'statusLine')).toMatch(/^\[info\]   statusLine: CTK’s, under the prompt/)
+    expect(out.join('\n')).not.toContain('/Users/someone')
   })
 
   test('band and stats options off are info rows', { options: { hudBand: false, recordStats: false } }, async ($, on) => {

@@ -5,9 +5,9 @@ import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import { formatBand, formatSummary } from './band.ts'
-import { factsFrom, formatDoctor } from './doctor.ts'
+import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
-import { capacityDeny, effectiveLive, emptySnapshot, guardDeny, measuredOf, routed, snapshotOf, STATUS_TOOL_NAME } from './team.ts'
+import { capacityDeny, effectiveLive, emptySnapshot, guardDeny, isNewToolCall, measuredOf, routed, snapshotOf, STATUS_TOOL_NAME } from './team.ts'
 import type { Snapshot } from './team.ts'
 
 // Every host call is here because `$` may only be handed to top-level functions of this
@@ -16,6 +16,8 @@ import type { Snapshot } from './team.ts'
 // the cap itself fails closed.
 
 const STATS_WRITE_GAP_MS = 2000
+/** The band is redrawn for a tool call at most this often. */
+const DRAW_GAP_MS = 1000
 
 type Ctx = {
   opts: PolicyOptions
@@ -31,6 +33,13 @@ type Ctx = {
   ready: boolean
   dirty: boolean
   lastWrite: number
+  lastDraw: number
+  /** tool_use_ids already counted, so one call is never counted twice. */
+  toolSeen: Set<string>
+  /** True while the CTK status line is configured: the band then leaves out what it shows. */
+  coordinated: boolean
+  /** 2 when CTK_AMBIGUOUS_WIDTH=2 (a terminal that draws │ and … two cells wide). */
+  ambiguous: 1 | 2
 }
 
 async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
@@ -68,20 +77,48 @@ async function persist($: EngineInterface, c: Ctx, force = false) {
 // Re-reads the roster and usage, then redraws the band and writes stats. Never throws.
 async function refresh($: EngineInterface, c: Ctx) {
   try {
-    const [agents, usage, now] = await Promise.all([
+    const [agents, usage, now, model] = await Promise.all([
       $.agent.list().catch(() => null),
       $.session.usage().catch(() => null),
       $.clock.now().catch(() => 0),
+      $.session.model().catch(() => null),
     ])
     if (now > 0) c.lastNow = now
     c.snap = snapshotOf(agents, usage, now)
-    if (usage !== null) c.stats.measured = measuredOf(usage)
+    if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
     c.dirty = true
     if (c.opts.hudBand) $.ui.invalidate('ui.render')
   } catch {
     // Band and stats are best effort.
+  }
+  await persist($, c)
+}
+
+// Whether the CTK status line is the configured one (any settings level). Best effort: unreadable
+// settings leave the last answer, which starts as "no", so the band then shows everything.
+async function detectStatusLine($: EngineInterface, c: Ctx) {
+  try {
+    c.coordinated = isCtkStatusLine(await $.settings.read())
+  } catch {
+    // Keep the previous answer.
+  }
+}
+
+// A tool call changed the count: redraw the band (at most once per DRAW_GAP_MS) and let the
+// throttled stats write pick it up. Never throws, never touches the call.
+async function touch($: EngineInterface, c: Ctx) {
+  try {
+    const now = await $.clock.now()
+    c.lastNow = now
+    c.dirty = true
+    if (c.opts.hudBand && now - c.lastDraw >= DRAW_GAP_MS) {
+      c.lastDraw = now
+      $.ui.invalidate('ui.render')
+    }
+  } catch {
+    // The count is kept; the next refresh draws it.
   }
   await persist($, c)
 }
@@ -132,6 +169,12 @@ async function boot($: EngineInterface, c: Ctx) {
   } catch {
     // Keep the placeholder session id; counters still work.
   }
+  try {
+    c.ambiguous = (await $.env.get('CTK_AMBIGUOUS_WIDTH')) === '2' ? 2 : 1
+  } catch {
+    // Keep one-cell ambiguous characters.
+  }
+  await detectStatusLine($, c)
   await refresh($, c)
 }
 
@@ -147,6 +190,10 @@ export const register: Register = (on, options) => {
     ready: false,
     dirty: false,
     lastWrite: 0,
+    lastDraw: 0,
+    toolSeen: new Set(),
+    coordinated: false,
+    ambiguous: 1,
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -229,6 +276,7 @@ export const register: Register = (on, options) => {
   // Teammate status changes raise no session.measure; turn ends do.
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
+    await detectStatusLine($, c)
     await refresh($, c)
     return r
   })
@@ -249,6 +297,16 @@ export const register: Register = (on, options) => {
     c.stats.tasks = { created: c.stats.tasks?.created ?? 0, completed: (c.stats.tasks?.completed ?? 0) + 1 }
     await refresh($, c)
     return next(e)
+  })
+
+  // Every tool call the model makes, in the lead and in subagents and teammates, counts once by
+  // its tool_use_id. The count happens before the call runs and the call is passed on untouched;
+  // a call a hook later denies still counts, because the model made it.
+  on('tool.call', async ($, e, next) => {
+    if (isNewToolCall(c.toolSeen, e.tool_use_id)) c.stats.toolCalls += 1
+    const r = await next(e)
+    await touch($, c)
+    return r
   })
 
   // The matcher must be a literal for `claude plugin validate`; policy.test.ts ties it to STATUS_TOOL.
@@ -272,7 +330,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'ctk-stats' }, async ($, e, next) => {
     await refresh($, c)
-    return { text: formatSummary(c.stats, c.snap) }
+    return { text: formatSummary(c.stats, c.snap, c.lastNow) }
   })
 
   on('command.run', { command: 'ctk-doctor' }, async ($, e, next) => ({ text: formatDoctor(await gatherFacts($, c)) }))
@@ -280,6 +338,6 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!c.opts.hudBand || !c.ready || e.props.hasSurvey) return next(e)
     const { Text } = $.ui.resolve(e)
-    return <Text dimColor>{formatBand(c.stats, c.snap, e.props.bodyColumns)}</Text>
+    return <Text dimColor>{formatBand(c.stats, c.snap, e.props.bodyColumns, { nowMs: c.lastNow, ambiguous: c.ambiguous, coordinated: c.coordinated })}</Text>
   })
 }

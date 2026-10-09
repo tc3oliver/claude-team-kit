@@ -18,6 +18,8 @@ export type Facts = {
   /** False when the tool list itself could not be read. */
   toolListRead: boolean
   statusLine: boolean | null
+  /** True when the configured status line is CTK's own script; null when settings could not be read. */
+  ctkStatusLine: boolean | null
   hudBand: boolean
   recordStats: boolean
 }
@@ -35,6 +37,12 @@ const record = (v: unknown): Record<string, unknown> | null =>
 
 const truthy = (v: string): boolean => ['1', 'true', 'yes', 'on'].includes(v.trim().toLowerCase())
 
+/** Whether the merged settings point the status line at CTK's script (the command itself is never shown). */
+export const isCtkStatusLine = (settings: Readonly<Record<string, unknown>> | null): boolean => {
+  const command = record(settings?.statusLine)?.command
+  return typeof command === 'string' && command.includes('ctk-statusline')
+}
+
 export const factsFrom = ({ opts, envFlag, settings, toolNames }: Inputs): Facts => {
   const settingsFlag = record(settings?.env)?.[TEAMS_FLAG]
   const raw = envFlag?.value ?? (typeof settingsFlag === 'string' ? settingsFlag : undefined)
@@ -51,6 +59,7 @@ export const factsFrom = ({ opts, envFlag, settings, toolNames }: Inputs): Facts
     taskTools: toolNames?.includes('TaskCreate') ? true : null,
     toolListRead: toolNames !== null,
     statusLine: settings === null ? null : settings.statusLine !== undefined,
+    ctkStatusLine: settings === null ? null : isCtkStatusLine(settings),
     hudBand: opts.hudBand,
     recordStats: opts.recordStats,
   }
@@ -79,9 +88,11 @@ export const doctorRows = (f: Facts): Row[] => [
       },
   f.statusLine === null
     ? { level: 'info', text: 'statusLine: not checked (settings not readable)' }
-    : f.statusLine
-      ? { level: 'info', text: 'statusLine: yours is configured and left untouched; the team band shows above the prompt' }
-      : { level: 'info', text: 'statusLine: none configured (optional)' },
+    : f.ctkStatusLine === true
+      ? { level: 'info', text: 'statusLine: CTK’s, under the prompt (model, usage, context, cost); the band above it shows only tools, agents and tasks' }
+      : f.statusLine
+        ? { level: 'info', text: 'statusLine: yours is configured and left untouched; the band above the prompt shows model, usage and team figures' }
+        : { level: 'info', text: 'statusLine: none configured (optional); the band above the prompt shows model, usage and team figures' },
   f.hudBand
     ? { level: 'ok', text: 'team band: on' }
     : { level: 'info', text: 'team band: off (plugin option hudBand)' },

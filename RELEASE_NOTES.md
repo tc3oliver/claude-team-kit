@@ -15,7 +15,8 @@ git-based profile sync.
   `reviewer` (medium-risk review), `high-risk-reviewer` (auth, money, migration,
   concurrency, public API, security).
 - Team cap: spawns beyond the limit are refused with `TEAM_CAPACITY_REACHED`.
-- Team band above the prompt, with a status line fallback.
+- Team band above the prompt, with a status line fallback: model, 5-hour and weekly usage with reset
+  countdowns, context, cost, tool calls, agents and tasks, fitted to the terminal width.
 
 **CLI (`ctk`)**
 

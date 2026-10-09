@@ -83,6 +83,26 @@ in practice:
 - Only teammate spawns are gated. Ordinary subagents are neither counted nor limited.
 - The cap limits how many teammates are alive, not how much they spend.
 
+## The HUD
+
+- **Rate-limit figures are subscriber-only.** Claude Code reports the 5-hour and weekly windows
+  (percentage and reset time) only for subscription plans, after the first API response. With an API
+  key the band and status line show `5h –` and `Wk –`. CTK does not estimate them, call a usage
+  API or read credentials to fill the gap.
+- **A reset countdown is only as fresh as the last redraw.** It is the reported reset time minus
+  the clock at the last update, which happens on events, not on a timer.
+- **Tool calls are counted by the mod, so only the band shows them.** Claude Code's status line
+  JSON has no tool-call count and CTK does not read the transcript. The count is every call the
+  model made this session (lead, subagents and teammates), once per `tool_use_id`, including
+  calls a hook later denied. It starts from zero when the mod starts, and continues from the
+  session's stats file when the same session starts the mod again.
+- **The status line is not redrawn on resize.** Claude Code runs it again on its next update;
+  until then it shows its own cut (`…`) of the old line. The band is redrawn at once.
+- **Terminals that draw `│` and `…` two cells wide** need `CTK_AMBIGUOUS_WIDTH=2`; CTK cannot
+  detect that.
+- **Both lines use Claude Code's own widths.** The band is terminal − 5 columns, the status line
+  terminal − 4 (measured on 2.1.295); another Claude Code version may differ.
+
 ## Cost, effort and routing
 
 - **Per-worker token and cost figures are not available.** Claude Code reports session cost,

@@ -38,6 +38,7 @@
     "README.md",
     "CHANGELOG.md",
     "THIRD_PARTY_NOTICES.md",
+    "!**/.omc",
     "!plugins/ctk/tsconfig.json",
     "!plugins/ctk/tests",
     "!plugins/ctk/statusline/test",

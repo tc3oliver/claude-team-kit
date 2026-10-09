@@ -15,6 +15,8 @@ export type World = {
   registeredTools: string[]
   registeredCommands: string[]
   usage: Record<string, unknown>
+  /** What $.session.model answers; null makes it reject. */
+  model: string | null
   /** Every path $.fs.write received, as received. */
   rawPaths: string[]
   /** What $.settings.read answers (merged); null makes it reject. */
@@ -56,6 +58,7 @@ export const fresh = (): World => ({
   registeredTools: [],
   registeredCommands: [],
   usage: { startedAt: 0, context: { window: 200000 }, rateLimits: [] },
+  model: null,
   rawPaths: [],
   settings: {},
   tools: [],
@@ -125,6 +128,12 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     return { value } as never
   })
   on('session.usage', () => ({ value: w.usage }) as never)
+  on('session.model', () => {
+    if (w.model === null) throw new Error('model unavailable')
+    return { value: w.model } as never
+  })
+  // Any tool other than the plugin's own: the engine runs it and answers.
+  on('tool.call', () => ({ result: 'ok' }) as never)
   on('tool.register', (_$, e) => (w.registeredTools.push(e.name), { value: { tool: `mcp__ctk__${e.name}` } }) as never)
   on('command.register', (_$, e) => (w.registeredCommands.push(e.name), { value: { command: e.name } }) as never)
   on('fs.read', (_$, e) => {

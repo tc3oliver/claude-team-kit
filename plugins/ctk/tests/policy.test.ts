@@ -89,7 +89,7 @@ describe('verified acceptance and stats', () => {
     const s = written(w)
     expect(s).toMatchObject({ spawnsAccepted: 3, spawnsRejected: 2, peakLive: 3, tasks: null })
     expect(Object.keys(s).sort()).toEqual(
-      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsRejected', 'startedAt', 'tasks', 'updatedAt', 'workerModels'],
+      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsRejected', 'startedAt', 'tasks', 'toolCalls', 'updatedAt', 'workerModels'],
     )
     expect(JSON.stringify(s)).not.toMatch(/work item|worker-|\/w/)
   })
@@ -274,7 +274,9 @@ describe('status tool and command', () => {
     expect(out.text).toContain('counted by CTK:')
     expect(out.text).toContain('measured (reported by Claude Code):')
     expect(out.text).toContain('teammate spawns: 1 accepted, 0 refused at capacity, 0 failed closed')
-    expect(out.text).toContain('cost: $0.42  context: 42%  5h limit: –  7d limit: –')
+    expect(out.text).toContain('model: –  cost: $0.42  context: 42%')
+    expect(out.text).toContain('5h limit: –  7d limit: –')
+    expect(out.text).toContain('tool calls: 0')
     expect(out.text).toContain('worker models: sonnet×1')
     expect(out.text).toContain('per-worker cost: not available from Claude Code')
   })

@@ -7,13 +7,23 @@ import { parseStats, type StatsRecord } from '../../../plugins/ctk/shared/stats.
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 
-const countedLine = (r: Pick<StatsRecord, 'spawnsAccepted' | 'spawnsRejected' | 'spawnsFailedClosed' | 'peakLive' | 'workerModels' | 'tasks'>): string =>
+const countedLine = (
+  r: Pick<StatsRecord, 'spawnsAccepted' | 'spawnsRejected' | 'spawnsFailedClosed' | 'peakLive' | 'workerModels' | 'tasks' | 'toolCalls'>,
+): string =>
   `spawns accepted ${r.spawnsAccepted}, rejected ${r.spawnsRejected}, guard-failed ${r.spawnsFailedClosed ?? 0}, peak live ${r.peakLive}; ` +
-  `tasks ${r.tasks ? `${r.tasks.created} created, ${r.tasks.completed} completed` : DASH}; models ${fmtModels(r.workerModels ?? {}) || DASH}`
+  `tasks ${r.tasks ? `${r.tasks.created} created, ${r.tasks.completed} completed` : DASH}; models ${fmtModels(r.workerModels ?? {}) || DASH}; ` +
+  `tool calls ${r.toolCalls ?? 0}`
+
+// A saved file is read later, so a limit shows the moment its window resets (UTC), not a countdown
+// that would be wrong by the time anyone looks.
+const resetOf = (iso: string | null | undefined): string => {
+  const t = iso === null || iso === undefined ? Number.NaN : Date.parse(iso)
+  return Number.isNaN(t) ? '' : ` (resets ${new Date(t).toISOString().slice(0, 16).replace('T', ' ')}Z)`
+}
 
 const measuredLine = (m: StatsRecord['measured'] | undefined): string =>
-  `cost ${usd(m?.costUsd)}, context ${pct(m?.contextPct)}, ` +
-  `5h limit ${pct(m?.fiveHourPct)}, 7d limit ${pct(m?.sevenDayPct)}`
+  `model ${m?.model ?? DASH}, cost ${usd(m?.costUsd)}, context ${pct(m?.contextPct)}, ` +
+  `5h limit ${pct(m?.fiveHourPct)}${resetOf(m?.fiveHourResetsAt)}, 7d limit ${pct(m?.sevenDayPct)}${resetOf(m?.sevenDayResetsAt)}`
 
 /** Per-session and total figures from <config>/ctk/stats. Never shows a per-worker cost: Claude Code reports none. */
 export const runStats = (ctx: Ctx): Report => {
@@ -43,12 +53,14 @@ export const runStats = (ctx: Ctx): Report => {
     peakLive: 0,
     workerModels: {} as Record<string, number>,
     tasks: null as { created: number; completed: number } | null,
+    toolCalls: 0,
   }
   for (const s of sessions) {
     total.spawnsAccepted += s.spawnsAccepted
     total.spawnsRejected += s.spawnsRejected
     total.spawnsFailedClosed += s.spawnsFailedClosed ?? 0
     total.peakLive = Math.max(total.peakLive, s.peakLive)
+    total.toolCalls += s.toolCalls
     for (const [k, n] of Object.entries(s.workerModels ?? {})) total.workerModels[k] = (total.workerModels[k] ?? 0) + n
     if (s.tasks) total.tasks = { created: (total.tasks?.created ?? 0) + s.tasks.created, completed: (total.tasks?.completed ?? 0) + s.tasks.completed }
   }

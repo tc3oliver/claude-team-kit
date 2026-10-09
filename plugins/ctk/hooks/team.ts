@@ -49,14 +49,39 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
   }
 }
 
-export const measuredOf = (usage: SessionUsage | null): StatsRecord['measured'] => {
-  const pct = (kind: string) => usage?.rateLimits.find(l => l.kind === kind)?.percentUsed ?? null
+export const measuredOf = (usage: SessionUsage | null, model: string | null = null): StatsRecord['measured'] => {
+  const limit = (kind: string) => usage?.rateLimits.find(l => l.kind === kind)
   return {
     costUsd: usage?.cost?.usd ?? null,
     contextPct: usage?.context.percent ?? null,
-    fiveHourPct: pct('five_hour'),
-    sevenDayPct: pct('seven_day'),
+    fiveHourPct: limit('five_hour')?.percentUsed ?? null,
+    sevenDayPct: limit('seven_day')?.percentUsed ?? null,
+    fiveHourResetsAt: limit('five_hour')?.resetsAt ?? null,
+    sevenDayResetsAt: limit('seven_day')?.resetsAt ?? null,
+    model,
   }
+}
+
+/** Most tool_use_ids remembered for de-duplication; the oldest half is forgotten past this. */
+export const TOOL_SEEN_LIMIT = 4096
+
+/**
+ * Whether a `tool.call` event is a call not yet counted. A call is identified by its
+ * tool_use_id, so an event that fires twice for one call (a retried hook, a replay) counts
+ * once; an event without an id cannot be recognised again and counts every time.
+ */
+export const isNewToolCall = (seen: Set<string>, toolUseId: unknown): boolean => {
+  if (typeof toolUseId !== 'string' || toolUseId === '') return true
+  if (seen.has(toolUseId)) return false
+  seen.add(toolUseId)
+  if (seen.size > TOOL_SEEN_LIMIT) {
+    let drop = seen.size - TOOL_SEEN_LIMIT / 2
+    for (const id of seen) {
+      if (drop-- <= 0) break
+      seen.delete(id)
+    }
+  }
+  return true
 }
 
 export const capacityDeny = (live: number, starting: number, max: number): string =>

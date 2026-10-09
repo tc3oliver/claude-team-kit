@@ -25,14 +25,34 @@ export type StatsRecord = {
   workerModels: Record<string, number>
   /** Counts from TaskCreated / TaskCompleted events; null when no such event ever fired. */
   tasks: { created: number; completed: number } | null
+  /**
+   * Tool calls the model made this session, counted from `tool.call` events: the lead, its
+   * subagents and its teammates together, each tool_use_id once, including calls a hook then denied.
+   */
+  toolCalls: number
   /** Latest measured figures; null when Claude Code did not report them. */
   measured: {
     costUsd: number | null
     contextPct: number | null
     fiveHourPct: number | null
     sevenDayPct: number | null
+    /** ISO 8601 reset time of each window, as Claude Code reported it; null when it did not. */
+    fiveHourResetsAt: string | null
+    sevenDayResetsAt: string | null
+    /** The session's model id, as `$.session.model()` returns it. */
+    model: string | null
   }
 }
+
+const EMPTY_MEASURED = (): StatsRecord['measured'] => ({
+  costUsd: null,
+  contextPct: null,
+  fiveHourPct: null,
+  sevenDayPct: null,
+  fiveHourResetsAt: null,
+  sevenDayResetsAt: null,
+  model: null,
+})
 
 export const emptyStats = (sessionId: string, maxWorkers: number, now: number): StatsRecord => ({
   schemaVersion: STATS_SCHEMA_VERSION,
@@ -46,7 +66,8 @@ export const emptyStats = (sessionId: string, maxWorkers: number, now: number): 
   peakLive: 0,
   workerModels: {},
   tasks: null,
-  measured: { costUsd: null, contextPct: null, fiveHourPct: null, sevenDayPct: null },
+  toolCalls: 0,
+  measured: EMPTY_MEASURED(),
 })
 
 /** Session ids become file names; keep them to a safe charset. */
@@ -58,5 +79,10 @@ export const parseStats = (raw: unknown): StatsRecord | null => {
   const r = raw as Partial<StatsRecord>
   if (r.schemaVersion !== STATS_SCHEMA_VERSION || typeof r.sessionId !== 'string') return null
   if (typeof r.spawnsAccepted !== 'number' || typeof r.spawnsRejected !== 'number') return null
-  return r as StatsRecord
+  // Files written by an earlier version lack the newer fields: fill them, never guess them.
+  return {
+    ...(r as StatsRecord),
+    toolCalls: typeof r.toolCalls === 'number' && r.toolCalls >= 0 ? r.toolCalls : 0,
+    measured: { ...EMPTY_MEASURED(), ...(typeof r.measured === 'object' && r.measured !== null ? r.measured : {}) },
+  }
 }

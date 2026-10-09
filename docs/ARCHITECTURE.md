@@ -147,16 +147,80 @@ Claude Code's spawn hook can set a model but not an effort, so effort comes only
 agent's `effort:` frontmatter and cannot be changed by a profile (see
 [CONFIGURATION](CONFIGURATION.md#routing)).
 
-**Counters and band.** `classic.TaskCreated` and `classic.TaskCompleted` only increment
-counters and pass the event on; they never block a task. When `hudBand` is on, an
-`AbovePrompt` line is drawn from the roster and session usage, for example:
+**Counters.** `classic.TaskCreated` and `classic.TaskCompleted` only increment counters and pass
+the event on; they never block a task. A `tool.call` hook counts every tool call the model makes
+and passes the call on untouched: it reads the call's `tool_use_id` and nothing else (no tool
+name, input or result), counts a given id once, and remembers the last few thousand ids only.
+The count covers the lead, its subagents and its teammates together, and includes a call that a
+hook later denies, because the model made it.
+
+**Band.** When `hudBand` is on, an `AbovePrompt` line is drawn from the roster, the session usage
+and those counters. It is redrawn on events only (a session measure, a turn end, a task event,
+a spawn decision, and at most once a second for tool calls); nothing polls.
 
 ```
-team 1 busy · 2 idle · 1 done / cap 3 · tasks 2/5 · rejected 1 · models haiku×1 sonnet×2 · $0.42 · 12m
+Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $0.94 (12m)
 ```
 
-A figure Claude Code did not report is shown as `–`. The line is truncated with `…` to the
-available columns and yields to Claude Code's survey prompt. `tasks a/b` is completed/created.
+`Agents 2/3` is live teammates (busy and idle: the figure the cap counts) over the cap, with
+`(refused n)` once the cap has refused a spawn. `Tasks a/b` is completed/created. A figure Claude
+Code did not report is `–`, never `0%` and never an invented reset time. The band yields to
+Claude Code's survey prompt.
+
+#### HUD data sources
+
+| Figure | Band (Mods API) | Status line fallback (stdin JSON) |
+|---|---|---|
+| Model | `$.session.model()`, shown as `Sonnet 5.5` | `model.display_name` |
+| 5h usage | `$.session.usage().rateLimits[kind="five_hour"].percentUsed` (0 to 100) | `rate_limits.five_hour.used_percentage` |
+| 5h reset | `rateLimits[].resetsAt`, ISO 8601 | `rate_limits.five_hour.resets_at`, epoch seconds |
+| Weekly usage and reset | the same, kind `seven_day` | `rate_limits.seven_day.*` |
+| Context | `usage.context.percent` | `context_window.used_percentage` |
+| Cost, elapsed | `usage.cost.usd`, `usage.startedAt` | `cost.total_cost_usd`, `cost.total_duration_ms` |
+| Tool calls | `tool.call` events, counted by CTK | not available |
+| Agents, tasks, refusals | `$.agent.list()`, task events, CTK's own counters | not available |
+| Git branch | not shown | `.git/HEAD` of the workspace |
+
+The rate-limit figures exist only for subscribers (Claude Code reports them after the first API
+response) and a window is dropped once its reset time has passed, so an API-key session shows
+`5h –`. A reset countdown is the reset time minus the clock reading of the last redraw; it is
+exact when drawn and can be a few minutes old between events. The status line JSON has no tool
+or agent count, and reading the transcript to derive one is off the table, so those two are
+band-only.
+
+#### Layout
+
+The layout code is `plugins/ctk/shared/hudline.ts` (the band) and a copy of the same functions
+inside `statusline/ctk-statusline.mjs`, which is installed as one file; `test/hudline.parity.test.ts`
+runs both over thousands of random inputs so they cannot drift. The terminal width picks the form:
+
+| Terminal | Form |
+|---|---|
+| 120 columns or more | Full wording: `5h 28% (2h34m)`, `Tools 153`, `Agents 2/3 (1 busy)` |
+| 80 to 119 | Abbreviated: `5h 28% 2h34m`, `T153`, `A2/3` |
+| under 80 | The three most important figures only, abbreviated |
+
+If the form is still too wide, whole figures are dropped, lowest rank first, so a figure is never
+cut in half: git branch, cost, tasks, agents, model, context, tool calls, weekly usage, 5h usage
+(a figure Claude Code did not report goes before any that it did). Only when one figure alone
+does not fit is it shortened, ending in `…`. Widths are cells, not characters: CJK and fullwidth
+characters take two, combining marks none, and ANSI sequences are not counted. Terminals set to
+draw East Asian ambiguous characters (`│`, `…`) two cells wide need `CTK_AMBIGUOUS_WIDTH=2`.
+
+The usable width is less than the terminal's: Claude Code gives the band `bodyColumns` =
+terminal − 5, and draws the status line after a two-column indent with two more columns kept
+free (a line of `COLUMNS − 4` cells fits, one cell more is cut with `…`; both measured on
+Claude Code 2.1.295). The tier follows the terminal, the fit follows what is left. The band is
+redrawn at once when the terminal is resized; Claude Code runs the status line again only on
+its next update, so until then it shows Claude Code's own cut of the old line.
+
+#### Band and status line together
+
+When the configured `statusLine` is CTK's own script, the band leaves out model, usage,
+context and cost (the status line shows them under the prompt) and keeps the figures only the
+mod can know: tool calls, agents, tasks, worker models. With no status line, or someone else's,
+the band shows everything, because it cannot know what the other line shows. Nothing is drawn
+twice.
 
 **Stats.** When `recordStats` is on, the mod writes one JSON file per session to
 `<config>/ctk/stats/<sessionId>.json`, at most once every 2 seconds and once more at session
@@ -185,7 +249,7 @@ touching a spawn decision. The band, stats and counters can fail; the cap fails 
 
 `ctk-statusline.mjs` is intended for builds without mods (older Claude Code; WSL is reported
 unsupported for mods and has not been tested). Claude Code runs it as the `statusLine` command and passes a JSON document on stdin;
-the script prints one line such as `Opus high · ctx 42% · 5h 24% · 7d 61% · $1.23 · 12m · main*`.
+the script prints one line such as `Opus 5.5 │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m) │ main*`.
 It reads only that JSON, `.git/HEAD` for the branch (and the repository's git config files),
 and runs one `git status --porcelain -uno` (250 ms timeout) for the dirty marker. A repository's
 own config can make git run commands (`core.fsmonitor`, filters, hooks, pagers, aliases,
@@ -195,9 +259,10 @@ without the inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_EXTE
 variables. System and global git config are honoured (Git for Windows ships `core.autocrlf=true`
 in the system config); only repo-local config is distrusted. Control characters are stripped from
 every string taken from the JSON. The script shows no worker data, makes no network call, and
-prints a line even for empty or malformed input. `COLUMNS` is honoured; ANSI is off unless
+prints a line even for empty or malformed input. The width is the `COLUMNS` that Claude Code sets
+before it runs the command (80 when it is missing or not a number); ANSI is off unless
 `CTK_COLOR=1`. A `statusLine` you already have is never replaced, so with your own status
-line the HUD is the mod band only.
+line the HUD is the mod band only, and the band then shows everything.
 
 ## The CLI
 
