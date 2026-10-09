@@ -21,7 +21,7 @@ const roleSchema = z.strictObject({ model })
 /** Complete profile: what `effective` resolves to. */
 export const profileSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION),
-  team: z.strictObject({ maxWorkers: z.number().int().min(1).max(12) }),
+  team: z.strictObject({ maxWorkers: z.number().int().min(1).max(12), hint: z.boolean() }),
   routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema }),
   hud: z.strictObject({ band: z.boolean(), idle: z.enum(HUD_IDLE), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
@@ -44,7 +44,7 @@ export type Profile = z.infer<typeof profileSchema>
 const partialRole = z.strictObject({ model: model.optional() })
 export const profileLayerSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION).optional(),
-  team: z.strictObject({ maxWorkers: profileSchema.shape.team.shape.maxWorkers.optional() }).optional(),
+  team: z.strictObject({ maxWorkers: profileSchema.shape.team.shape.maxWorkers.optional(), hint: z.boolean().optional() }).optional(),
   routing: z
     .strictObject({
       explorer: partialRole.optional(),
@@ -63,7 +63,7 @@ export type ProfileLayer = z.infer<typeof profileLayerSchema>
 
 export const DEFAULT_PROFILE: Profile = {
   schemaVersion: PROFILE_SCHEMA_VERSION,
-  team: { maxWorkers: DEFAULT_OPTIONS.maxWorkers },
+  team: { maxWorkers: DEFAULT_OPTIONS.maxWorkers, hint: DEFAULT_OPTIONS.teamHint },
   routing: {
     explorer: { model: DEFAULT_OPTIONS.explorerModel },
     implementer: { model: DEFAULT_OPTIONS.implementerModel },
@@ -112,4 +112,5 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   hudBand: p.hud.band,
   hudIdle: p.hud.idle,
   recordStats: p.stats.record,
+  teamHint: p.team.hint,
 })

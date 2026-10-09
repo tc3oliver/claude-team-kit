@@ -23,7 +23,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Natural-language team hint: a fixed English and Chinese phrase check on the person's own prompt (Enter or Remote Control) adds one hidden line asking the model to invoke `ctk:team` when the request is for several agents, a team or parallel work. No model call, no always-on context, not a classifier; the model and the skill's intent gate still decide. Disable the plugin to turn it off. One real session showed it working; not a measured rate.
+- Natural-language team hint: a fixed English and Chinese phrase check on the person's own prompt (Enter or Remote Control) adds one hidden line asking the model to invoke `ctk:team` when the request is for several agents, a team or parallel work. No model call, no always-on context, not a classifier; the model and the skill's intent gate still decide. The new option `teamHint` (default on) turns it off; the list asks for agents or a team by name, so a bare "parallel" or "in parallel" does not match. One real session showed it working; not a measured rate.
 - `INSTALL.md`, an install checklist for coding agents, and an "Install with your AI Agent" prompt in the README. Both use only the native Plugin Manager.
 
 ## [0.1.0] - 2026-10-09 (prerelease)

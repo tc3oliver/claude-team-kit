@@ -42,7 +42,7 @@ const changeOf = (name = 'maxWorkers', raw: unknown = 2): Change => {
 }
 
 describe('option names', () => {
-  test('exactly the eight userConfig fields', () => {
+  test('exactly the nine userConfig fields', () => {
     expect([...OPTION_NAMES]).toEqual([
       'maxWorkers',
       'explorerModel',
@@ -52,6 +52,7 @@ describe('option names', () => {
       'hudBand',
       'hudIdle',
       'recordStats',
+      'teamHint',
     ])
     expect(Object.keys(DEFAULT_OPTIONS).sort()).toEqual([...OPTION_NAMES].sort())
   })

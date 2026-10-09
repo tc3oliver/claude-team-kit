@@ -14,8 +14,8 @@ line) are early access, so it can break when Claude Code changes. Read "Known li
   worker cap. Empty Workers and Tasks pages say why they are empty and what to do. `Guard ON` now says how many of the
   spawns it saw were teammates.
 - **Plain requests for several agents or a team load the team skill more reliably.** A fixed English and Chinese
-  phrase check adds one hidden hint line beside your own prompt (no model call, no always-on context). The model still
-  decides; one real session showed it working, which is not a measured rate. The only off switch is disabling the plugin.
+  phrase check (it names agents or a team; a bare "parallel" does not count) adds one hidden hint line beside your own prompt (no model call, no always-on context). The model still
+  decides; one real session showed it working, which is not a measured rate. Turn it off with the plugin option `teamHint`.
 - **Changing the worker cap is visible.** The lead is told to say "press Confirm in Mission Control", and the band shows
   `Confirm setting` until you answer.
 - **Install with your AI agent:** `INSTALL.md` and a README prompt, both through the native Plugin Manager only.

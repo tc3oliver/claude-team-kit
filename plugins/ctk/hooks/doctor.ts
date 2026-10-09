@@ -22,6 +22,7 @@ export type Facts = {
   ctkStatusLine: boolean | null
   hudBand: boolean
   recordStats: boolean
+  teamHint: boolean
   /** The guard's state and the reason for it (see guardOf); null when it was not computed. */
   guard: { state: 'active' | 'available' | 'unavailable' | 'error'; why: string } | null
   /** Named agents started as ordinary subagents this session (outside the cap). */
@@ -68,6 +69,7 @@ export const factsFrom = ({ opts, envFlag, settings, toolNames, guard = null, ou
     ctkStatusLine: settings === null ? null : isCtkStatusLine(settings),
     hudBand: opts.hudBand,
     recordStats: opts.recordStats,
+    teamHint: opts.teamHint,
     guard,
     outsideCap,
   }
@@ -118,6 +120,9 @@ export const doctorRows = (f: Facts): Row[] => [
   f.recordStats
     ? { level: 'ok', text: 'stats recording: on' }
     : { level: 'info', text: 'stats recording: off (plugin option recordStats)' },
+  f.teamHint
+    ? { level: 'ok', text: 'team hint: on (a prompt that asks for several agents or a team gets one hidden hint line; plugin option teamHint)' }
+    : { level: 'info', text: 'team hint: off (plugin option teamHint)' },
 ]
 
 export const formatDoctor = (f: Facts): string => {

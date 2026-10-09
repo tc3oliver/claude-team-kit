@@ -51,7 +51,7 @@ In Claude Code:
 /plugin install ctk@ctk-kit
 ```
 
-Then run `/reload-plugins` (or restart). CTK needs Claude Code 2.1.287 or newer; Claude Code may print `8 userConfig options not yet set`, which is harmless because every option has a default.
+Then run `/reload-plugins` (or restart). CTK needs Claude Code 2.1.287 or newer; Claude Code may print `9 userConfig options not yet set`, which is harmless because every option has a default.
 
 **Turn on Agent Teams.** They are experimental and off by default, and a plugin cannot switch them on. Add this entry to the `env` object in `~/.claude/settings.json` (create the object if there is none; leave your other settings as they are), then restart:
 
@@ -86,7 +86,7 @@ Use a team to implement this feature and review the result.
 
 ## Your first team
 
-`/ctk:team <goal>` always loads the team skill; a plain sentence like the one above can load it too: CTK matches a fixed list of phrases (English and Chinese) in your own prompt and adds one hidden hint line for the model, but the model still decides and the skill still checks that you asked for a team. It is not a classifier, it makes no model call, and only disabling the plugin turns it off ([details and evidence](docs/NATURAL-LANGUAGE.md)). The skill tells the lead to check that teams are on, read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting. `/ctk-stats` shows what the session counted.
+`/ctk:team <goal>` always loads the team skill; a plain sentence like the one above can load it too: CTK matches a fixed list of phrases (English and Chinese) in your own prompt and adds one hidden hint line for the model, but the model still decides and the skill still checks that you asked for a team. It is not a classifier, it makes no model call, and the plugin option `teamHint` turns it off ([details and evidence](docs/NATURAL-LANGUAGE.md)). The skill tells the lead to check that teams are on, read the cap, split the goal into independently verifiable tasks, start workers up to the cap, and run the verify commands itself before reporting. `/ctk-stats` shows what the session counted.
 
 The recording asked for this on a small fixture ([`scripts/demo/fixture`](scripts/demo/fixture/README.md), five text modules, no tests):
 

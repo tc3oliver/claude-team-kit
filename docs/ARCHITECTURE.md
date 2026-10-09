@@ -55,7 +55,7 @@ things only the CLI, or you by hand, can provide.
 
 | Part | Where | What it does |
 |---|---|---|
-| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the seven options below. |
+| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the nine options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
 | Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
 | Agents | `plugins/ctk/agents/*.md` | Four role definitions with a pinned `model` and `effort` in their frontmatter. |

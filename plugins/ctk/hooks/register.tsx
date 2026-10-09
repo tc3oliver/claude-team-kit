@@ -469,7 +469,7 @@ export const register: Register = (on, options) => {
   // prompt's own text is untouched, a prompt that is not the person's own is left alone, and any failure here
   // lets the prompt through as it was.
   on('prompt.submit', async ($, e, next) => {
-    const hint = teamHintFor(e)
+    const hint = c.opts.teamHint ? teamHintFor(e) : null
     return next(hint === null ? e : { ...e, context: [...(e.context ?? []), hint] })
   }).catch(($, e, next) => next(e))
 
@@ -491,7 +491,7 @@ export const register: Register = (on, options) => {
           properties: {
             action: { type: 'string', enum: ['show', 'propose'] },
             option: { type: 'string', enum: [...OPTION_NAMES] },
-            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand and recordStats: true or false' },
+            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand, recordStats and teamHint: true or false' },
           },
           required: ['action'],
         },

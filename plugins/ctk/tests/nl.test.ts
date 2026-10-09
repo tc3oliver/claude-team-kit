@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
+import { validateChange } from '../hooks/config.ts'
 import { TEAM_HINT, teamHintFor, teamIntent } from '../hooks/team.ts'
+import { DEFAULT_OPTIONS, readOptions } from '../shared/policy.ts'
 import { engine, fresh } from './world.ts'
 
 // The natural-language entry: a small, fixed phrase check that attaches one hint line to the prompt. It cannot
@@ -18,17 +20,13 @@ describe('which prompts ask for several agents, a team or CTK', () => {
     'run this with multiple agents',
     'several agents in parallel please',
     'spin up an agent team for the migration',
-    'do it in parallel',
+    'spin up a team for the migration',
     '幫我開個團隊來做',
+    '請開一個團隊來做這個',
     '用 team 來做這個',
-    '兩個模組平行處理',
-    '請開一個團隊來做',
-    '組一個團隊',
-    '分頭做這兩件事',
     'spawn 3 teammates for the migration',
-    'parallelize this please',
-    'run these concurrently',
     '多個 subagent 處理',
+    '平行的 agent 各做一個模組',
     '/Users/x/repo 裡用多agent做完',
     'please use /ctk:team for this and use a team',
   ]
@@ -45,6 +43,18 @@ describe('which prompts ask for several agents, a team or CTK', () => {
     'the build fails because ctk is not installed',
     'summarize this multi-agentic workflow paper',
     '/ctk-doctor extra words about a team',
+    // ordinary engineering words that are not a request for agents
+    'run the tests in parallel',
+    'make the build concurrent',
+    'parallelize the image resize loop',
+    '實作並行處理的 worker pool',
+    '支援同時處理多個請求',
+    '分工寫在 README 裡',
+    'add a team settings page',
+    'create a team table with an owner column',
+    '使用團隊功能',
+    '開團隊頁面',
+    'our team of 5 owns this service',
   ]
   for (const t of yes) test(`asks: ${t}`, () => expect(teamIntent(t)).toBe(true))
   for (const t of no) test(`does not ask: ${t || '(empty)'}`, () => expect(teamIntent(t)).toBe(false))
@@ -84,5 +94,34 @@ describe('the hook never changes the prompt', () => {
     const r = await $.prompt.submit({ text: '用多agent做完' })
     expect(r.text).toBe('用多agent做完')
     expect(r.context ?? []).toEqual([])
+  })
+})
+
+describe('the teamHint option is the off switch', () => {
+  test('on by default; a normalised options object keeps an explicit off', () => {
+    expect(DEFAULT_OPTIONS.teamHint).toBe(true)
+    expect(readOptions({}).teamHint).toBe(true)
+    expect(readOptions({ teamHint: false }).teamHint).toBe(false)
+    expect(readOptions({ teamHint: 'no' }).teamHint).toBe(true)
+  })
+
+  test('the doctor says whether the hint is on, and how to turn it off', async ($, on) => {
+    engine(on, fresh())
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    const text = (await $.command.run({ command: 'ctk-doctor', args: '' } as never)).text ?? ''
+    expect(text).toContain('[ok]     team hint: on (a prompt that asks for several agents or a team gets one hidden hint line; plugin option teamHint)')
+  })
+
+  test('with the option off the doctor says so', { options: { teamHint: false } }, async ($, on) => {
+    engine(on, fresh())
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    const text = (await $.command.run({ command: 'ctk-doctor', args: '' } as never)).text ?? ''
+    expect(text).toContain('[info]   team hint: off (plugin option teamHint)')
+  })
+
+  test('a change to it goes through the same confirmed path as any option', () => {
+    const r = validateChange('teamHint', false, DEFAULT_OPTIONS)
+    expect(r).toMatchObject({ ok: true, name: 'teamHint', key: 'ctk.teamHint', to: false })
+    expect(validateChange('teamHint', 'maybe', DEFAULT_OPTIONS)).toMatchObject({ ok: false })
   })
 })

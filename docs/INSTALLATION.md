@@ -43,10 +43,10 @@ claude plugin install ctk@ctk-kit
 Clone complete, validating marketplace…
 ✔ Successfully added marketplace: ctk-kit (declared in user settings)
 Installing plugin "ctk@ctk-kit"...✔ Successfully installed plugin: ctk@ctk-kit (scope: user)
-7 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
+9 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
 ```
 
-The "7 userConfig options not yet set" line is harmless: every option has a default (cap 3,
+The "9 userConfig options not yet set" line is harmless: every option has a default (cap 3,
 models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them later, see
 [Options](#options). The install writes only what Claude Code writes for any plugin:
 
@@ -138,7 +138,7 @@ measured (reported by Claude Code):
 
 ## Options
 
-The mod reads seven options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
+The mod reads nine options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
 run for this page) or at install time with `--config KEY=VALUE`:
 
 ```sh

@@ -145,7 +145,7 @@ test('a crash between the ledger save and the settings write is finished by the 
   ledger.entries = ledger.entries.map(x => (x.kind === 'settings-key' && x.pointer === ptr ? { ...x, written: 5, pending: { value: 3 } } : x))
   saveLedger(e.ctx, ledger)
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 3)
-  const r = await applyProfile(e.ctx, profile({ team: { maxWorkers: 5 } }))
+  const r = await applyProfile(e.ctx, profile({ team: { maxWorkers: 5, hint: true } }))
   assert.deepEqual(r.conflicts, [])
   assert.equal(readJson(e.ctx.paths.settings).pluginConfigs['ctk@ctk-kit'].options.maxWorkers, 5)
   const entry = loadLedger(e.ctx)?.entries.find(x => x.kind === 'settings-key' && x.pointer === ptr)

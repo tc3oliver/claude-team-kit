@@ -24,7 +24,7 @@ and the line is not shown.
   `/ctk:team`, and anything that is not your own prompt are left alone.
 - The model still decides whether to load the skill, and the skill's own intent gate still applies:
   a vague or non-team request gets one sentence back, not a team.
-- There is no switch for it other than disabling the plugin.
+- The plugin option `teamHint` (on by default) turns it off: `/plugin configure ctk@ctk-kit`, or ask in plain words to set it and confirm in Mission Control.
 - Not measured. In one real session the hint reached the model and `ctk:team` loaded. That is one
   observation, not a rate; the pass rates below were measured without the hint.
 
@@ -41,7 +41,7 @@ and the line is not shown.
 | "sync my CTK profile to the other computer" | Needs the optional `ctk` CLI. Claude checks it exists, runs `ctk sync pull --dry-run` or `ctk sync publish --dry-run`, shows the output, and asks you in plain words before running the real command. Exit code 2 (conflicts) and the secrets scan are never bypassed. | run `ctk sync ...` yourself |
 
 Option names for `ctk_config`: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`,
-`highRiskModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`.
+`highRiskModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`.
 
 A plain task ("fix this bug in src/rle.js", "explain what slugify does") does not start a team.
 A vague big task ("refactor the whole system") does not either; if the team skill were ever

@@ -25,6 +25,8 @@ export type PolicyOptions = {
   hudIdle: HudIdle
   /** Write small per-session counters to <config>/ctk/stats/ for `ctk stats`. */
   recordStats: boolean
+  /** Add one hidden hint line to a prompt that asks for several agents or a team, so the model loads the team skill. */
+  teamHint: boolean
 }
 
 export const DEFAULT_OPTIONS: PolicyOptions = {
@@ -36,6 +38,7 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   hudBand: true,
   hudIdle: 'full',
   recordStats: true,
+  teamHint: true,
 }
 
 /** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugins/ctk/agents/. */
@@ -77,6 +80,7 @@ export const readOptions = (raw: unknown): PolicyOptions => {
     hudBand: bool(o.hudBand, DEFAULT_OPTIONS.hudBand),
     hudIdle: (HUD_IDLE as readonly unknown[]).includes(o.hudIdle) ? (o.hudIdle as HudIdle) : DEFAULT_OPTIONS.hudIdle,
     recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
+    teamHint: bool(o.teamHint, DEFAULT_OPTIONS.teamHint),
   }
 }
 

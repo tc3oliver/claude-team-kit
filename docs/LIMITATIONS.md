@@ -118,7 +118,7 @@ in practice:
 - **The natural-language team hint is a phrase check.** A fixed list of English and Chinese phrases in the person's
   own prompt (Enter or Remote Control) adds one hidden hint line telling the model to invoke `ctk:team`. No model call,
   no always-on context, not a classifier: a phrasing outside the list gets no hint, and a match only advises, since the
-  model decides and the skill's intent gate still applies. The only off switch is disabling the plugin. One real
+  model decides and the skill's intent gate still applies. The plugin option `teamHint` turns it off. One real
   session showed the hint reaching the model and `ctk:team` loading; that is not a measured rate.
 - **Keyboard entry takes two chords.** Opening the pane from the focused band does not give the pane the
   keys (Claude Code refuses focus while the band holds it). `/ctk-mission` opens it already focused.

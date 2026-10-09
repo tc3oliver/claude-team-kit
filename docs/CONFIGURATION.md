@@ -1,7 +1,7 @@
 # Configuration
 
 CTK has two configuration paths. A **native install** (`/plugin install ctk@ctk-kit`, see
-[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's seven options with
+[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's nine options with
 `/plugin configure ctk@ctk-kit` or `claude plugin install ctk@ctk-kit --config KEY=VALUE`, and
 every option has a default. With the optional **`ctk` CLI** you configure a **profile**: a small
 JSON document. You never have to write one by hand; `ctk config` edits it and applies the
@@ -99,6 +99,7 @@ rejected. To use a different effort, edit or fork the agent files.
 | `hud.idle` | `full`, `minimal` or `hidden` | `full` | What the band shows until a teammate has started: everything, only `CTK ▸ Guard ready` (or `ON` once a spawn has reached it), or nothing (then `/ctk-mission` opens Mission Control). Once a team has run, the band always shows. | `hudIdle` |
 | `hud.statusLine` | `auto` or `off` | `auto` | `auto`: install the status line fallback and set `statusLine` if you have none. `off`: do not manage `statusLine`. | none |
 | `stats.record` | boolean | `true` | Write per-session counters to `<config>/ctk/stats/` for `ctk stats`. | `recordStats` |
+| `team.hint` | boolean | `true` | When your own prompt asks for several agents or a team, add one hidden hint line so Claude loads the team skill (no model call). | `teamHint` |
 
 ### Claude Code
 
@@ -155,6 +156,7 @@ CTK writes the effective values to `settings.json`, one key each, under
 | `hudBand` | `hud.band` | `true` | boolean |
 | `hudIdle` | `hud.idle` | `full` | `full`, `minimal` or `hidden` |
 | `recordStats` | `stats.record` | `true` | boolean |
+| `teamHint` | `team.hint` | `true` | boolean |
 
 The plugin defaults in `plugin.json` equal the CTK defaults (a test enforces this), so the
 plugin behaves the same if you install it without the CLI. A native install writes the same
@@ -168,7 +170,7 @@ to 1-12.
 
 | Key | When |
 |---|---|
-| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the seven options above) |
+| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the nine options above) |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | absent and `claude.enableAgentTeams` |
 | `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` | absent and `claude.enableTaskTools` (default off) |
 | `statusLine` | absent (or already CTK's) and `hud.statusLine = auto` |

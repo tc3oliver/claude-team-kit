@@ -160,16 +160,18 @@ export const effectiveLive = (roster: AgentInfo[], pending: Map<string, number>,
  * intent gate still applies. A prompt that is a command, or already names the team skill, is left alone.
  */
 const TEAM_ASK = [
+  // Several agents, by name: "multi-agent", "multiple subagents", "3 teammates", "多agent", "多個 Agent"
   /多\s*(個|个|一個)?\s*(sub-?)?(agents?|代理)/i,
-  /(multi|multiple|several|parallel)[\s-]*(sub-?)?agents?\b/i,
+  /\b(multi|multiple|several|parallel)[\s-]*(sub-?)?agents?\b/i,
   /\b(\d+|two|three|four|five|several)\s+(sub-?agents?|teammates?|agents)\b/i,
+  // A team of agents: "agent team", "use a team", "spin up a team", "team of agents"
   /\bagents?\s+team\b/i,
-  /\b(a|use|as a)\s+team\b/i,
-  /\bteam\s+of\b/i,
-  /(用|使用|開|組|啟動)\s*(一個|個)?\s*(team|團隊|隊伍)/i,
-  /(平行|並行|同時)\s*(處理|執行|進行|做|跑|派)/,
-  /(分頭|分工)/,
-  /\b(in parallel|parallelize|concurrently)\b/i,
+  /\bteam\s+of\s+(sub-?)?(agents?|teammates?)\b/i,
+  /\b(use|using|spin up|assemble)\s+(a|an|the|your)?\s*team\b/i,
+  // Chinese: an action verb must follow, so "使用團隊功能" or "開團隊頁面" do not match
+  /(開|組|啟動|用|使用)\s*(一個|個)?\s*(agent\s*)?(team|團隊)\s*(來|去|做|處理|完成|幫|執行|跑)/i,
+  /(平行|並行)\s*(的)?\s*(agents?|代理|subagent)/i,
+  // CTK itself: "use ctk", "ctk 流程"
   /\bctk\s*(的)?\s*(流程|workflow|team)/i,
   /(?<![A-Za-z])(use|using)\s+ctk\b/i,
   /(用|使用)\s*ctk/i,

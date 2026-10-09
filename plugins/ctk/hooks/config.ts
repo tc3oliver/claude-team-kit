@@ -18,6 +18,7 @@ export const OPTION_NAMES = [
   'hudBand',
   'hudIdle',
   'recordStats',
+  'teamHint',
 ] as const satisfies readonly (keyof PolicyOptions)[]
 export type OptionName = (typeof OPTION_NAMES)[number]
 
@@ -61,6 +62,7 @@ const META: Record<OptionName, Meta> = {
   hudBand: { label: 'Team band', hint: 'Show the one-line team status band above the prompt.', allowed: 'on or off' },
   hudIdle: { label: 'Band while no team runs', hint: 'What the band shows until a teammate has started.', allowed: 'full, minimal or hidden' },
   recordStats: { label: 'Record stats', hint: 'Write small per-session counters for the ctk stats command.', allowed: 'on or off' },
+  teamHint: { label: 'Team hint', hint: 'Add one hidden hint line to a prompt that asks for several agents or a team.', allowed: 'on or off' },
 }
 
 export type OptionRow = {
@@ -173,7 +175,7 @@ export const validateChange = (name: string, raw: unknown, opts: PolicyOptions):
     value = n
   } else {
     try {
-      value = name === 'hudBand' || name === 'recordStats' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
+      value = name === 'hudBand' || name === 'recordStats' || name === 'teamHint' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
     } catch (err) {
       return fail('invalid_value', (err as Error).message)
     }

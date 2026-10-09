@@ -66,6 +66,12 @@
       "title": "Record stats",
       "description": "Write small per-session counters for the ctk stats command.",
       "default": true
+    },
+    "teamHint": {
+      "type": "boolean",
+      "title": "Team hint",
+      "description": "When your own prompt asks for several agents or a team, add one hidden hint line so Claude loads the CTK team skill. No model call. Turn off to disable.",
+      "default": true
     }
   }
 }
