@@ -21,7 +21,7 @@ scratch config directory; it is not an audit.
 | Actor | What CTK does about it |
 |---|---|
 | You, making a mistake (publishing a token, overwriting a setting) | Secret scan before publish, whitelist of syncable settings, ledger with per-key ownership, backups, rollback. |
-| A second tool editing `settings.json` | CTK only writes keys it owns and re-checks the live value before undoing anything. A key someone else changed is left alone and reported. |
+| A second tool editing `settings.json` | CTK only writes keys it owns, re-checks the live value before undoing anything, and re-reads the file immediately before each write, refusing the write if another process changed it (compare-and-swap). A key someone else changed is left alone and reported. A lockfile cannot bind Claude Code, so a narrow race remains between that re-read and the atomic rename (see limits). |
 | A model that spawns too many teammates | The `agent.spawn` hook denies spawns above the cap and fails closed if it cannot count. |
 | A profile repo containing unexpected content | Whitelist, secret scan, symlink refusal and path checks on pull and publish (see the limits below). |
 
@@ -57,7 +57,7 @@ scratch config directory; it is not an audit.
 
 | Writes | When |
 |---|---|
-| `<config>/settings.json`: only the keys in [CONFIGURATION](CONFIGURATION.md#settingsjson-keys-ctk-may-write) | `install`, `update`, `config`, `sync pull/resolve`. Other keys, key order and indentation are preserved. |
+| `<config>/settings.json`: only the keys in [CONFIGURATION](CONFIGURATION.md#settingsjson-keys-ctk-may-write) | `install`, `update`, `config`, `sync pull/resolve`. Other keys, key order and indentation are preserved; a single-line (minified) file is written back single-line. Before writing, CTK re-reads the file and refuses the write if its content changed since CTK read it (compare-and-swap), so a concurrent edit is never silently overwritten — re-run to pick up the new content. |
 | `<config>/ctk/**` | Ledger, profile layers, status line script, stats, sync state, backups. |
 | `<config>/skills/<name>/` | Only skills listed in your profile, only as directories CTK created (marked `.ctk-managed`). |
 | Claude Code's plugin registry | By `claude plugin ...`, not by CTK directly. CTK backs the registry files up first. |
@@ -132,7 +132,13 @@ and can miss things. It looks for:
   and standalone base32 of 32+ characters. Hex is never judged on its own, and lockfile
   digests (`sha512-...`, `h1:...`), git SHAs and UUIDs are not flagged.
 - In JSON files, key names such as `apiKey`, `token`, `secret`, `password`, `credentials`,
-  `authorization`, `refreshToken`, `apiKeyHelper`, `env`, and anything starting with `oauth`.
+  `authorization`, `refreshToken`, `apiKeyHelper`, `env`, anything starting with `oauth`, and
+  authorization-style spellings of it (`authorizationHeader`, `authorization_header`,
+  `AuthorizationValue`, `authHeader`; `authToken` is already caught by the `token` suffix).
+  A denied key is refused whatever its value looks like — even `required` or a short
+  placeholder — because the key itself says the value is meant to be a credential. Plain
+  `auth*` keys that are not (`author`, `authority`, `authentication` as a prose field) are
+  not flagged by the key rule.
 
 Findings are reported as `file:line rule (preview)`, where the preview is at most the first
 two and last two characters.
@@ -141,12 +147,18 @@ two and last two characters.
 (`ctk-profile.json`, `profiles/`, `skills/`, `skills/<name>/...`) is a symlink, `pull` and
 `publish` refuse and exit `1`. Skill files must be regular text files (symlinks, odd file
 types and unsafe paths are rejected), and a skill path containing a control character or `:`
-is refused. Control characters in names that come from the remote are stripped before CTK
-prints them, and URLs in CTK's own output have their userinfo replaced by `***`.
+is refused. Every tracked path a publish would delete is validated as a safe relative path
+first — a crafted `../`, `.git` or absolute entry in the tracked list refuses the publish
+instead of reaching the filesystem. Reading a skill directory fails safe too: a file or
+directory that becomes unreadable or disappears mid-walk is recorded as a problem that makes
+the whole skill unusable, never a raw filesystem error. Control characters in names that come
+from the remote are stripped before CTK prints them, and URLs in CTK's own output have their
+userinfo replaced by `***`.
 
-**Remote URLs.** `sync init` rejects a URL whose userinfo carries a password, a token-looking
-value, or anything the scanner flags, and the same check applies to a stored `config.json`.
-Use a git credential helper or an ssh key.
+**Remote URLs.** `sync init` rejects any userinfo in an `http`/`https` URL, and for other
+schemes a userinfo that carries a password, a token-looking value, or anything the scanner
+flags; the same check applies to a stored `config.json`. Use a git credential helper or an ssh
+key.
 
 **Device layer.** `<config>/ctk/devices/<device>.json` is never put in the profile repo: `sync`
 publishes the user layer and nothing else. Put machine-specific values there.
@@ -223,11 +235,24 @@ as they were, including any credentials or tokens you keep in `env`. Backups sta
 machine, are not synced, and CTK never deletes them. Delete them yourself when you no longer
 need them, and keep the config directory out of cloud-sync folders and repositories.
 
-### Remote URL checks are not exhaustive
+### Remote URL userinfo is refused for http(s)
 
-A short, low-entropy userinfo in an `https` URL (for example `https://abc123@host`) is treated
-as a user name and accepted. CTK redacts URLs in its own output, but not in what `git` itself
-writes (its config file in the clone, its error messages when run by hand).
+Any userinfo in an `http`/`https` remote URL is refused, even a bare user name
+(`https://abc123@host`): the URL is stored in `config.json` as plaintext, and with
+`GIT_TERMINAL_PROMPT=0` a username-only http(s) URL cannot authenticate anyway. Percent-encoded
+userinfo is decoded before the check; for other schemes a userinfo carrying a password or
+anything the scanner flags is refused. Use a git credential helper or an SSH key instead, and
+SCP-style (`git@host:org/repo.git`) or plain `https://host/org/repo.git` URLs. CTK redacts URLs
+in its own output, but not in what `git` itself writes (its config file in the clone, its error
+messages when run by hand).
+
+### settings.json compare-and-swap is not a lock
+
+Before each write CTK re-reads `settings.json` and refuses the write if its content differs from
+what CTK read, which closes the lost-update window for any edit that lands while CTK is planning.
+It is not a lock: a write that lands in the few milliseconds between that re-read and the atomic
+rename can still be lost. Eliminating that window would require controlling Claude Code's own
+writer, which CTK does not. A refused write changes nothing on disk and asks you to re-run.
 
 ### Commit messages carry the device name
 

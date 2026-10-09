@@ -10,6 +10,35 @@ All notable changes to this project are documented here. The format follows
 
 - The band shows the git branch (`git:main`, a short commit id when HEAD is detached) when the CTK status line is not configured, which already shows it. It reads `.git/HEAD` through `fs.read` from the session's directory (new host call `session.cwd`), refreshes on each turn and each prompt, is cut to 28 cells, and is left out below 80 columns.
 
+### Security
+
+- `ctk sync publish` no longer deletes a skill another profile still references. A tracked sibling profile that is missing, unreadable, invalid JSON or schema-invalid now refuses the whole publish (exit 1, nothing deleted, committed or pushed) instead of being treated as "references nothing", which used to silently remove the skills it vouched for from the shared repo.
+- `ctk sync` refuses **any** userinfo in an `http`/`https` remote URL, not only one that looks like a password or high-entropy token. The URL is stored in `sync/config.json` as plaintext, and with `GIT_TERMINAL_PROMPT=0` a username-only http(s) URL cannot authenticate anyway, so a plain `https://user@host` PAT is no longer accepted and written to disk. Percent-encoded userinfo is decoded before the check. SCP-style (`git@host:org/repo.git`) and plain `https://host/org/repo.git` remotes are unchanged. **Breaking:** re-run `ctk sync init` without userinfo if you had stored such a URL.
+- The secret scanner's JSON key deny-list now covers authorization-style spellings (`authorizationHeader`, `authorization_header`, `AuthorizationValue`, `authHeader`, …) via a prefix match, not just the exact key `authorization`. A denied key is refused whatever its value looks like, including a placeholder. Plain `auth*` keys that are not credentials (`author`, `authority`, `authentication`, `authorizedKeysFile`) are still not flagged.
+- Reading a skill directory fails safe: a file or subdirectory that is unreadable (EACCES) or disappears mid-walk (ENOENT) is recorded as a problem that makes the whole skill unusable for publish and pull, instead of throwing a raw filesystem error that bypassed the refusal path.
+- Every tracked path a publish would delete is validated with `isSafeRelPath` before it can reach `rmSync`; a crafted `../`, `.git`, absolute or control-character entry in the git index refuses the publish rather than deleting something outside the clone. This matches the check `publish` already applied to unpushed commits.
+
+### Fixed
+
+- `settings.json` writes are now a compare-and-swap: CTK records a content hash when it reads the file and refuses the write (nothing on disk changes) if the file changed underneath it before the atomic rename, so a concurrent edit by Claude Code or another tool is never silently overwritten — re-run to pick up the new content. This is not a lock; a narrow race remains between the re-read and the rename (documented in the threat model).
+- A single-line (minified) `settings.json` is written back single-line. The indentation heuristic used to fall through to a two-space default on a minified file, silently reformatting the whole user file on CTK's next write.
+- A rollback of several transactions saves the ledger after each one, not once at the end. A crash mid-rollback no longer leaves reverted files against a ledger with no `undoneAt` (which re-reverted on the next run); the re-run is idempotent and a value the user changed after the crash is kept as a conflict, never overwritten.
+- `createBackup` hashes the exact bytes it wrote to the backup copy. A source file changed between the copy and the hash used to yield a manifest SHA that matched neither, so `verifyBackup` later reported "backup copy differs" and rollback/uninstall refused to restore.
+- `ctk uninstall` restores an out-of-CTK-dir file that has a prior version and a backup copy, instead of forcing the delete branch.
+- A flag-shaped value can no longer hijack the CLI: `ctk config set outputStyle --version` is now a config usage error, not a version print. `--version`/`-v` count only before the command word; `--help` and `--json` are decided from parsed tokens, not raw `argv`.
+- `ctk doctor` parses `ledger.json` once per run (was twice) and reports a skills path that exists but is not a directory instead of crashing with `ENOTDIR`.
+
+### Changed
+
+- Mission Control builds its model once per pane frame instead of three times, and runs one pending-change sweep per frame instead of three, so a frame's motion, rows and pending state all read one snapshot. `buildMission` runs its O(n²) task rows once per draw (measured: 3 → 1 per frame); host calls per draw are unchanged.
+- A burst of task events no longer triggers one full host refresh each. `TaskCreated`/`TaskCompleted` counters now go through the same throttled path as tool calls; a burst of 50 events costs bounded host calls (measured: 300 → 150) with no counter lost and no added delay to the task board.
+- Past 500 remembered tasks, eviction refreshes recency on update and prefers terminal, unreferenced tasks, so an actively-updated task or one another retained task depends on is not evicted while a finished one survives.
+- The cap, the band and Mission Control now read one live-status predicate. An unrecognised agent status counts as live (the cap refuses rather than over-admits, and no view hides a possibly-running agent); previously the three definitions diverged on unknown statuses.
+
+### Removed
+
+- Dead code: `listFiles` (fsx), the `unchanged` field on `merge3`'s result, `busyStatuses` (mission), the never-read `Change.to` field (config), and a duplicated `priorEq` (now one definition in `core/ledger`).
+
 ## [0.1.1] - 2026-10-09 (prerelease)
 
 ### Added
