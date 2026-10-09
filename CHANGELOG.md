@@ -32,6 +32,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The demo recorder's masking test could fail on Linux: it recorded a command that exits at once, which tmux 3.3/3.4 can lose.
+  The test now ends on an event, the recorder counts mask replacements per stored frame, and an empty recording exits 5.
 - The team skill no longer advises `isolation: worktree`. A live probe on Claude Code 2.1.295 showed that a named
   agent that passes `isolation` is not a teammate, so the worker cap neither counted nor refused it: the skill's
   own advice let workers escape the limit. The skill now says never to set `isolation` and to name every worker.

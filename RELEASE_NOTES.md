@@ -32,9 +32,10 @@ your options with `--config KEY=VALUE`, because **uninstalling deletes the plugi
 ## Uninstall
 
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay in
-`<config>/ctk/stats/` (delete it if you like). Claude Code has no rollback command; to return to a release, add the
-marketplace at its tag (`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; the `#<ref>` form was tried with a
-branch) and install again. Details:
+`<config>/ctk/stats/` (delete it if you like). Claude Code has no rollback command; to return to a release, remove the marketplace, add it at the release tag
+(`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`) and install again with your options. Removing the marketplace
+removes the plugin's options too, and adding it at a different ref while the old one is still registered is refused. Tested
+live with throwaway tags: install pinned to a tag, and update and roll back by moving a tag the marketplace follows. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## What is in it
@@ -105,3 +106,5 @@ No git tag exists and nothing has been published to npm, to GitHub Releases or t
 directory. The repository works as a plugin marketplace as it is. The release workflow builds and attaches an npm
 tarball, as a prerelease for `v0.*` tags, only when a `v*` tag equal to the package and plugin version is pushed;
 `npm publish` is a manual step after review.
+Run by hand (`workflow_dispatch`) the same workflow is a dry run: it runs the checks and builds the tarball, keeps it as a
+workflow artifact, and creates no release (run 37903587623 passed on `fc5299f`).

@@ -180,12 +180,17 @@ and a GitHub-hosted marketplace:
 | Push a newer commit with `version` bumped, `marketplace update`, `plugin update` | "updated from 0.1.0 to 0.1.1"; new skill text installed; the old version directory is marked `.orphaned_at` (kept 14 days); the three options kept; `/ctk-doctor` showed the same cap and the mod loaded |
 | Move the marketplace ref back to the older commit, `marketplace update`, `plugin update` | "updated from 0.1.1 to 0.1.0": Claude Code follows the marketplace in either direction; the options kept |
 | Uninstall, then reinstall | the latest commit is installed, **but uninstall deletes the plugin's options** from `settings.json` (with or without `--keep-data`); reinstall with `--config KEY=VALUE` to restore them |
+| Install pinned to a Git tag (`marketplace add tc3oliver/claude-team-kit#gate-a`, a throwaway tag, since deleted), options with `--config` | `plugin list`: 0.1.0; the marketplace clone sat on the tag's commit; `settings.json` recorded `ref`; in a live session the mod loaded, the band read `Agents 0/2`, `/ctk-doctor` read `mod: loaded` and the cap as 2 from the plugin options |
+| `marketplace add` at a second tag while the first is registered | refused: "its source doesn't match its extraKnownMarketplaces entry"; the registered ref stays |
+| `marketplace remove`, then add at another tag | works, but the plugin and its options are removed with the marketplace: install again with `--config` |
+| Install from a tag that is later moved to a commit with `version` 0.1.1, `marketplace update`, `plugin update` | "updated from 0.1.0 to 0.1.1"; options kept (`maxWorkers` 2, `reviewerModel`); the mod loaded in a live session and `/ctk-doctor` still read the cap as 2 |
+| Move the tag back, `marketplace update`, `plugin update` | "updated from 0.1.1 to 0.1.0"; options kept |
 | `ctk doctor`, `ctk update`, `ctk uninstall`, `ctk install` (dry runs) beside the native install | the CLI recognises the install as native: it reports `installed natively`, keeps the marketplace as it is, does not update, reinstall or remove the plugin, and says "nothing to uninstall: ctk owns nothing here" |
 
 Claude Code has no rollback command of its own and CTK does not add one for it. To go back to a known version:
 note your options (`/ctk-doctor` shows the cap), run `/plugin uninstall ctk@ctk-kit` and
 `/plugin marketplace remove ctk-kit`, add the marketplace at a release tag
-(`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; the `#<ref>` form was exercised with a branch), install again and pass your options as
+(`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; exercised with throwaway tags), install again and pass your options as
 `claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. Once tags exist this is the supported way back; no
 tag has been created yet. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
 

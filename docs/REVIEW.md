@@ -485,8 +485,8 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | Item | Status | Evidence |
 |---|---|---|
 | Type check | PASS | `npm run typecheck`, exit 0 |
-| Unit and integration tests | PASS | `npm test`: 382 tests (including the status line tests, the TS/`.mjs` layout parity fuzz test and the illustration's storyboard and SVG checks), 382 pass, 0 fail. One earlier run had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
-| Plugin tests | PASS | `npm run test:plugin`: 302 pass, 0 fail (10 files, including the HUD layout, tool-call counting, Mission Control model and pane, and the confirmed-config tests) |
+| Unit and integration tests | PASS | `npm test`: 393 tests (including the status line tests, the TS/`.mjs` layout parity fuzz test and the illustration's storyboard and SVG checks), 382 pass, 0 fail. One earlier run had `test/demo-render.test.ts` "record captures a real tmux session" fail once (timing: `idle` where `until` was expected); it passed on later runs. |
+| Plugin tests | PASS | `npm run test:plugin`: 315 pass, 0 fail (11 files, including the HUD layout, tool-call counting, Mission Control model and pane, and the confirmed-config tests) |
 | Plugin and marketplace validation | PASS | `npm run validate:plugin` (`--strict`), both manifests |
 | Mod type check | PASS | `npx tsc -p plugins/ctk --noEmit`, exit 0 (types generated locally) |
 | Always-on context budget | PASS against the 500-token CI budget; ABOVE the 250-token goal | Measured with a real `claude -p` call (`--setting-sources project`): 17,978 input tokens with no plugin, 18,349 (+371) with the earlier plugin, 18,403 (+425) with this one. `scripts/measure-context.mjs`: component descriptions alone about 176 tokens; `claude plugin details` charges a flat floor of roughly 40 per component (about 320 for the eight components), which is why the measured figure is higher. |
@@ -515,6 +515,18 @@ the `UNVERIFIED` rows for Windows Terminal, VS Code and a real `ctk install` sta
 | `settings.json` written concurrently by a running Claude Code | UNVERIFIED | atomic write only |
 | A real process kill between ledger save and settings write | UNVERIFIED | simulated crash test only |
 | Node versions other than 22 and 24 | UNVERIFIED | `engines` is `>=22`; CI and local runs used 22 and 24 only (22.19, 24.21 locally) |
+
+### Release gate for 0.1.0 (prerelease)
+
+| Check | Result |
+|---|---|
+| Flaky `record masks text` test | Cause found on Linux (tmux 3.3 and 3.4, six busy loops): a command that exits at once can leave a blank screen or a vanished session (about 1 run in 100 to 200), and the old test still passed its output check because the recorded command line carries the same masked text. Fixed by ending the run on `--until`, counting replacements per stored frame, checking the output in a stored frame, and exiting 5 on an empty recording. After: 0 wrong in 800 recorder runs under the same load |
+| Install from a Git tag, update, roll back | Pinned tag, moved tag to 0.1.1 and back, mod loaded, `/ctk-doctor` and options checked in a live session; details in [INSTALLATION.md](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback) |
+| Versions | package, lockfile, plugin manifest, changelog and release notes agree on 0.1.0 (`test/version.test.ts`); the marketplace entry carries none |
+| Guard states | `ready` / `ON` / `ERR` / `unavailable` from evidence only (`plugins/ctk/tests/guard.test.ts`); a loaded mod on a supported version reads `ready` until a spawn reaches it |
+| Team skill | never recommends `isolation`; shutdown in the object form (`test/team-skill.test.ts`) |
+| Release workflow | `actionlint` clean; the tag step accepts `v0.1.0` and rejects `v0.1.1` and `0.1.0`; a manual dry run on GitHub (run 37903587623) passed typecheck, build, tests and pack, kept the tarball as an artifact and skipped the release step; no tag and no release exist |
+| Claims | README and release notes say Agent Teams are experimental, Mods early access, Linux and Windows CI only, and name what never ran |
 
 ## 7. Known limitations
 
