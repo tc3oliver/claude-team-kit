@@ -1,44 +1,57 @@
 import { BACK_KEY, CLOSE_KEY, MC_VIEWS, REFRESH_KEY, viewKey } from '../mission.ts'
 import type { McState, Mission } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
-import { guardColor } from './theme.ts'
+import { pillOf } from './theme.ts'
 import type { Kit } from './types.ts'
 
-// Widths in cells. A plain Button with a hotkey may draw "1: " before its label (unverified in real
-// cells), so each tab tier is sized to fit with that prefix: full 75, four letters 55, three letters 48.
-const TABS_FULL = 76
-const TABS_SHORT = 56
+// Widths in cells. The hotkey button draws "1: " before its label (seen in real cells), so a tab is label + 3.
 const FOOT_FULL = 84
 const FOOT_MID = 58
 const FOOT_SHORT = 34
 const HEAD_FULL = 46
+const PREFIX = 3
 
-/** Title, guard state and the read-only mark on one line; the mark is the first thing to go when narrow. */
+/** The state pill: guard state, or CAPACITY once the team is full, so a full team is never drawn green. */
 export const header = (kit: Kit, m: Mission, ctx: Ctx) => {
   const { Box, Text } = kit
+  const pill = pillOf(m)
   return (
     <Box key="head" flexDirection="row" flexWrap="wrap" columnGap={2}>
-      <Text bold>CTK Mission Control</Text>
-      <Text color={guardColor(m)}>Guard {m.guard.state === 'active' ? 'ON' : m.guard.state === 'available' ? 'ready' : m.guard.label}</Text>
+      <Text bold>◆ CTK MISSION CONTROL</Text>
+      <Text bold color={pill.color}>
+        {pill.text}
+      </Text>
       {ctx.room >= HEAD_FULL ? <Text dimColor>read-only</Text> : null}
     </Box>
   )
 }
 
-/** Seven tabs on one line from 60 columns: the labels shrink to four, then three letters as the room does. */
+/** The longest tier whose measured width fits the room: full labels, four letters, then digits with only the active label spelled out. */
+const tabTier = (room: number): { letters: number | 'digits'; gap: number } => {
+  const row = (label: (l: string) => number, gap: number) => MC_VIEWS.reduce((a, v) => a + PREFIX + label(v.label), 0) + gap * (MC_VIEWS.length - 1)
+  if (row(l => l.length, 2) <= room) return { letters: 0, gap: 2 }
+  if (row(l => l.length, 1) <= room) return { letters: 0, gap: 1 }
+  if (row(l => Math.min(4, l.length), 1) <= room) return { letters: 4, gap: 1 }
+
+  return { letters: 'digits', gap: 1 }
+}
+
 export const tabs = (kit: Kit, mc: McState, ctx: Ctx) => {
   const { Box, Text, Button } = kit
-  const letters = ctx.room >= TABS_FULL ? 0 : ctx.room >= TABS_SHORT ? 4 : 3
-  const short = letters > 0
+  const { letters, gap } = tabTier(ctx.room)
   return (
-    <Box key="tabs" flexDirection="row" flexWrap="wrap" columnGap={short ? 1 : 2}>
-      {MC_VIEWS.map(v => (
-        <Button key={viewKey(v.view)} plain hotkey={v.hotkey} label={v.label} onPress={() => {}}>
-          <Text bold={mc.view === v.view} underline={mc.view === v.view}>
-            {short ? v.label.slice(0, letters) : v.label}
-          </Text>
-        </Button>
-      ))}
+    <Box key="tabs" flexDirection="row" flexWrap="wrap" columnGap={gap}>
+      {MC_VIEWS.map(v => {
+        const on = mc.view === v.view
+        const label = letters === 'digits' ? (on ? v.label : '') : letters === 0 ? v.label : v.label.slice(0, letters)
+        return (
+          <Button key={viewKey(v.view)} plain hotkey={v.hotkey} label={v.label} onPress={() => {}}>
+            <Text bold={on} underline={on}>
+              {label}
+            </Text>
+          </Button>
+        )
+      })}
     </Box>
   )
 }

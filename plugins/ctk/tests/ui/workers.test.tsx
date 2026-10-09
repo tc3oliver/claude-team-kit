@@ -83,8 +83,18 @@ describe('Workers page', () => {
     const { p } = await open($, on, ['a', 'b', 'c', 'd', 'e', 'f'], 100)
     const rows = await bodyRows(p)
     expect(rows[0]).toContain('TASK')
-    expect(rows.filter(r => r.includes('running'))).toHaveLength(6)
+    expect(rows.filter(r => r.includes('RUNNING'))).toHaveLength(6)
     expect(rows.join('\n')).not.toMatch(/\+\d+ more/)
+  })
+
+  test('status pill is whole, DONE for completed, activity bar relative to the busiest', opts, async ($, on) => {
+    const { w, p } = await open($, on, ['a', 'b'], 100)
+    for (let i = 0; i < 4; i++) await $.tool.call({ tool: 'Read', tool_use_id: `t${i}`, agentId: w.agents[0]!.id, file_path: '/w/x.ts' })
+    const rows = (await bodyRows(p)).join('\n')
+    expect(rows).toContain('RUNNING')
+    expect(rows).toContain('▁▃▅▇')
+    expect(rows).toContain('····')
+    expect(rows).not.toContain('SUBAGENTS')
   })
 
   test('detail: recent calls newest first, unavailable when none, within the row budget', opts, async ($, on) => {

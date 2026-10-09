@@ -155,7 +155,7 @@ describe('Mission Control views', () => {
   test('overview: guard, workers, tasks, team time and usage', async ($, on) => {
     await team($, on)
     const t = await texts(await pane($))
-    for (const want of ['Guard', 'ON', '2/3 active', '1 running', '1 idle', '0 completed', '0 failed', '0/3 done', '2 pending', '1 in progress', '1 blocked', '1 ready', '5h quota', '28% (resets in 2h34m)', '7 tool calls']) {
+    for (const want of ['ACTIVE', 'SLOTS', 'WORKERS', '2/3', 'TASKS', '0/3', '2 pending', '1 doing', '1 blocked', '1 ready', '5H', '28%', 'resets 2h34m', '7 tool calls']) {
       expect(t).toContain(want)
     }
   })
@@ -166,8 +166,8 @@ describe('Mission Control views', () => {
     await p.press({ key: 'mc:view:workers' })
     const t = await texts(p)
     expect(t).toContain('w-rle')
-    expect(t).toContain('claude-sonnet-5-5')
-    expect(t).toContain('claude-haiku-5-5')
+    expect(t).toContain('Sonnet 5.5')
+    expect(t).toContain('Haiku 5.5')
     expect(t).toContain('w-roman')
   })
 
@@ -200,7 +200,7 @@ describe('Mission Control views', () => {
     expect(rows(await p.drawn())).toBeLessThanOrEqual(16)
     const t = await texts(p)
     expect(t).toMatch(/\+\d+ more/)
-    expect(t).toContain('ORDINARY SUBAGENTS (12)')
+    expect(t).toContain('SUBAGENTS (12)')
     expect(t).toContain('earlier')
     await p.unmount()
   })
@@ -320,7 +320,7 @@ describe('missing data', () => {
     engine(on, w, undefined, { listFails: true })
     await $.session.start(START)
     const t = await texts(await pane($))
-    expect(t).toContain('error')
+    expect(t).toContain('ERROR')
     expect(t).toContain('the roster could not be read')
   })
 
@@ -352,6 +352,6 @@ describe('what Mission Control never does', () => {
     const p = await pane($)
     await p.press({ key: 'mc:refresh' })
     await p.press({ key: 'mc:view:workers' })
-    expect(await texts(p)).toContain('CTK Mission Control')
+    expect(await texts(p)).toContain('CTK MISSION CONTROL')
   })
 })

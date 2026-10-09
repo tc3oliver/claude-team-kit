@@ -39,9 +39,9 @@ describe('Tasks page', () => {
     await board($, on, 3)
     await call($, 'TaskUpdate', 'tu1', { taskId: '3', addBlockedBy: ['1', '2'] })
     const wide = await open($, 130)
-    expect(flat(await wide.drawn())).toContain('─┬─[○ 3]')
+    expect(flat(await wide.drawn())).toContain('─┬▸[○ 3]')
     await wide.unmount()
-    expect(flat(await (await open($, 60)).drawn())).not.toContain('─┬─')
+    expect(flat(await (await open($, 8)).drawn())).not.toContain('─┬')
   })
 
   test('completion is marked complete, not verified', async ($, on) => {

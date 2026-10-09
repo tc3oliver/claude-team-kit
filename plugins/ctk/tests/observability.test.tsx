@@ -47,7 +47,7 @@ describe('no team at all', () => {
     const workers = await view($, 'workers')
     expect(workers).toContain('No teammate has started this session.')
     expect(workers).toContain('/ctk:team <goal>')
-    expect(workers).not.toContain('ORDINARY SUBAGENTS')
+    expect(workers).not.toContain('SUBAGENTS')
     const tasks = await view($, 'tasks')
     expect(tasks).toContain('No task list yet')
     expect(tasks).toContain('TaskCreate')
@@ -80,7 +80,7 @@ describe('ordinary subagents, as in the real session', () => {
     await run($, on)
     const text = await view($, 'workers')
     expect(text).toContain('No teammate has started this session. 3 ordinary subagents ran or are running')
-    expect(text).toContain('ORDINARY SUBAGENTS (3) - not teammates, not counted by the cap')
+    expect(text).toContain('SUBAGENTS (3) · outside the cap')
     for (const t of ['ctk:explorer', 'ctk:implementer', 'ctk:reviewer', 'scout 0']) expect(text).toContain(t)
   })
 
@@ -96,9 +96,9 @@ describe('ordinary subagents, as in the real session', () => {
   test('Guard ON keeps its meaning and the overview does not read as a started team', async ($, on) => {
     await run($, on)
     const text = await view($, 'overview')
-    expect(text).toContain('Guard ON')
-    expect(text).toContain('0/3 active')
-    expect(text).toContain('3 ordinary · 3 live · not teammates, so the cap does not count them')
+    expect(text).toContain('ACTIVE')
+    expect(text).toContain('0/3')
+    expect(text).toContain('3 ordinary · 3 live · not workers, not in the cap')
     expect(text).toContain('No native team yet.')
   })
 
@@ -135,7 +135,7 @@ describe('native teammates', () => {
     expect(text).toContain('w-a')
     expect(text).toContain('w-b')
     expect(text).not.toContain('No teammate has started')
-    expect(text).not.toContain('ORDINARY SUBAGENTS')
+    expect(text).not.toContain('SUBAGENTS')
     expect((await status($)).subagents).toEqual({ total: 0, live: 0 })
   })
 
@@ -145,7 +145,7 @@ describe('native teammates', () => {
     await $.agent.spawn(plain(5, 'general-purpose'))
     const text = await view($, 'workers')
     expect(text).toContain('w-a')
-    expect(text).toContain('ORDINARY SUBAGENTS (1)')
+    expect(text).toContain('SUBAGENTS (1)')
     expect(await status($)).toMatchObject({ live: 1, subagents: { total: 1 } })
   })
 

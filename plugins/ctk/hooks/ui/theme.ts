@@ -51,3 +51,11 @@ export const dividerText = (width: number, title = ''): string => {
   const head = title === '' ? '' : `── ${title} `
   return head + '─'.repeat(Math.max(0, width - head.length))
 }
+
+/** The header's state pill. Capacity wins over ACTIVE so a full team is never drawn green: amber when full, red once a spawn was refused. */
+export const pillOf = (m: Mission): { text: string; color: ThemeColor } => {
+  if (m.guard.state === 'error') return { text: '✗ ERROR', color: COLOR.error }
+  if (m.guard.state === 'unavailable') return { text: '○ unavailable', color: COLOR.muted }
+  if (m.active !== null && m.active >= m.cap) return { text: '▲ CAPACITY', color: m.rejected > 0 ? COLOR.error : COLOR.ready }
+  return m.guard.state === 'active' ? { text: '● ACTIVE', color: COLOR.done } : { text: '◇ READY', color: COLOR.ready }
+}

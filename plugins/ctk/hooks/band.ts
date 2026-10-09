@@ -59,6 +59,9 @@ export type BandOptions = {
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
+/** Above this many tasks the band points at Mission Control for the whole list. */
+const MORE_TASKS = 6
+
 const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
@@ -91,7 +94,9 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
   if (opts.pendingChange === true) out.push({ id: 'pending', prio: RANK.pending, bold: true, forms: ['Confirm setting: click here', 'Confirm: click', '!'] })
   if (s.tasks !== null) {
     const text = `Tasks ${s.tasks.completed}/${s.tasks.created}`
-    out.push({ id: 'tasks', prio: RANK.tasks, forms: [text, text, ''] })
+    // Past a handful of tasks the pane lists only some of them, so say where the whole board is.
+    const more = s.tasks.created > MORE_TASKS
+    out.push({ id: 'tasks', prio: RANK.tasks, forms: [more ? `${text} (full list: Mission Control)` : text, more ? `${text} (list: click here)` : text, ''] })
   }
   if (mine) {
     const cost = usd(s.measured.costUsd)

@@ -112,6 +112,15 @@ describe('pure formatting', () => {
     })
   }
 
+  test('past six tasks the band says where the whole list is', () => {
+    const s = filled()
+    s.tasks = { created: 10, completed: 3 }
+    expect(band(s, 200)).toContain('Tasks 3/10 (full list: Mission Control)')
+    expect(band(s, 100)).not.toContain('Mission Control')
+    s.tasks = { created: 6, completed: 3 }
+    expect(band(s, 200)).not.toContain('Mission Control')
+  })
+
   test('with the CTK status line configured the band keeps only what the status line cannot know', () => {
     const s = filled()
     s.tasks = { created: 6, completed: 3 }

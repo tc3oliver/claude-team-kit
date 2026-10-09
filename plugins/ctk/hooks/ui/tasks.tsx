@@ -10,13 +10,14 @@ import type { Status } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
 
 /**
- * Hard cap on the rows this page returns (the inline pane has 16: header, tabs, spacing and footer
- * take 5). Task counts never change it; what does not fit is summarised as "+N more not shown".
+ * Default cap on the rows this page returns (the inline pane has 16: header, tabs, spacing and footer
+ * take 5); the page reads `ctx.rows`, which a taller pane raises. Task counts never change it; what
+ * does not fit is summarised as "+N more not shown".
  */
 export const TASK_ROWS = 11
-/** Rows the mini DAG may use, and the room it needs. */
-const DAG_ROWS = 4
-const DAG_ROOM = 70
+/** Rows the dependency graph may use; the bar, the frontier and a few list rows keep the rest. */
+const DAG_ROWS = 6
+const LIST_MIN = 3
 
 const num = (v: number | null): string => (v === null ? UNAVAILABLE : String(v))
 
@@ -28,12 +29,12 @@ const word = (t: TaskRow): string => (t.status === 'unknown' ? 'unknown' : t.blo
 
 export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, ctx: Ctx) => {
   const { Text } = kit
-  const { line, field, para, clip, room, ambiguous } = ctx
+  const { line, field, para, clip, room, ambiguous, rows } = ctx
   const t = m.tasks
 
   if (!t.detailed) {
     return [
-      ...para('t-none', m.empty.tasks ?? `Task detail ${UNAVAILABLE}: no TaskCreate or TaskUpdate call has been seen since CTK loaded.`).slice(0, TASK_ROWS - 1),
+      ...para('t-none', m.empty.tasks ?? `Task detail ${UNAVAILABLE}: no TaskCreate or TaskUpdate call has been seen since CTK loaded.`).slice(0, rows - 1),
       ...(t.total === null ? [] : [field('t-counts', 'From events', `${num(t.completed)}/${t.total} done`)]),
     ]
   }
@@ -59,21 +60,15 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
   const out: ReturnType<typeof line>[] = []
   const pct = t.total !== null && t.total > 0 && t.completed !== null ? (t.completed / t.total) * 100 : null
   const bar = progressBar(pct)
-  out.push(line('t-bar', `${bar.text}  ${num(t.completed)}/${num(t.total)} marked complete`, { color: pct === null ? COLOR.muted : COLOR.done }))
+  const partial = t.partial ? [line('t-partial', 'Some tasks were created before CTK loaded, so the detail counts are unavailable.', { dim: true, color: 'warning' })] : []
 
-  const ready = t.rows.filter(r => r.ready).map(r => `#${r.id}`)
-  const running = t.rows.filter(r => r.status === 'in_progress' && !r.blocked).length
-  const frontier = t.ready === null ? `Ready ${UNAVAILABLE}` : `Ready ${ready.length === 0 ? 'none' : ready.slice(0, 6).join(' ') + (ready.length > 6 ? ` +${ready.length - 6}` : '')}`
-  out.push(line('t-front', `${frontier} · Running ${t.partial ? UNAVAILABLE : running} · Blocked ${num(t.blocked)}`, { color: COLOR.ready }))
-  if (t.partial) out.push(line('t-partial', 'Some tasks were created before CTK loaded, so the detail counts are unavailable.', { dim: true, color: 'warning' }))
-
-  const dag = room >= DAG_ROOM ? layoutDag(t.rows, { width: room, maxRows: DAG_ROWS, ambiguous }) : null
+  const dag = layoutDag(t.rows, { width: room, maxRows: Math.min(DAG_ROWS, rows - 2 - partial.length - LIST_MIN), ambiguous })
   if (dag !== null) {
     dag.lines.forEach((segs, i) =>
       out.push(
         <Text key={`t-dag-${i}`} wrap="truncate-end">
           {segs.map((s, j) => (
-            <Text key={j} color={s.status === undefined ? COLOR.muted : statusColor(s.status)}>
+            <Text key={j} color={s.title ? undefined : s.status === undefined ? COLOR.muted : statusColor(s.status)}>
               {s.text}
             </Text>
           ))}
@@ -81,9 +76,23 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
       ),
     )
   }
+  out.push(line('t-bar', `${bar.text}  ${num(t.completed)}/${num(t.total)} marked complete`, { color: pct === null ? COLOR.muted : COLOR.done }))
+
+  const ready = t.rows.filter(r => r.ready).map(r => `#${r.id}`)
+  const running = t.rows.filter(r => r.status === 'in_progress' && !r.blocked).length
+  const readyText = t.ready === null ? UNAVAILABLE : ready.length === 0 ? 'none' : ready.slice(0, 6).join(' ') + (ready.length > 6 ? ` +${ready.length - 6}` : '')
+  out.push(
+    <Text key="t-front" wrap="truncate-end">
+      <Text color={COLOR.ready}>Ready {readyText}</Text>
+      <Text dimColor> · </Text>
+      <Text color={COLOR.active}>Running {t.partial ? UNAVAILABLE : running}</Text>
+      <Text dimColor> · Blocked {num(t.blocked)}</Text>
+    </Text>,
+  )
+  out.push(...partial)
 
   const sorted = [...t.rows].sort((a, b) => rank(a) - rank(b))
-  const free = TASK_ROWS - out.length
+  const free = rows - out.length
   const shown = sorted.length > free ? free - 1 : sorted.length
   const gw = displayWidth(GLYPH.running, ambiguous) + 1
   for (const r of sorted.slice(0, Math.max(0, shown))) {

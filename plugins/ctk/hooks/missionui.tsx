@@ -1,5 +1,5 @@
 import type { McState, Mission } from './mission.ts'
-import { createCtx } from './ui/ctx.tsx'
+import { bodyRowsFor, createCtx } from './ui/ctx.tsx'
 import { renderConfig } from './ui/config.tsx'
 import { renderDoctor } from './ui/doctor.tsx'
 import { footer, header, tabs } from './ui/frame.tsx'
@@ -23,9 +23,9 @@ export const PANE_ROWS = 16
 
 const VIEWS = { overview: renderOverview, workers: renderWorkers, tasks: renderTasks, usage: renderUsage, config: renderConfig, stats: renderStats, doctor: renderDoctor }
 
-export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion }) => {
+export const renderMission = (kit: Kit, m: Mission, mc: McState, extras: Extras, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion; placement?: 'dock' | 'inline'; scroll?: { bodyRows: number } }) => {
   const { Box } = kit
-  const ctx = createCtx(kit, props)
+  const ctx = createCtx(kit, { ...props, rows: bodyRowsFor(props) })
   return (
     <Box flexDirection="column" width={props.bodyColumns}>
       {header(kit, m, ctx)}

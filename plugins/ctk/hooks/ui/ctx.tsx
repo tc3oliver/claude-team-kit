@@ -9,11 +9,14 @@ import type { Kit } from './types.ts'
 /** Below this many cells of room the tables use their compact form. */
 export const TABLE_ROOM = 62
 
-/** Rows the body gets in the inline pane: PANE_ROWS (16) minus header, tabs, two gaps and the footer. */
+/** Rows the body gets in the inline pane: PANE_ROWS (16) minus header, tabs, two gaps and the footer. A docked pane gets more (see `bodyRowsFor`). */
 export const BODY_ROWS = 11
 
 /** From this much room the overview draws its metric cards and the bars grow. */
 export const WIDE_ROOM = 100
+
+/** The overflow line every view uses: how many were left out and how to see them (a taller terminal gives a docked pane more rows). */
+export const moreText = (n: number, room: number): string => (room < TABLE_ROOM ? `+${n} more · enlarge terminal` : `+${n} more lines not shown · enlarge the terminal`)
 
 export type LineOpts = { dim?: boolean; color?: ThemeColor; bold?: boolean }
 
@@ -23,10 +26,11 @@ const noop = () => {}
  * The drawing kit one render shares: the width it has, and primitives bound to the host's components.
  * Every line is cut or wrapped to `room` because a Text inside a Button wraps instead of truncating.
  */
-export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion }) => {
+export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 | 2; motion?: Motion; rows?: number }) => {
   const { Box, Text, Button } = kit
   const ambiguous = props.ambiguous ?? 1
   const room = Math.max(10, props.bodyColumns - 1)
+  const bodyRows = props.rows ?? BODY_ROWS
   const clip = (t: string, width = room): string => truncateToWidth(t, width, ambiguous)
   const pad = (s: string, n: number): string => padCells(s, n, ambiguous)
   const wrap = (t: string, width = room): string[] => wrapCells(t, width, ambiguous)
@@ -61,8 +65,8 @@ export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 
       </Text>
     ))
   /** Keeps a view inside the row budget: the first rows-1 nodes and a "+N more" line, or all of them when they fit. */
-  const fit = (key: string, nodes: ReturnType<typeof line>[], rows = BODY_ROWS) =>
-    nodes.length <= rows ? nodes : [...nodes.slice(0, rows - 1), line(`${key}-more`, `+${nodes.length - rows + 1} more lines not shown`, { dim: true })]
+  const fit = (key: string, nodes: ReturnType<typeof line>[], rows = bodyRows) =>
+    nodes.length <= rows ? nodes : [...nodes.slice(0, rows - 1), line(`${key}-more`, moreText(nodes.length - rows + 1, room), { dim: true })]
   const divider = (key: string, title = '') => line(key, dividerText(room, title), { color: COLOR.muted })
   /** A bar for a percentage; null (not observed) draws the muted dash bar. */
   const bar = (key: string, pct: number | null, width = 10) => {
@@ -83,7 +87,17 @@ export const createCtx = (kit: Kit, props: { bodyColumns: number; ambiguous?: 1 
     </Text>
   )
 
-  return { kit, room, ambiguous, motion: props.motion ?? STATIC_MOTION, rows: BODY_ROWS, wide: room >= WIDE_ROOM, compact: room < TABLE_ROOM, fieldWrap, fit, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
+  return { kit, room, ambiguous, motion: props.motion ?? STATIC_MOTION, rows: bodyRows, wide: room >= WIDE_ROOM, compact: room < TABLE_ROOM, fieldWrap, fit, clip, pad, wrap, line, para, field, button, link, divider, bar, metric, badge }
 }
 
 export type Ctx = ReturnType<typeof createCtx>
+
+/** Rows the frame itself takes around the body: header, tabs, the gap above the body, the gap above the footer, the footer. */
+export const FRAME_ROWS = 5
+
+/**
+ * The body's row budget. Inline the pane opens 16 rows high and must not push the prompt off screen, so it keeps
+ * BODY_ROWS; docked, the engine reports the rows the pane may use and the body takes what the frame leaves.
+ */
+export const bodyRowsFor = (props: { placement?: 'dock' | 'inline'; scroll?: { bodyRows: number } }): number =>
+  props.placement === 'dock' && props.scroll !== undefined ? Math.max(BODY_ROWS, props.scroll.bodyRows - FRAME_ROWS) : BODY_ROWS
