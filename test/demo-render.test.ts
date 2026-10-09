@@ -255,14 +255,18 @@ test('record masks text at capture time, lists labels not patterns, and aborts o
     })
     return { r, out }
   }
-  const masked = run(['--mask-file', maskFile, '--mask', 'abc=XYZ'], 'echo "pw hunter2 abc"')
+  // The command stays alive and the run ends on --until, so no step depends on how fast a command exits:
+  // a command that exits at once can lose its output to tmux (the session or the unread tty data goes first).
+  const masked = run(['--mask-file', maskFile, '--mask', 'abc=XYZ', '--until', 'pw \\*{7} XYZ'], 'echo "pw hunter2 abc"; sleep 30')
   assert.equal(masked.r.status, 0, masked.r.stderr)
   const text = readFileSync(masked.out, 'utf8')
   assert.doesNotMatch(text, /hunter2/)
-  assert.match(text, /pw \*{7} XYZ/)
-  const { meta } = parseFrames(text)
+  const { meta, frames } = parseFrames(text)
+  assert.equal(meta.stopReason, 'until')
+  // the masked output is in a stored frame itself; the command line in the meta also carries it, so check the frames
+  assert.match(plainText(frames.at(-1)?.text ?? ''), /^pw \*{7} XYZ$/m)
   assert.deepEqual(meta.masked, ['masked text', 'password'])
-  assert.equal(meta.maskedReplacements, 2)
+  assert.equal(meta.maskedReplacements, 2, 'counted once per stored frame, not once per capture')
   assert.doesNotMatch(JSON.stringify(meta), /hunter2/)
 
   const aborted = run(['--abort-on', 'STOP-NOW'], 'echo STOP-NOW; sleep 20')

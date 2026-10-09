@@ -37,3 +37,15 @@ test('a release tag must equal the version, and a 0.x tag is a prerelease', () =
   assert.match(wf, /GITHUB_REF_NAME/)
   assert.match(wf, /prerelease:/)
 })
+
+test('the release workflow can be dry-run by hand, and only a tag push can create a release', () => {
+  const wf = text('.github/workflows/release.yml')
+  assert.match(wf, /workflow_dispatch:/)
+  // the step that creates the release is gated on a tag, so a manual run can never publish one
+  const create = wf.slice(wf.indexOf('Create the GitHub release'))
+  assert.match(create, /if: github\.ref_type == 'tag'[\s\S]*softprops\/action-gh-release/)
+  assert.equal((wf.match(/softprops\/action-gh-release/g) ?? []).length, 1)
+  // a dry run still checks that the package and plugin versions agree, and keeps the tarball as an artifact
+  assert.match(wf, /if: github\.ref_type != 'tag'[\s\S]*package \$v, plugin \$p/)
+  assert.match(wf, /upload-artifact@/)
+})

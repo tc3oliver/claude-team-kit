@@ -2,9 +2,12 @@ name: release
 
 # Builds and attaches the npm tarball to a GitHub release when a version tag is pushed.
 # It does NOT publish to npm or any marketplace: run `npm publish` manually after review.
+# Run by hand (workflow_dispatch) it is a dry run: the same checks and the same tarball, kept as a
+# workflow artifact, with no tag needed and no release created.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,7 +21,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: The package and plugin versions must agree
+        if: github.ref_type != 'tag'
+        run: |
+          v=$(node -p "require('./package.json').version")
+          p=$(node -p "require('./plugins/ctk/.claude-plugin/plugin.json').version")
+          test "$p" = "$v" || { echo "package $v, plugin $p: they must agree"; exit 1; }
       - name: The tag must equal the package and plugin version
+        if: github.ref_type == 'tag'
         run: |
           v=$(node -p "require('./package.json').version")
           p=$(node -p "require('./plugins/ctk/.claude-plugin/plugin.json').version")
@@ -28,7 +38,16 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm pack
-      - uses: softprops/action-gh-release@v2
+      - name: Dry run keeps the tarball as an artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dry-run-tarball
+          path: '*.tgz'
+          retention-days: 3
+      - name: Create the GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
         with:
           files: '*.tgz'
           body_path: RELEASE_NOTES.md

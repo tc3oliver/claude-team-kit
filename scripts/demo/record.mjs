@@ -34,6 +34,7 @@ const USAGE = `usage: CLAUDE_CONFIG_DIR=<scratch dir> record.mjs --out <file.fra
   --mask-file FILE      JSON array of {"match": regex, "replace": text, "label": "what it hides"}; keeps personal
                         strings out of the command line and the repo. The meta line records labels and a count, never the patterns.
   --abort-on REGEX      kill the session at once if the screen matches (exit code 4)
+                        (exit code 5: nothing was captured, usually a command that ends at once)
   --approve REGEX       when the screen matches (a permission prompt), press Enter; each approval is listed in the meta line
   --slow-interval MS    sample this slowly once the first 15 s are over and no keys were sent for 3 s (keeps long recordings small)
 The session runs with a clean environment (env -i): HOME, PATH, TERM=xterm-256color, LANG, CLAUDE_CONFIG_DIR and --env only.`
@@ -212,7 +213,13 @@ async function main() {
   for (const m of o.meta) { const [k, v] = kv(m); meta[k] = v }
   if (masks.length > 0) meta.masked = [...new Set(masks.map(m => m.label))]
   let maskedCount = 0
-  const applyMasks = text => masks.reduce((t, m) => t.replace(m.all, found => { maskedCount++; return found.replace(m.one, m.replace) }), text)
+  // Replacements are counted per stored frame (see the capture loop), not per capture: the same screen
+  // sampled twice must not count twice, or the figure would depend on how fast the sampler happened to run.
+  const applyMasks = text => {
+    let n = 0
+    const out = masks.reduce((t, m) => t.replace(m.all, found => { n++; return found.replace(m.one, m.replace) }), text)
+    return { text: out, n }
+  }
   const maskQuietly = text => masks.reduce((t, m) => t.replace(m.all, found => found.replace(m.one, m.replace)), text)
   const partial = `${o.out}.partial`
   rmSync(partial, { force: true })
@@ -247,7 +254,7 @@ async function main() {
     if (r.status !== 0) return null
     const lines = r.stdout.split('\n').map(l => l.replace(/ +$/, ''))
     while (lines.length > 0 && lines.at(-1) === '') lines.pop()
-    return { text: applyMasks(lines.join('\n')), dead }
+    return { ...applyMasks(lines.join('\n')), dead }
   }
   let lastKeyAt = -Infinity
   const send = (...a) => {
@@ -309,6 +316,7 @@ async function main() {
       const snap = capture()
       if (snap === null) { stop ??= 'session-gone'; break }
       if (snap.text !== lastText) {
+        maskedCount += snap.n
         frames.push({ t, text: snap.text })
         appendFileSync(partial, JSON.stringify({ t, text: snap.text }) + '\n')
         lastText = snap.text
@@ -350,6 +358,8 @@ async function main() {
   if (scriptError) die(scriptError.message)
   if (stop === 'limit') process.exitCode = 3
   if (stop === 'abort') process.exitCode = 4
+  // tmux can drop a session whose command exits within milliseconds (seen on tmux 3.4); an empty recording must not look like a success
+  if (frames.length === 0 && !process.exitCode) { console.error('record: no frame was captured (the command ended before the first capture); give it something that stays alive until --until matches'); process.exitCode = 5 }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {

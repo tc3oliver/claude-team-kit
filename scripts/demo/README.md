@@ -70,6 +70,10 @@ For a real, paid session (`team-demo.sh`) the recorder has a few more options:
   `permissionApprovals` with its time, so the recording discloses that a human-equivalent approval was needed.
 - `--abort-on REGEX`: kills the session at once if the screen matches, exit code 4 (a spend or
   spawn-count guard, for example `(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}`, which is what `team-demo.sh` uses).
+- A command that exits within milliseconds can lose its output: on tmux 3.3 and 3.4 (Linux) about 1 run in 100 under
+  load ended with a blank or missing screen, because the session or the unread tty data went first. End a recording on
+  an event instead: let the command stay alive and give `--until` the text to wait for. A run that captured no frame at
+  all exits with code 5. `maskedReplacements` counts replacements in the stored frames, once per distinct screen.
 - `mask-frames.mjs file.frames.jsonl --mask-file masks.json` applies masks to an existing recording when something
   personal is noticed afterwards. The meta line then carries `maskedAfterCapture` (labels) and
   `maskedAfterCaptureReplacements`; frame structure and timing are untouched. Re-render the SVG, GIF and MP4 afterwards.
