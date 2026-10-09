@@ -4,6 +4,9 @@ import { readJsonIfExists, writeJsonAtomic } from './fsx.ts'
 import type { CtkPaths } from './paths.ts'
 import { parseLayer, resolveEffective, PROFILE_SCHEMA_VERSION, type Profile, type ProfileLayer } from './schema.ts'
 
+// Callers construct ProfileLayer values through parseLayer/resolveEffective already; validation lives
+// on the LOAD path, where untrusted on-disk data enters. Save writes the typed layer as-is.
+
 /** User layer: <config>/ctk/profile.json. Synced through the profile repo. */
 export const loadUserLayer = (p: CtkPaths): ProfileLayer | null => {
   const raw = readJsonIfExists(p.profile)
@@ -11,7 +14,7 @@ export const loadUserLayer = (p: CtkPaths): ProfileLayer | null => {
 }
 
 export const saveUserLayer = (p: CtkPaths, layer: ProfileLayer): void => {
-  writeJsonAtomic(p.profile, { ...parseLayer(layer, 'profile'), schemaVersion: PROFILE_SCHEMA_VERSION })
+  writeJsonAtomic(p.profile, { ...layer, schemaVersion: PROFILE_SCHEMA_VERSION })
 }
 
 /** Device layer: <config>/ctk/devices/<device>.json. Never synced. */
@@ -22,7 +25,7 @@ export const loadDeviceLayer = (p: CtkPaths, device: string): ProfileLayer | nul
 }
 
 export const saveDeviceLayer = (p: CtkPaths, device: string, layer: ProfileLayer): void => {
-  writeJsonAtomic(p.deviceFile(device), { ...parseLayer(layer, 'device'), schemaVersion: PROFILE_SCHEMA_VERSION })
+  writeJsonAtomic(p.deviceFile(device), { ...layer, schemaVersion: PROFILE_SCHEMA_VERSION })
 }
 
 /** CTK Defaults -> User Profile -> Device Overrides. */

@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import type { Ctx } from '../cli/context.ts'
 import { JsonParseError, readJsonIfExists, writeJsonAtomic } from './fsx.ts'
-import type { Json } from './jsonx.ts'
+import { deepEqual, type Json } from './jsonx.ts'
 import { packageRoot } from './paths.ts'
 
 export const LEDGER_SCHEMA_VERSION = 1
@@ -12,6 +12,9 @@ export const LEDGER_SCHEMA_VERSION = 1
 const json = z.custom<Json>(v => v !== undefined)
 const prior = z.union([z.strictObject({ absent: z.literal(true) }), z.strictObject({ value: json })])
 export type Prior = z.infer<typeof prior>
+
+/** Whether a live value `cur` still equals what a Prior recorded (absent means the key was not there). */
+export const priorEq = (cur: Json | undefined, p: Prior): boolean => ('absent' in p ? cur === undefined : cur !== undefined && deepEqual(cur, p.value))
 
 const settingsKeyEntry = z.strictObject({
   kind: z.literal('settings-key'),

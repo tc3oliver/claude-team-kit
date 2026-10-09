@@ -6,11 +6,12 @@ import { test } from 'node:test'
 
 import { main } from '../src/cli/index.ts'
 import { runConfig } from '../src/cli/commands/config.ts'
-import { sha256 } from '../src/core/fsx.ts'
+import { createBackup, sha256 } from '../src/core/fsx.ts'
 import { loadLedger, saveLedger } from '../src/core/ledger.ts'
 import { saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
-import { isInside, rollback, uninstall } from '../src/install/undo.ts'
+import { runUpdate } from '../src/install/update.ts'
+import { isInside, rollback, rollbackSeam, uninstall } from '../src/install/undo.ts'
 import { makeEnv, mutating, readJson, snapshot, writeJson } from './helpers.ts'
 
 const flags = { statusline: true, enableTeams: true }
@@ -262,6 +263,89 @@ test('path-prefix checks compare whole segments: a sibling named like the ctk di
   const r = await uninstall(e.ctx)
   assert.equal(r.code, 0, JSON.stringify(r.report))
   assert.ok(!existsSync(sibling), 'the sibling file was reverted like any other recorded file')
+})
+
+test('a rollback crash at any stage is safe to rerun: files and ledger converge', async t => {
+  for (const stage of ['beforeTx', 'afterFiles', 'saveLedger'] as const) {
+    const e = makeEnv(t)
+    writeJson(e.ctx.paths.settings, { theme: 'dark' })
+    await runInstall(e.ctx, flags, e.root)
+    rollbackSeam.fault = s => {
+      if (s === stage) throw new Error(`crash at ${s}`)
+    }
+    await assert.rejects(rollback(e.ctx), /crash/, stage)
+    rollbackSeam.fault = undefined
+    const r = await rollback(e.ctx)
+    assert.equal(r.code, 0, `${stage}: ${JSON.stringify(r.report)}`)
+    assert.deepEqual(readJson(e.ctx.paths.settings), { theme: 'dark' }, stage)
+    assert.ok(!existsSync(e.ctx.paths.statusline), stage)
+    assert.deepEqual(registry(e).plugins, [], stage)
+    assert.ok(loadLedger(e.ctx)?.transactions.every(x => x.undoneAt !== undefined), stage)
+  }
+})
+
+test('user edits inside the crash window survive the rerun as conflicts, never clobbered', async t => {
+  const e = makeEnv(t)
+  saveUserLayer(e.ctx.paths, { portable: { settings: { model: 'opus' } } })
+  await runInstall(e.ctx, flags, e.root)
+  // Crash after the tx's files were reverted but before its ledger save: on disk the tx is still open.
+  rollbackSeam.fault = s => {
+    if (s === 'afterFiles') throw new Error('crash')
+  }
+  await assert.rejects(rollback(e.ctx), /crash/)
+  rollbackSeam.fault = undefined
+  // The user edits inside the window; the rerun must report conflicts, not overwrite.
+  writeJson(e.ctx.paths.settings, { ...readJson(e.ctx.paths.settings), model: 'mine' })
+  writeFileSync(e.ctx.paths.statusline, '// mine\n')
+  const r = await rollback(e.ctx)
+  assert.equal(r.code, 2)
+  assert.deepEqual(r.report.conflicts.map(c => c.key).sort(), [e.ctx.paths.statusline, '/model'].sort())
+  assert.equal(readJson(e.ctx.paths.settings).model, 'mine')
+  assert.equal(readFileSync(e.ctx.paths.statusline, 'utf8'), '// mine\n')
+  assert.ok(loadLedger(e.ctx)?.transactions.every(x => x.undoneAt !== undefined))
+})
+
+test('a crash on a middle transaction leaves earlier ones committed; the rerun finishes the rest', async t => {
+  const e = makeEnv(t)
+  writeJson(e.ctx.paths.settings, { theme: 'dark' })
+  await runInstall(e.ctx, flags, e.root)
+  await runConfig(e.ctx, ['set', 'team.maxWorkers', '7'], cfgFlags)
+  const ids = loadLedger(e.ctx)?.transactions.map(x => x.id) ?? []
+  assert.equal(ids.length, 2)
+  // Targets run newest-first: ids[1] (config) commits, then the install tx crashes before its save.
+  rollbackSeam.fault = (s, i) => {
+    if (s === 'afterFiles' && i === 1) throw new Error('crash')
+  }
+  await assert.rejects(rollback(e.ctx, ids[0]), /crash/)
+  rollbackSeam.fault = undefined
+  const mid = loadLedger(e.ctx)
+  assert.ok(mid?.transactions.find(x => x.id === ids[1])?.undoneAt !== undefined, 'the first tx was committed by its own save')
+  assert.equal(mid?.transactions.find(x => x.id === ids[0])?.undoneAt, undefined, 'the crashed tx is still open')
+  const r = await rollback(e.ctx, ids[0])
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.deepEqual(readJson(e.ctx.paths.settings), { theme: 'dark' })
+  assert.ok(!existsSync(e.ctx.paths.statusline))
+  assert.deepEqual(registry(e).plugins, [])
+  assert.ok(loadLedger(e.ctx)?.transactions.every(x => x.undoneAt !== undefined))
+})
+
+test('uninstall restores an out-of-dir file that has a prior and a backup copy, instead of deleting it', async t => {
+  const e = makeEnv(t)
+  await runInstall(e.ctx, flags, e.root)
+  const outside = join(e.dir, 'outside.txt')
+  writeFileSync(outside, 'prior')
+  const backupId = createBackup(e.ctx.paths.backupsDir, 'install', [outside]).id
+  writeFileSync(outside, 'ctk wrote this')
+  const ledger = loadLedger(e.ctx)
+  assert.ok(ledger)
+  ledger.entries.push({ kind: 'file', path: outside, sha256: sha256('ctk wrote this'), priorSha256: sha256('prior') })
+  ledger.transactions.push({ id: 'synthetic', op: 'install', at: new Date().toISOString(), backupId, entryChanges: [] })
+  saveLedger(e.ctx, ledger)
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.equal(readFileSync(outside, 'utf8'), 'prior')
+  assert.ok(r.report.reverted.includes(outside))
+  assert.ok(!r.report.removed.includes(outside))
 })
 
 const UNRELATED = { theme: 'dark', permissions: { allow: ['Bash(ls)'] }, hooks: { Stop: [] }, model: 'sonnet' }

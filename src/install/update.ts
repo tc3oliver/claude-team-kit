@@ -3,13 +3,14 @@ import { join } from 'node:path'
 
 import type { Ctx } from '../cli/context.ts'
 import { failure, type Report } from '../cli/report.ts'
-import { claudeProblem, listPlugins, probeClaude, pluginCommands, registryFiles } from '../core/claude.ts'
+import { claudeProblem, listPlugins, probeClaude, pluginCommands } from '../core/claude.ts'
 import { loadLedger, newLedger } from '../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID, marketplaceDir, packageRoot, pluginSourceDir } from '../core/paths.ts'
 import { loadEffective } from '../core/profilestore.ts'
 import { readSettings } from '../core/settings.ts'
 import { applySettings, desiredEntries, planSettings } from './apply.ts'
 import { assertWritable, packageProblem } from './install.ts'
+import { backupSet } from './undo.ts'
 import { conflictHelp, describeStep, planMarketplace, recordPluginEntry, repointMarketplace, restoreDisabled } from './marketplace.ts'
 import { copyStatusline, planStatuslineCopy } from './statusline.ts'
 import { beginTxn, ensureBackup, syncLedger } from './txn.ts'
@@ -64,7 +65,7 @@ export const runUpdate = async (ctx: Ctx, root = packageRoot()): Promise<Report>
   let installed = false
   try {
     if (marketplaceStep !== 'present' || pluginStep === 'update' || statuslineStep === 'copy' || plan.changes.length > 0) {
-      ensureBackup(t, [ctx.paths.settings, ...registryFiles(ctx.configDir), ctx.paths.statusline])
+      ensureBackup(t, backupSet(ctx))
     }
     if (marketplaceStep === 'repoint') {
       await repointMarketplace(ctx, source)

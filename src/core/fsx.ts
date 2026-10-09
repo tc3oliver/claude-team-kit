@@ -1,18 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto'
 import {
   chmodSync,
-  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { dirname, join } from 'node:path'
 
 export const sha256 = (data: string | Uint8Array): string => createHash('sha256').update(data).digest('hex')
 
@@ -76,20 +74,6 @@ export const writeJsonAtomic = (path: string, value: unknown): void => {
   writeFileAtomic(path, toJsonText(value))
 }
 
-/** Every regular file under dir, as POSIX-style relative paths, sorted. Symlinks are not followed. */
-export const listFiles = (dir: string): string[] => {
-  const out: string[] = []
-  const walk = (d: string) => {
-    for (const ent of readdirSync(d, { withFileTypes: true })) {
-      const full = join(d, ent.name)
-      if (ent.isDirectory()) walk(full)
-      else if (ent.isFile()) out.push(relative(dir, full).split('\\').join('/'))
-    }
-  }
-  if (existsSync(dir) && statSync(dir).isDirectory()) walk(dir)
-  return out.sort()
-}
-
 export type BackupEntry = { path: string; existed: boolean; backup: string | null; sha256: string | null }
 export type BackupManifest = { id: string; op: string; createdAt: string; entries: BackupEntry[] }
 
@@ -97,7 +81,7 @@ export type BackupManifest = { id: string; op: string; createdAt: string; entrie
  * Copy each file (if present) into <backupsDir>/<id>/files/<n> and record a manifest.
  * Backups are never deleted by CTK.
  */
-export const createBackup = (backupsDir: string, op: string, files: string[], now = new Date()): BackupManifest => {
+export const createBackup = (backupsDir: string, op: string, files: string[], now = new Date(), afterRead?: (path: string) => void): BackupManifest => {
   // The random suffix keeps two backups taken in the same millisecond from overwriting each other.
   const id = `${now.toISOString().replace(/[:.]/g, '-')}-${op}-${randomBytes(3).toString('hex')}`
   const root = join(backupsDir, id)
@@ -107,9 +91,13 @@ export const createBackup = (backupsDir: string, op: string, files: string[], no
   const entries: BackupEntry[] = files.map((path, i) => {
     if (!existsSync(path)) return { path, existed: false, backup: null, sha256: null }
     const dest = join(root, 'files', String(i))
-    cpSync(path, dest)
-    chmodSync(dest, PRIVATE_FILE)
-    return { path, existed: true, backup: dest, sha256: sha256(readFileSync(path)) }
+    // One read for both the copy and the hash: a source mutated mid-backup can never leave a manifest
+    // sha that matches neither the copy nor anything on disk (verifyBackup would then refuse to restore).
+    const data = readFileSync(path)
+    afterRead?.(path)
+    writeFileSync(dest, data, { mode: PRIVATE_FILE })
+    chmodSync(dest, PRIVATE_FILE) // writeFileSync's mode is masked by the umask
+    return { path, existed: true, backup: dest, sha256: sha256(data) }
   })
   const manifest: BackupManifest = { id, op, createdAt: now.toISOString(), entries }
   writeJsonAtomic(join(root, 'manifest.json'), manifest)

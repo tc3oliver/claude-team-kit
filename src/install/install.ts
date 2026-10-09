@@ -10,7 +10,6 @@ import {
   listPlugins,
   MODS_MIN_VERSION,
   pluginCommands,
-  registryFiles,
   versionAtLeast,
 } from '../core/claude.ts'
 import { deepMerge, type JsonObject } from '../core/jsonx.ts'
@@ -20,6 +19,7 @@ import { loadDeviceLayer, loadUserLayer, saveDeviceLayer } from '../core/profile
 import { resolveEffective, type Profile } from '../core/schema.ts'
 import { readSettings } from '../core/settings.ts'
 import { conflictHelp, describeStep, planMarketplace, recordPluginEntry, repointMarketplace, restoreDisabled } from './marketplace.ts'
+import { backupSet } from './undo.ts'
 import { applySettings, noteAbsentContainers, desiredEntries, planSettings, type ApplyResult } from './apply.ts'
 import { copyStatusline, planStatuslineCopy } from './statusline.ts'
 import { beginTxn, ensureBackup, syncLedger } from './txn.ts'
@@ -130,7 +130,7 @@ export const runInstall = async (ctx: Ctx, flags: InstallFlags, root = packageRo
     const needsWork = marketplaceStep !== 'present' || pluginStep === 'install' || statuslineStep === 'copy' || plan.changes.length > 0
     try {
       if (needsWork) {
-        ensureBackup(t, [ctx.paths.settings, ...registryFiles(ctx.configDir), ctx.paths.statusline])
+        ensureBackup(t, backupSet(ctx))
         // `claude plugin` creates these in settings.json; uninstall removes them again only if they were not there before.
         noteAbsentContainers(ledger, settingsFile.data, ['/enabledPlugins', '/extraKnownMarketplaces'])
       }

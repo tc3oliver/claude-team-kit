@@ -4,8 +4,8 @@ import { basename, dirname, join, sep } from 'node:path'
 import type { Ctx } from '../cli/context.ts'
 import { listMarketplaces, listPlugins, pluginCommands, registryFiles } from '../core/claude.ts'
 import { createBackup, readJsonIfExists, sha256, writeFileAtomic, type BackupManifest } from '../core/fsx.ts'
-import { deepEqual, pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
-import { loadLedger, saveLedger, type EntryChange, type FileEntry, type Ledger, type LedgerEntry, type Prior } from '../core/ledger.ts'
+import { pointerGet, pointerSet, toPointer, type Json, type JsonObject } from '../core/jsonx.ts'
+import { loadLedger, priorEq, saveLedger, type EntryChange, type FileEntry, type Ledger, type LedgerEntry } from '../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../core/paths.ts'
 import { loadDeviceLayer, loadUserLayer } from '../core/profilestore.ts'
 import { readSettings, writeSettings } from '../core/settings.ts'
@@ -13,8 +13,6 @@ import { deleteLeaf, profilePathFor, pruneContainers } from './apply.ts'
 
 /** `reverted` is everything put back to its earlier state; `removed` is the part of it that was deleted (nothing earlier to restore). */
 export type UndoReport = { reverted: string[]; removed: string[]; conflicts: { key: string; reason: string }[]; notes: string[] }
-
-const priorEq = (cur: Json | undefined, p: Prior): boolean => ('absent' in p ? cur === undefined : cur !== undefined && deepEqual(cur, p.value))
 
 const entryKey = (e: LedgerEntry): string => (e.kind === 'settings-key' ? e.pointer : e.kind === 'file' ? e.path : 'plugin')
 
@@ -88,8 +86,15 @@ export const undoChanges = async (
     } else if (cur === null) {
       if (live) setEntry(ledger, 'file', c.path, c.before)
     } else if (cur !== c.after.sha256) {
-      rep.conflicts.push({ key: c.path, reason: 'modified since CTK wrote it; left as is' })
-      if (live) setEntry(ledger, 'file', c.path, null)
+      if (c.after.priorSha256 !== null && cur === c.after.priorSha256) {
+        // The file already holds exactly what this undo would restore (a crashed rollback re-run, or the
+        // user put it back): adopt that state instead of reporting a conflict, so a rerun converges to
+        // the same ledger a clean run would have written.
+        if (live) setEntry(ledger, 'file', c.path, c.before)
+      } else {
+        rep.conflicts.push({ key: c.path, reason: 'modified since CTK wrote it; left as is' })
+        if (live) setEntry(ledger, 'file', c.path, null)
+      }
     } else if (c.after.priorSha256 === null && c.before === null) {
       rep.reverted.push(c.path)
       rep.removed.push(c.path)
@@ -159,7 +164,14 @@ export const undoChanges = async (
 const readManifest = (ctx: Ctx, id: string | null): BackupManifest | null =>
   id === null ? null : readJsonIfExists<BackupManifest>(join(ctx.paths.backupsDir, id, 'manifest.json'))
 
-const backupSet = (ctx: Ctx): string[] => [ctx.paths.settings, ...registryFiles(ctx.configDir), ctx.paths.statusline]
+/** Every backup copy the ledger's transactions took, merged for undoChanges' restore lookup. */
+const ledgerBackups = (ctx: Ctx, ledger: Ledger): BackupManifest | null => {
+  const entries = ledger.transactions.flatMap(tx => readManifest(ctx, tx.backupId)?.entries ?? [])
+  return entries.length === 0 ? null : { id: 'ledger-backups', op: 'uninstall', createdAt: new Date().toISOString(), entries }
+}
+
+/** The files every mutating operation backs up before touching: settings, Claude's plugin registry, the status line script. */
+export const backupSet = (ctx: Ctx): string[] => [ctx.paths.settings, ...registryFiles(ctx.configDir), ctx.paths.statusline]
 
 /** Rolled-back profile keys that a profile layer still sets: the next update or config run would re-apply them. */
 const stillSetNotes = (ctx: Ctx, changes: EntryChange[], reverted: string[]): string[] => {
@@ -179,6 +191,13 @@ const stillSetNotes = (ctx: Ctx, changes: EntryChange[], reverted: string[]): st
 
 export type UndoResult = { code: number; undone: string[]; report: UndoReport }
 
+/**
+ * Test seam for the crash-window tests: called at each rollback step so a test can throw where a
+ * crash would hit ('beforeTx' = before any revert; 'afterFiles' = files reverted, ledger not yet
+ * saved; 'saveLedger' = about to persist this tx's commit point). Never set by production code.
+ */
+export const rollbackSeam: { fault?: (stage: 'beforeTx' | 'afterFiles' | 'saveLedger', i: number) => void } = {}
+
 /** Undo the latest undoable transaction, or (with `to`) that transaction and every later one. */
 export const rollback = async (ctx: Ctx, to?: string): Promise<UndoResult & { error?: string }> => {
   const none: UndoReport = { reverted: [], removed: [], conflicts: [], notes: [] }
@@ -196,15 +215,29 @@ export const rollback = async (ctx: Ctx, to?: string): Promise<UndoResult & { er
   }
   const opBackupId = ctx.dryRun ? null : createBackup(ctx.paths.backupsDir, 'rollback', backupSet(ctx)).id
   const report: UndoReport = { reverted: [], removed: [], conflicts: [], notes: [] }
-  for (const tx of targets) {
+  // The ledger save is the commit point, and it happens per transaction. The remaining crash window is
+  // "tx files reverted, that tx's save not yet durable" — a rerun then replays the tx, which is safe
+  // because undoChanges re-checks live state before every write: a settings key is reverted only while
+  // it still equals what CTK wrote (an already-reverted key equals valueBefore and is a no-op), a file
+  // is rewritten only while its hash still equals CTK's (an already-restored file equals priorSha256
+  // and is adopted), and anything the user changed in between becomes a conflict, never an overwrite.
+  // A saveLedger that throws mid-write is the same window: writeFileAtomic renames, so the old ledger
+  // survives intact and the tx simply stays open.
+  for (let i = 0; i < targets.length; i++) {
+    const tx = targets[i] as (typeof targets)[number]
+    rollbackSeam.fault?.('beforeTx', i)
     const r = await undoChanges(ctx, ledger, [...tx.entryChanges].reverse(), readManifest(ctx, tx.backupId), opBackupId)
     report.reverted.push(...r.reverted)
     report.removed.push(...r.removed)
     report.conflicts.push(...r.conflicts)
     report.notes.push(...r.notes)
-    if (!ctx.dryRun) tx.undoneAt = new Date().toISOString()
+    if (!ctx.dryRun) {
+      rollbackSeam.fault?.('afterFiles', i)
+      tx.undoneAt = new Date().toISOString()
+      rollbackSeam.fault?.('saveLedger', i)
+      saveLedger(ctx, ledger)
+    }
   }
-  if (!ctx.dryRun) saveLedger(ctx, ledger)
   report.notes.push(...stillSetNotes(ctx, targets.flatMap(tx => tx.entryChanges), report.reverted))
   return { code: report.conflicts.length > 0 ? 2 : 0, undone: targets.map(t => t.id), report }
 }
@@ -254,14 +287,16 @@ export const uninstall = async (ctx: Ctx): Promise<UndoResult & { removedDir: bo
     } else if (e.kind === 'file' && isInside(ctx.paths.ctk, e.path)) {
       inCtkDir.push(e)
     } else if (e.kind === 'file') {
-      changes.push({ kind: 'file', path: e.path, before: null, after: { ...e, priorSha256: null } })
+      // Real entry, not a forced delete: restore from backup when a prior copy exists, delete only
+      // when CTK created the file (priorSha256 null and nothing before it).
+      changes.push({ kind: 'file', path: e.path, before: null, after: e })
     } else if (e.kind === 'plugin') {
       changes.push({ kind: 'plugin', before: null, after: e }) // only what CTK installed or registered is removed
       if (!e.pluginInstalledByCtk) adopted.push(`left plugin ${PLUGIN_ID} installed: ctk did not install it. ${NATIVE_REMOVAL}`)
     }
   }
   const opBackupId = ctx.dryRun ? null : createBackup(ctx.paths.backupsDir, 'uninstall', [...backupSet(ctx), ctx.paths.ledger, ctx.paths.profile]).id
-  const report = await undoChanges(ctx, ledger, changes, null, opBackupId)
+  const report = await undoChanges(ctx, ledger, changes, ledgerBackups(ctx, ledger), opBackupId)
   report.notes.push(...adopted)
   // Scripts inside the ctk dir go with it, but only if they are still exactly what CTK wrote.
   for (const e of inCtkDir) {

@@ -5,6 +5,7 @@ import {
   findEntry,
   loadLedger,
   newLedger,
+  priorEq,
   type EntryChange,
   type Ledger,
   type LedgerEntry,
@@ -127,8 +128,6 @@ const clean = (e: SettingsKeyEntry): SettingsKeyEntry => {
   delete next.pending
   return next
 }
-
-const priorEq = (cur: Json | undefined, p: Prior): boolean => ('absent' in p ? cur === undefined : cur !== undefined && deepEqual(cur, p.value))
 
 const priorOf = (cur: Json | undefined): Prior => (cur === undefined ? { absent: true } : { value: cur })
 

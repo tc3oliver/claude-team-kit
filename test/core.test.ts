@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
-import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { test } from 'node:test'
 
-import { createBackup, JsonParseError, listFiles, readJsonIfExists, verifyBackup, writeFileAtomic } from '../src/core/fsx.ts'
+import { createBackup, JsonParseError, readJsonIfExists, sha256, verifyBackup, writeFileAtomic } from '../src/core/fsx.ts'
 import { deepEqual, deepMerge, flatten, fromPointer, pointerDelete, pointerGet, pointerSet, toPointer, unflatten } from '../src/core/jsonx.ts'
 import { ctkPaths, isValidProfileName, resolveConfigDir, resolveDevice, toPosix } from '../src/core/paths.ts'
+import { loadUserLayer, saveUserLayer } from '../src/core/profilestore.ts'
+import { ProfileError } from '../src/core/schema.ts'
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'ctk-core-'))
 
@@ -49,7 +51,7 @@ test('writeFileAtomic leaves no temp files and replaces content', () => {
     writeFileAtomic(f, 'one')
     writeFileAtomic(f, 'two')
     assert.equal(readFileSync(f, 'utf8'), 'two')
-    assert.deepEqual(listFiles(d), ['sub/x.json'])
+    assert.deepEqual(readdirSync(join(d, 'sub')), ['x.json']) // no temp file left behind
   } finally {
     rmSync(d, { recursive: true, force: true })
   }
@@ -123,6 +125,53 @@ test('writeFileAtomic writes through a symlink instead of replacing it', { skip:
     writeFileAtomic(link, '{"a":2}')
     assert.ok(lstatSync(link).isSymbolicLink())
     assert.equal(readFileSync(real, 'utf8'), '{"a":2}')
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('createBackup hashes the bytes it copied: a source mutated mid-backup still verifies', () => {
+  const d = tmp()
+  try {
+    const f = join(d, 'settings.json')
+    writeFileSync(f, '{"a":1}')
+    // Fault injection: the source changes after CTK read it but before the manifest is written.
+    const m = createBackup(join(d, 'backups'), 'install', [f], new Date(), p => writeFileSync(p, '{"a":2}'))
+    assert.deepEqual(verifyBackup(m), { ok: true, problems: [] })
+    assert.equal(readFileSync(m.entries[0]!.backup!, 'utf8'), '{"a":1}')
+    assert.equal(m.entries[0]!.sha256, sha256('{"a":1}'))
+    assert.equal(readFileSync(f, 'utf8'), '{"a":2}', 'the mutated source is left alone')
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('createBackup copies binary and multi-byte content byte-exactly', () => {
+  const d = tmp()
+  try {
+    const bin = Buffer.from([0, 1, 0xff, 0xfe, 0x80, 0x7f])
+    const txt = 'héllo → 世界'
+    const b = join(d, 'bin.dat')
+    const t = join(d, 'txt.json')
+    writeFileSync(b, bin)
+    writeFileSync(t, txt)
+    const m = createBackup(join(d, 'backups'), 'install', [b, t])
+    assert.deepEqual(verifyBackup(m), { ok: true, problems: [] })
+    assert.deepEqual(readFileSync(m.entries[0]!.backup!), bin)
+    assert.equal(readFileSync(m.entries[1]!.backup!, 'utf8'), txt)
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('profilestore: save/load round-trips; the load path still rejects a corrupt layer', () => {
+  const d = tmp()
+  try {
+    const p = ctkPaths(d)
+    saveUserLayer(p, { team: { maxWorkers: 7 } })
+    assert.deepEqual(loadUserLayer(p), { schemaVersion: 1, team: { maxWorkers: 7 } })
+    writeFileSync(p.profile, JSON.stringify({ team: { maxWorkers: 99 } }))
+    assert.throws(() => loadUserLayer(p), ProfileError)
   } finally {
     rmSync(d, { recursive: true, force: true })
   }
