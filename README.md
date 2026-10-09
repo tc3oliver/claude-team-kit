@@ -69,9 +69,7 @@ Not sure it is set up? Run `/ctk-doctor`: it changes nothing and prints the exac
 
 The recording asked for this on a small fixture ([`scripts/demo/fixture`](scripts/demo/fixture/README.md), five text modules, no tests):
 
-```
-Use a team to add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.
-```
+> Use a team to add one node:test file per module in src/, named test/<module>.test.js, one worker per module. Then run npm test and report the results.
 
 ## Why Claude Team Kit?
 
@@ -93,14 +91,14 @@ Small footprint: the plugin adds about 425 tokens to a session (measured with a 
 The `CTK ▸` line above the prompt is a button: click it, or run `/ctk-mission`, to open a read-only dashboard beside the transcript. Nothing in it spawns, stops or changes anything.
 
 <p align="center">
-  <img src="docs/assets/mission-control-e-workers.svg" alt="Mission Control, Workers view: three workers on Sonnet 5.5 with status running and their tool-call counts" width="720">
+  <a href="docs/assets/mission-control-e-workers.svg"><img src="docs/assets/mission-control-e-workers.svg" alt="Mission Control, Workers view: three workers on Sonnet 5.5 with status running and their tool-call counts" width="720"></a>
 </p>
 
 <p align="center">
-  <img src="docs/assets/mission-control-e-tasks.svg" alt="Mission Control, Tasks view: six tasks with status, owner and dependencies; the last task needs 4 and 5" width="720">
+  <a href="docs/assets/mission-control-e-tasks.svg"><img src="docs/assets/mission-control-e-tasks.svg" alt="Mission Control, Tasks view: six tasks with status, owner and dependencies; the last task needs 4 and 5" width="720"></a>
 </p>
 
-<p align="center"><sub>Stills from the recording above: workers with their model and tool calls, then the task list with its dependencies. The pane is about 50 cells wide, so the tables use a compact form.</sub></p>
+<p align="center"><sub>Stills from the recording above: workers with their model and tool calls, then the task list with its dependencies. The pane is about 50 cells wide, so the tables use a compact form. Tap an image for full size.</sub></p>
 
 - **Views:** Overview (guard, workers, tasks, team time, usage), Workers, Tasks (owner, ready or blocked, what it needs and blocks), Usage, Config, Stats, Doctor. Digits `1` to `7` switch views; `Esc` returns to the prompt.
 - **Only what was observed.** Figures come from Claude Code's own events and API; anything CTK could not observe reads `unavailable`, never a made-up zero.
@@ -114,19 +112,19 @@ The `CTK ▸` line above the prompt is a button: click it, or run `/ctk-mission`
 - **Honest numbers.** `/ctk-stats` labels each figure as counted by CTK or measured by Claude Code; Claude Code reports no per-worker cost, so CTK shows none.
 
 <p align="center">
-  <img src="docs/assets/hud-widths.svg" alt="The CTK team line in real captures at 200, 130, 100, 80 and 60 terminal columns, alone above the prompt and split with the optional status line" width="760">
+  <a href="docs/assets/hud-widths.svg"><img src="docs/assets/hud-widths.svg" alt="The CTK team line in real captures at 200, 130, 100, 80 and 60 terminal columns, alone above the prompt and split with the optional status line" width="760"></a>
 </p>
 
-<p align="center"><sub>The team line at five terminal widths, from live captures (Claude Code 2.1.295; usage figures are the maintainer's account at that moment). Details: <a href="docs/ARCHITECTURE.md#layout">layout</a>.</sub></p>
+<p align="center"><sub>The team line at five terminal widths, from live captures (Claude Code 2.1.295; usage figures are the maintainer's account at that moment). Tap for full size. Details: <a href="docs/ARCHITECTURE.md#layout">layout</a>.</sub></p>
 
 ### The cap in a recorded run
 
 <p align="center">
-  <img src="docs/assets/team-demo-d-tasks.svg" alt="Three workers live at the cap; the lead keeps two tasks pending; the task list shows the final run blocked by tasks 4 and 5; the team line reads team 3 busy, cap 3, tasks 3/6" width="720">
+  <a href="docs/assets/team-demo-d-tasks.svg"><img src="docs/assets/team-demo-d-tasks.svg" alt="Three workers live at the cap; the lead keeps two tasks pending; the task list shows the final run blocked by tasks 4 and 5; the team line reads team 3 busy, cap 3, tasks 3/6" width="720"></a>
 </p>
 
 <p align="center">
-  <img src="docs/assets/team-demo-refusal.svg" alt="A spawn refused live with TEAM_CAPACITY_REACHED: live=3 starting=0 max=3; the team line shows rejected 1" width="720">
+  <a href="docs/assets/team-demo-refusal.svg"><img src="docs/assets/team-demo-refusal.svg" alt="A spawn refused live with TEAM_CAPACITY_REACHED: live=3 starting=0 max=3; the team line shows rejected 1" width="720"></a>
 </p>
 
 <p align="center"><sub><b>Top (an earlier recording, Run D):</b> at the cap, the lead keeps tasks #4 and #5 pending instead of spawning; no spawn was refused in this run. <b>Bottom (an earlier attempt, not the published demo):</b> the only recorded live refusal. The lead read it and reused idle workers through <code>SendMessage</code> (<a href="docs/DEMO.md#attempt-1-the-cap-refusing-live-not-the-published-run">notes</a>).</sub></p>
