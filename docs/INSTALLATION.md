@@ -57,7 +57,8 @@ models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them late
 }
 ```
 
-The plugin cache for this install was about 160 KB (`du` of `<config>/plugins/cache/ctk-kit/ctk/0.1.0`).
+The plugin cache lives at `<config>/plugins/cache/ctk-kit/ctk/<version>` — the last path segment is the plugin version
+(`0.1.3`, about 780 KB).
 `claude plugin details ctk@ctk-kit` listed the skills `debug, review, team`, 4 agents, and an
 always-on estimate (about 187 tokens on Claude Code 2.1.294; the estimator has a floor of about 40
 per component since, so it prints about 40 for each of the 8 components now). The measured cost is in
@@ -194,7 +195,10 @@ Claude Code has no rollback command of its own and CTK does not add one for it. 
 note your options (`/ctk-doctor` shows the cap), run `/plugin uninstall ctk@ctk-kit` and
 `/plugin marketplace remove ctk-kit`, add the marketplace at a release tag
 (`/plugin marketplace add tc3oliver/claude-team-kit#<tag>`; exercised with throwaway tags), install again and pass your options as
-`claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. The tag `v0.1.0` exists (a prerelease), so this is the supported way back to it. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
+`claude plugin install ctk@ctk-kit --config maxWorkers=2 ...`. Every release tag exists as a GitHub prerelease (the latest
+is [`v0.1.3`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.3)), so pinning one is the supported way to a
+known version. A prerelease is **not** promoted to a stable "latest" automatically, and a tag-pinned marketplace stays on
+that tag: `plugin update` follows the pinned ref, so it will not carry you to a different release. What was **not** exercised: an update that fails partway (a network error, say), and Windows or Linux.
 
 Two things stay behind, both Claude Code's or the mod's, neither CTK's: empty `enabledPlugins`
 and `extraKnownMarketplaces` objects in `settings.json`, and the mod's per-session counters in
@@ -254,7 +258,7 @@ node dist/src/cli/bin.js --version
 ```
 
 ```
-0.1.0
+0.1.3
 ```
 
 From the checkout, `npm run ctk -- <args>` runs the built CLI (`npm run ctk -- doctor`,
@@ -273,13 +277,13 @@ Build once, pack, then install the tarball anywhere:
 ```sh
 npm ci
 npm run build               # optional here: a prepack script runs it during npm pack anyway
-npm pack                    # writes claude-team-kit-0.1.0.tgz (about 112 kB, 74 files)
-npm install -g ./claude-team-kit-0.1.0.tgz
+npm pack                    # writes claude-team-kit-0.1.3.tgz (about 414 kB, 192 files)
+npm install -g ./claude-team-kit-0.1.3.tgz
 ctk --version
 ```
 
 The same tarball was also installed with a local prefix instead of `-g`:
-`npm install --prefix <dir> ./claude-team-kit-0.1.0.tgz`, then `<dir>/node_modules/.bin/ctk`.
+`npm install --prefix <dir> ./claude-team-kit-0.1.3.tgz`, then `<dir>/node_modules/.bin/ctk`.
 That `ctk install` registered `<dir>/node_modules/claude-team-kit` as the marketplace and the
 plugin loaded from it. The same directory-must-stay-put rule applies, so install into a
 location you will keep.
@@ -441,7 +445,7 @@ ctk doctor
 [ok  ] mods: this Claude Code can load mods (>= 2.1.287); a version check only, /ctk-doctor in Claude Code reports whether the guard is on
 [ok  ] wsl: platform darwin
 [ok  ] settings: settings.json parses
-[ok  ] plugin: ctk@ctk-kit 0.1.0 installed and enabled
+[ok  ] plugin: ctk@ctk-kit 0.1.3 installed and enabled
 [ok  ] marketplace: marketplace ctk-kit registered
 [ok  ] profile: profile layers valid
 [ok  ] agent-teams: agent teams flag set

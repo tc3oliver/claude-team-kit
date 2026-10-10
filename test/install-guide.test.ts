@@ -67,6 +67,22 @@ test('INSTALL.md agrees with the reference on the version, the flags and the gua
   assert.ok(guide.includes('restart Claude Code') && guide.includes('/reload-plugins'), 'reload and restart are both named')
 })
 
+test('the install docs point at the current release, never an older tag', () => {
+  const v = (JSON.parse(text('package.json')) as { version: string }).version
+  for (const doc of ['INSTALL.md', 'docs/INSTALLATION.md']) {
+    const body = text(doc)
+    // any literal release tag pinned in a `marketplace add …#vX.Y.Z` example must be the current one
+    for (const m of body.matchAll(/claude-team-kit#v(\d+\.\d+\.\d+)/g)) {
+      assert.equal(m[1], v, `${doc} pins an old release tag #v${m[1]}; use #v${v} or <release-tag>`)
+    }
+    assert.ok(body.includes(`v${v}`), `${doc} names the current release v${v}`)
+  }
+  // the agent checklist must never tell an agent an older version is "already installed, skip the install"
+  assert.doesNotMatch(guide, /listed at \*\*0\.1\.[012]\*\*/)
+  // and must show the update path, not a reinstall, for an already-installed older version
+  assert.match(guide, /plugin update ctk@ctk-kit/)
+})
+
 test('INSTALL.md marks the platforms that were not tried', () => {
   for (const row of [/\| macOS \| Verified/, /\| Linux, Windows \| \*\*Tested in CI only\*\*/, /Windows Terminal, VS Code terminal \| \*\*Not verified\*\*/, /\| WSL \| \*\*Not verified\*\*/]) assert.match(guide, row)
 })

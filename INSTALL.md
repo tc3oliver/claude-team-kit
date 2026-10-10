@@ -32,13 +32,24 @@ claude plugin marketplace list
 - **git** must exist, because Claude Code clones the repository.
 - If `CLAUDE_CONFIG_DIR` is set, that directory is the Claude Code config; otherwise it is `~/.claude`
   (Windows: `%USERPROFILE%\.claude`). Use that path for every `settings.json` step below.
-- From `claude plugin list`:
-  - `ctk@ctk-kit` is **not listed**: go to step 2.
-  - `ctk@ctk-kit` is listed at **0.1.0**: skip to step 3. Do not reinstall; it would not change anything and an
-    uninstall would delete the person's plugin options.
-  - `ctk@ctk-kit` is listed at **another version**: see
-    [update and remove](docs/INSTALLATION.md#update-and-remove-native). An update arrives only when the plugin `version`
-    changes, and uninstalling deletes the plugin's options, so note them first.
+- From `claude plugin list`, read the installed `Version:` of `ctk@ctk-kit`, then pick **one** path. Never reinstall
+  over an existing install and never remove one to "start clean": an uninstall deletes the person's plugin options
+  (`maxWorkers`, the model choices, the band), and a reinstall does not restore them.
+  - **Not listed** → go to step 2 (fresh install).
+  - **Listed at the current release** (`v0.1.3` as of this writing; the newest tag under
+    <https://github.com/tc3oliver/claude-team-kit/releases> is authoritative) → skip to step 3 and keep everything as it
+    is. There is nothing to install and the options are already correct.
+  - **Listed at an older version** → *update*, do not reinstall. From a shell:
+    `claude plugin marketplace update ctk-kit`, then `claude plugin update ctk@ctk-kit`; in Claude Code the person types
+    `/plugin update ctk@ctk-kit`, then `/reload-plugins`. An update arrives only when the plugin `version` changes, and it
+    keeps every plugin option. Details: [update and remove](docs/INSTALLATION.md#update-and-remove-native).
+  - **Listed but pinned to a release tag** (`claude plugin marketplace list` shows
+    `tc3oliver/claude-team-kit@<tag>`, and `settings.json` records a `ref`) → that install is frozen at the tag *by
+    design*; leave it running and say so. `plugin update` will not move it to a different tag. To reach a newer release the
+    person must re-point the marketplace, and Claude Code refuses a second `marketplace add` at a different ref while one
+    is registered — so re-pointing means `marketplace remove ctk-kit` (which also removes the plugin **and its options**),
+    then add at the new tag and reinstall with `--config`. That is the person's call, not yours: note the options first
+    (`/ctk-doctor` shows the cap) and see [update and remove](docs/INSTALLATION.md#update-and-remove-native).
 - If `claude` is not on the PATH, or you are not allowed to run it, give the person the slash commands from step 2 instead.
 
 ## 2. Install
@@ -53,8 +64,19 @@ claude plugin install ctk@ctk-kit
 Both commands are safe to repeat (they answer "already on disk" and "already installed"). The line `N userConfig options not yet set` is harmless: every option has a default (cap 5). Do not pass `--config`
 unless the person asked for a value; [Options](docs/INSTALLATION.md#options) lists them.
 
-To pin the release instead of the latest commit, add the tag to the first command:
-`claude plugin marketplace add tc3oliver/claude-team-kit#v0.1.0`.
+**What you just installed.** With no tag, `marketplace add` tracks the repository's default branch (`main`), so `plugin
+update` later moves to whatever `main` is at. Every CTK release so far is a **GitHub prerelease**, and a prerelease is
+*not* promoted to a "stable latest" automatically — `main` is the newest code, which may be ahead of the latest release
+tag. To install a known release instead of tracking `main`, pin the tag on the first command:
+
+```sh
+claude plugin marketplace add tc3oliver/claude-team-kit#<release-tag>   # e.g. #v0.1.3
+```
+
+`<release-tag>` is any tag under <https://github.com/tc3oliver/claude-team-kit/releases>; the latest is `v0.1.3`. A
+pinned install stays frozen at that tag (`plugin update` will not switch it to a different one) — see the pinned case in
+step 1 for how to move it later. Pin the newest release unless the person asked for a specific older one; do not pin an
+old tag by default.
 
 If you cannot run a shell, ask the person to type these in Claude Code:
 
