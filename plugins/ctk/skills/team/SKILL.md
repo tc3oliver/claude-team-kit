@@ -7,9 +7,8 @@ argument-hint: "<goal>"
 Goal: $ARGUMENTS. You are the lead.
 
 ## 0. Intent gate
-No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one
-sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
-**Optional persisted task:** When team intent refers to a `BL-<16-hex>` ID, resolve the *actual* Backlog task before judging whether it has 2+ slices. If a Backlog Skill/CLI is available, use its `show` to obtain Goal, AC, References, Handoff, status and dependency readiness; do not guess the CLI install path or initialize a new backlog. `todo` must pass the Backlog CLI readiness gate; defer `start` until **after** CTK preflight and only when actual work will begin. If the requested team cannot start, leave the BL state unchanged. `doing` resumes after reconciling current repo state, without calling `start` twice. For `inbox`, `blocked`, `done`, `cancelled` or unmet dependencies, stop rather than spawning. If the task cannot be accessed and the prompt has no complete Goal and AC, ask for those details and spawn nothing; CTK must still work independently for normal goals without Backlog.
+No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
+When team intent names a `BL-<16-hex>` task, read `references/backlog.md` before slicing. Backlog is optional for all ordinary teams.
 Asked, but the resolved goal has no 2+ independently verifiable slices? Say so in one line and do the work directly (still honour any explicit persistent task requirements, and only `start` a ready BL task when direct work actually begins).
 
 ## 1. Preflight
@@ -56,7 +55,6 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
   yourself or ask the user. Never loop on a refused spawn or a failing task.
 
 ## 6. Close
-Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an
-object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
+Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. Then `/ctk:review`.
-If a Backlog task was explicitly supplied, **only the lead** records verified AC/evidence and closes that persistent task via the installed Backlog CLI after full integration. Workers never mutate it and their temporary TaskCompleted events never imply persistent `done`. If verification fails, preserve Handoff/Blocker and leave BL open. If the CLI is not accessible, report the implementation result without claiming the BL task was updated. Do not make Backlog a prerequisite for team work.
+If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
