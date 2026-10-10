@@ -132,7 +132,8 @@ Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: O
 
 - **Models by role.** Explorers on Haiku, implementers and reviewers on Sonnet, the high-risk reviewer on Opus, unless a spawn names a model. An optional read-only `designer` on Opus writes UI/UX briefs; it is new on main and has not yet been part of a recorded run.
 - **Risk-based review.** `/ctk:review` scales reviewer depth to the risk of the change.
-- **Debugging workflow.** `/ctk:debug` asks for a failing reproduction before a fix.
+- **Debugging workflow.** `/ctk:debug` asks for a failing reproduction before a fix; when a standalone debugging skill is installed, generic debugging should use one diagnosis protocol, not two.
+- **Optional Backlog / BetFirst composition.** CTK runs independently; when explicitly combining tools, the team lead alone owns durable task updates. [Workflow contract](docs/WORKFLOW.md#optional-external-backlog-tasks-skill-guided-not-a-dependency).
 - **Natural-language control.** Ask in words for a team or for a setting change, such as "set the worker cap to 2"; the change applies only after you press Confirm in Mission Control ([details](docs/NATURAL-LANGUAGE.md)).
 - **Usage HUD.** A team line above the prompt with the model, 5-hour and weekly usage, agents against the limit, tasks and cost, fitted to your terminal width. It reads only what Claude Code hands it: no network calls, no model calls.
 - **Portable configuration.** Change options with `/plugin configure ctk@ctk-kit`. The optional `ctk` CLI syncs a profile between machines through a git repository you own, with a secrets scan before every publish ([Configuration](docs/CONFIGURATION.md)).

@@ -7,9 +7,9 @@ argument-hint: "<goal>"
 Goal: $ARGUMENTS. You are the lead.
 
 ## 0. Intent gate
-No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one
-sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
-Asked, but the goal has no 2+ independently verifiable slices? Say so in one line and do the work directly.
+No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
+When team intent names a `BL-<16-hex>` task, read `references/backlog.md` before slicing. Backlog is optional for all ordinary teams.
+Asked, but the resolved goal has no 2+ independently verifiable slices? Say so in one line and do the work directly (still honour any explicit persistent task requirements, and only `start` a ready BL task when direct work actually begins).
 
 ## 1. Preflight
 Call `ctk_team_status` if it exists, then branch (never imply a cap you have not confirmed):
@@ -55,6 +55,6 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
   yourself or ask the user. Never loop on a refused spawn or a failing task.
 
 ## 6. Close
-Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an
-object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
+Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. Then `/ctk:review`.
+If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
