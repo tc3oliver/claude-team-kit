@@ -1,123 +1,77 @@
-# Claude Team Kit 0.1.2 (prerelease)
+# Claude Team Kit 0.1.3 (prerelease)
 
-A hardening release: every problem a full code review of `main` found is fixed, verified by a test
-that fails without the fix, and green across the whole CI matrix. No features and no new runtime
-dependencies. The worker cap, Mission Control's behaviour and the plugin's always-on context are
+A follow-up hardening release: five problems found after `v0.1.2` shipped are fixed, each verified by
+a test that fails without the fix, and green across the whole CI matrix. No features, no new runtime
+dependencies (still only `zod`), and the worker cap, model routing and Mission Control behaviour are
 unchanged.
 
-This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which
-carry the cap and the team line) are early access, so it can break when Claude Code changes. Read
-"Known limitations" before you rely on it.
+This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
+the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
+limitations" before you rely on it.
 
-## Breaking change: an `http(s)` sync remote may no longer carry any userinfo
+## The v0.1.2 sync upgrade dead end is closed
 
-`ctk sync init` now refuses **any** userinfo in an `http` or `https` remote URL — previously a bare
-user name (`https://abc123@host`) was accepted as "not a credential". Two reasons: the URL is stored
-in `sync/config.json` as plaintext, and with `GIT_TERMINAL_PROMPT=0` a username-only http(s) URL
-cannot authenticate anyway, so it never worked.
+`v0.1.2` started refusing **any** userinfo in an `http(s)` remote URL. That left a user who had
+stored one (`https://abc123@host/…`, accepted by `v0.1.1`) with no way out: every sync command
+failed closed, and `ctk sync init` refused to switch an already-initialized remote — so the `v0.1.2`
+release notes' instruction to "re-run `ctk sync init` with a clean URL" did not work. The published
+`v0.1.2` release body carries a correction notice pointing here; the manual recovery it documents was
+verified against the real `v0.1.2` build.
 
-If you stored such a remote, re-run `ctk sync init` with a clean URL. Use a git credential helper or
-an SSH key. SCP-style (`git@host:org/repo.git`) and plain `https://host/org/repo.git` remotes are
-unaffected. No error message ever echoes the credential.
+In **this** release, `ctk sync init --remote <the same URL without the userinfo>` migrates the
+existing clone in place:
 
-## Security
+- the profile, the clone, its git history and any unpushed commits are kept — nothing is re-cloned
+  or deleted;
+- reachability is verified against the clean URL as a direct argument, so the stored credential
+  never reaches `git` and is never printed;
+- only that exact URL (and branch) is accepted, so sync can never be silently repointed at another
+  repo — a different host, path or branch is still refused, with the stored credential redacted.
 
-- **A referenced skill can no longer be deleted from the shared repo.** `publish` decided which
-  skills were stale by reading every tracked sibling profile, and a profile that failed to parse was
-  silently treated as "references nothing" — so its skills were deleted, recoverable only from git
-  history. A tracked profile that is missing, unreadable, invalid JSON or schema-invalid now refuses
-  the whole publish: nothing is deleted, committed or pushed.
-- **Credentials are no longer written to disk from a remote URL** (the breaking change above), and
-  `redactUrls` now hides userinfo in any scheme, not only `http(s)`.
-- **The secret scanner catches authorization-style keys.** `"authorizationHeader": "Bearer …"` used
-  to pass every rule — the key deny-list held only the exact word `authorization`, and the value
-  rules need the keyword immediately before the secret. The deny-list now matches by prefix, so
-  `authorizationHeader`, `authorization_header`, `AuthorizationValue` and `authHeader` are refused
-  whatever the value looks like, including a placeholder. Plain `auth*` keys that are not
-  credentials (`author`, `authority`, `authentication`, `authorizedKeysFile`) are still not flagged.
-- **Reading a skill directory fails safe.** A file or subdirectory that is unreadable or disappears
-  mid-walk is recorded as a problem that makes the whole skill unusable, instead of throwing a raw
-  filesystem error that bypassed the refusal path.
-- **No path can reach `rmSync` unvalidated.** Every tracked path a publish would delete is checked
-  with `isSafeRelPath` first; a crafted `../`, `.git` or absolute entry in the git index refuses the
-  publish rather than deleting something outside the clone. This is the check `publish` already
-  applied to unpushed commits.
+Every other sync command keeps failing closed and now names the migration command. `ctk sync status`
+stays usable and prints the remote redacted. **Compatibility:** this migration is new in `0.1.3`.
+On `v0.1.2` there is no CLI migration; the corrected `v0.1.2` release body documents the verified
+manual equivalent (edit `<config>/ctk/sync/config.json` to the clean URL and `git remote set-url
+origin <clean-url>` inside `<config>/ctk/sync/repo`). Updating to `0.1.3` and running the one
+`sync init` command replaces both steps.
 
 ## Data integrity
 
-- **`settings.json` writes are a compare-and-swap.** CTK and Claude Code both read-modify-write the
-  file; the atomic rename prevented corruption but not a lost update, so an edit landing while CTK
-  was planning was silently overwritten. CTK now records a content hash when it reads the file and
-  refuses the write if the file changed underneath it — nothing on disk changes, and you re-run to
-  pick up the new content. This is not a lock: a lockfile cannot bind Claude Code, and the narrow
-  window between the re-read and the rename is documented in the [threat
-  model](docs/THREAT-MODEL.md#settingsjson-compare-and-swap-is-not-a-lock) rather than claimed away.
-- **A minified `settings.json` stays minified.** The indentation heuristic never matched a
-  single-line file, so CTK's next write reformatted the whole user file to two-space indent.
-- **Backups hash what they actually stored.** `createBackup` hashed the source *after* copying it, so
-  a source changed in between produced a manifest SHA matching neither copy — `verifyBackup` then
-  reported "backup copy differs" and rollback or uninstall refused to restore. One read now feeds
-  both the copy and the hash.
+- **A backup copy is verified before it is restored.** Rollback and uninstall found their backup copy
+  by the manifest SHA and checked only that the file existed, then wrote whatever they read — a
+  tampered, truncated or corrupted copy was restored over a live user file and the transaction
+  reported success. The bytes are hashed before the write now; on a mismatch nothing is written, the
+  file stays byte-identical, a conflict names it and the exit code is 2.
+- **An unreadable skill root is no longer published as an empty skill.** `collectSkill` treated every
+  failure to stat a skill root as "the directory is not there", so one hidden behind an unreadable
+  parent (EACCES), a path through a file (ENOTDIR) or a symlink loop (ELOOP) published and applied
+  as an empty skill, silently emptying it on every other machine. Only ENOENT keeps the
+  "not there" behaviour; anything else is a problem that makes the skill unusable for publish and
+  pull.
 
-## Reliability
+## CLI
 
-- **Rollback is crash-consistent.** Several transactions were reverted in a loop but the ledger was
-  saved once at the end, so a crash mid-rollback left reverted files against a ledger with no
-  `undoneAt` — and the next run reverted them again. The ledger is now the per-transaction commit
-  point. A re-run is idempotent because every write re-checks live state first, and a value you
-  changed after the crash is kept as a conflict, never overwritten. Verified by fault injection at
-  three stages (before the first transaction, after its files, during the ledger write) plus a
-  middle-transaction crash.
-- **`ctk uninstall` restores instead of deleting.** An out-of-CTK-dir file with a prior version and
-  a backup copy used to be forced down the delete branch; it is now restored from the backup.
-- **`ctk doctor` no longer crashes on an odd filesystem.** It parses `ledger.json` once per run
-  instead of twice, and reports a skills path that exists but is not a directory instead of throwing
-  `ENOTDIR`.
-- **A flag-shaped value cannot hijack the CLI.** `ctk config set outputStyle --version` printed the
-  version and exited 0, because global flags were detected by scanning raw `argv` before parsing.
-  They are decided from parsed tokens now; `--version` counts only before the command word.
+- **`--json` is honoured when there is no command to run.** `ctk --json --profile` printed the text
+  help and an unknown command printed text on stderr, so a machine consumer got no JSON exactly when
+  something went wrong. Both paths now emit the same JSON failure shape as the rest of the CLI. The
+  `v0.1.2` fix stays: a flag-shaped value still cannot hijack the command — the raw scan only chooses
+  the error format.
 
-## Performance (measured, not estimated)
+## Tests
 
-- **Mission Control builds its model once per pane frame instead of three times.** The pane drew the
-  Mission three times per frame — for the motion timer, the observation and the render — so
-  `buildMission` ran its O(n²) task rows three times for one snapshot. It is now built once and
-  threaded to all three, so motion, rows and pending state read one view. Measured **3 → 1**
-  `buildMission` calls per draw; host calls per draw unchanged.
-- **A burst of task events no longer storms the host.** `TaskCreated`/`TaskCompleted` each fired a
-  full refresh (roster, usage, clock, model, `.git/HEAD`, a stats write) while the equivalent
-  tool-call counter already used a throttled path. They use it too: a burst of 50 events costs
-  **300 → 150** host calls, loses no counter and adds no delay to the task board, which rides a
-  different event.
-- **Fewer allocations per frame:** one pending-change sweep per draw instead of three, and the stats
-  view's matcher is hoisted to module scope instead of being rebuilt per segment per frame.
-
-## Also
-
-- **One live-status predicate.** The cap, the band's subagent count and Mission Control each had
-  their own test and diverged on an unknown status. An unrecognised status now counts as live
-  everywhere, so the cap refuses rather than over-admits and no view hides a possibly-running agent.
-- **Task eviction respects the DAG.** Past 500 remembered tasks, eviction refreshed nothing, so an
-  actively-updated old task could be dropped while newer finished ones stayed and then resurrected.
-  Updates refresh recency now, and terminal, unreferenced tasks go first — a task another retained
-  task depends on outlives them.
-- **Dead code removed:** `listFiles`, `merge3`'s `unchanged` field, `busyStatuses`, the never-read
-  `Change.to`, the unused `from` of a parsed pending change, and a `priorEq` duplicated in two
-  modules (now one, beside the type it operates on). Three copies of the backup file list are one
-  exported `backupSet`.
+- **The demo recorder test waits for an event, not a wall clock.** It used to give the shell a fixed
+  300 ms warm-up before typing; on a loaded CI runner that raced the shell starting. It now waits
+  for the shell prompt to appear and hold, so a slow runner waits instead of failing. The behaviour
+  under test (a real tmux session, scripted keys, stop-on-match) is unchanged.
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.1 to 0.1.2 — so a
-normal update reaches you and keeps your options. Verified on a scratch config directory: a 0.1.1
-install with `maxWorkers=3`, `reviewerModel=opus` and `hudIdle=minimal` updates to 0.1.2 with all
-three options, the worker cap and model routing intact.
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.2 to 0.1.3 — so a
+normal update reaches you and keeps your options, the worker cap and model routing.
 
-If you are on a preview installed from an earlier commit at the same version, reinstall to catch up:
-`/plugin uninstall ctk@ctk-kit`, then install again with `--config KEY=VALUE`, because
-**uninstalling deletes the plugin's options** from `settings.json` (note your cap first;
-`/ctk-doctor` shows it).
+If you stored an `http(s)` remote with userinfo before `v0.1.2`, after updating run
+`ctk sync init --remote <the same URL without the userinfo>` once; see above.
 
 ## Install
 
@@ -137,7 +91,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.1`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.2`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -148,7 +102,8 @@ Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md). The ones to know first:
   there is no cap, no team line, and `/ctk:team` says so before starting.
 - Worktree isolation and the cap exclude each other: a named `Agent` call that passes
   `isolation: worktree` is an ordinary subagent, which the cap does not count.
-- The settings compare-and-swap is not a lock; see above and the threat model.
+- The settings compare-and-swap (from `v0.1.2`) is not a lock; see the [threat
+  model](docs/THREAT-MODEL.md#settingsjson-compare-and-swap-is-not-a-lock).
 - Skill behaviour is guidance: the lead may follow `/ctk:team`, `/ctk:review` and `/ctk:debug`
   imperfectly, and no code checks that a task was verified.
 - A confirmed settings change reloads the mod and loses per-worker and per-task detail until new
@@ -175,8 +130,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.2` with the npm tarball attached. The earlier prereleases
-`v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude Code
-plugin directory. The repository works as a plugin marketplace as it is, and installing from the tag
-is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.2` does. `npm publish` stays a
+This is the GitHub **prerelease** `v0.1.3` with the npm tarball attached. The earlier prereleases
+`v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.3` does. `npm publish` stays a
 manual step after review.

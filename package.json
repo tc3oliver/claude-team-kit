@@ -1,6 +1,6 @@
 {
   "name": "claude-team-kit",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A worker cap, role-based models and a team HUD for Claude Code's native Agent Teams. Lightweight, token-aware, portable.",
   "license": "MIT",
   "author": {

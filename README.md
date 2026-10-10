@@ -144,7 +144,7 @@ Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: O
 - The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
 - The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
 - Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
-- Status: public preview, released as the GitHub pre-release [`v0.1.2`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.2), a security, data-integrity and reliability hardening of `v0.1.1` (sync refuses to delete a referenced skill or store a remote credential, settings writes are a compare-and-swap, rollback is crash-consistent). One breaking change: an `http(s)` sync remote may no longer carry any userinfo. The install commands above follow `main`.
+- Status: public preview, released as the GitHub pre-release [`v0.1.3`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.3), a follow-up hardening of `v0.1.2`: `sync init` now migrates a stored credential remote in place instead of dead-ending, backup restores are integrity-checked before the write, and `--json` is honoured on every error path. The install commands above follow `main`.
 
 More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 
