@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "CTK debugging: reproduce, diagnose, fix, regression test. Prefer when explicitly asked for CTK debug or when debugging a CTK team task; standalone diagnosing-bugs handles generic debugging when installed."
+description: "CTK debug for failing tests or behavior: reproduce, diagnose, fix, regression. Use when CTK debugging is requested, or when no standalone debugging skill is installed."
 argument-hint: "<symptom or failing command>"
 ---
 

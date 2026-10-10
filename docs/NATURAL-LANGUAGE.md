@@ -32,7 +32,7 @@ and the line is not shown.
 
 | You say (any language) | What happens | Reliable fallback |
 |---|---|---|
-| "use multiple agents / a team / in parallel", 「幫我用多個 Agent 重構這個模組」, 「這個功能可以平行開發嗎？」 | Claude loads `ctk:team`. The skill first checks you really asked for a team; if not, it answers with one suggestion sentence and waits. Spawns are still capped (default 3). | `/ctk:team <goal>` |
+| "use multiple agents / a team / in parallel", 「幫我用多個 Agent 重構這個模組」, 「這個功能可以平行開發嗎？」 | Claude loads `ctk:team`. The skill first checks you really asked for a team; if not, it answers with one suggestion sentence and waits. Spawns are still capped when the CTK mod is active (default 5). | `/ctk:team <goal>` |
 | "review my changes", 「幫我檢查一下這次的修改」 | Claude loads `ctk:review` (risk-based). Claude Code also ships a generic `code-review` skill, so it may pick that instead. | `/ctk:review` |
 | "use CTK to debug this failure", 「用 CTK 幫我診斷測試失敗」 | Explicit CTK debugging selects `ctk:debug`; generic debugging may use the standalone `diagnosing-bugs` skill when installed. | `/ctk:debug <symptom>` |
 | "how is the team doing", "how much of my 5h limit is left", 「團隊進度如何」 | Claude answers from the `ctk_team_status` tool (live, cap, workers, guard, usage, tasks). A field the tool does not return is reported as unavailable, never guessed. The CTK band is the live view; `/ctk-mission` opens Mission Control. | `/ctk-mission`, `/ctk-stats` |
