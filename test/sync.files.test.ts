@@ -95,6 +95,53 @@ test('whitelist: filesystem faults become problems, not raw throws', { skip: NO_
   assert.deepEqual(collectSkill(dir).problems, [])
 })
 
+// The root lstat is a different failure from the walk's: chmod 000 on the skill root itself still
+// lets lstat succeed (only the walk's readdir fails), so EACCES here needs an unreadable PARENT.
+test('whitelist: a skill root that cannot be read fails closed instead of looking empty', { skip: NO_CHMOD_FIXTURE }, () => {
+  const root = tmp()
+  const skillsDir = join(root, 'skills')
+  const dir = join(skillsDir, 'alpha')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'SKILL.md'), '# hi\n')
+
+  let r: ReturnType<typeof collectSkill>
+  try {
+    chmodSync(skillsDir, 0o000) // lstatSync(dir) throws EACCES: no search permission on the parent
+    r = collectSkill(dir)
+  } finally {
+    chmodSync(skillsDir, 0o755) // a failed assert must not leave the fixture undeletable
+  }
+  assert.equal(r.files.size, 0)
+  assert.ok(r.problems.some(p => p.includes(dir) && p.includes('EACCES')), JSON.stringify(r.problems))
+  assert.deepEqual(collectSkill(dir).problems, [], 'restored permissions collect normally again')
+  assert.deepEqual([...collectSkill(dir).files.keys()], ['SKILL.md'])
+
+  try {
+    chmodSync(dir, 0o000) // lstat succeeds, the walk's readdir throws: still unusable, never empty
+    r = collectSkill(dir)
+  } finally {
+    chmodSync(dir, 0o755)
+  }
+  assert.equal(r.files.size, 0)
+  assert.ok(r.problems.length > 0, JSON.stringify(r.problems))
+
+  // ENOTDIR (a parent component is a plain file) and ELOOP are not "missing" either
+  const file = join(root, 'file.md')
+  writeFileSync(file, 'x')
+  r = collectSkill(join(file, 'alpha'))
+  assert.equal(r.files.size, 0)
+  assert.ok(r.problems.some(p => p.includes('ENOTDIR')), JSON.stringify(r.problems))
+
+  const loop = join(root, 'loop')
+  symlinkSync(loop, loop)
+  r = collectSkill(join(loop, 'alpha'))
+  assert.equal(r.files.size, 0)
+  assert.ok(r.problems.some(p => p.includes('ELOOP')), JSON.stringify(r.problems))
+
+  // the legitimate case is unchanged: a directory that is simply absent is an empty skill
+  assert.deepEqual(collectSkill(join(root, 'never-existed')).problems, [])
+})
+
 test('whitelist: isPlainPath rejects symlinked components and missing files', () => {
   const root = tmp()
   mkdirSync(join(root, 'real'))

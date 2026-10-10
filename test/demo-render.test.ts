@@ -225,8 +225,11 @@ test('record captures a real tmux session, types scripted keys and stops on a ma
   const dir = tmp(t)
   const script = join(dir, 'script.json')
   const out = join(dir, 'out.frames.jsonl')
-  // the delay lets the shell finish starting before it is typed at
-  writeFileSync(script, JSON.stringify([{ waitFor: 'never-on-screen', softTimeout: true, timeout: 300 }, { waitForLine: '\\$$', delay: 300, keys: 'echo typed-ok\n', typed: 5 }]))
+  // Wait for the shell prompt as an event, not a fixed delay: `waitForLine: '\$$'` polls until a
+  // prompt line appears and `stable` requires it to hold, so a slow runner waits for the shell
+  // instead of racing a wall-clock warm-up. No softTimeout: a shell that never prompts fails here
+  // with a named step after 30 s rather than typing into nothing.
+  writeFileSync(script, JSON.stringify([{ waitForLine: '\\$$', stable: 150, timeout: 30000 }, { keys: 'echo typed-ok\n', typed: 5 }]))
   // --idle and --limit are far above the time the run needs: only a missed match can reach them
   const r = spawnSync(process.execPath, [RECORD, '--out', out, '--script', script, '--until', '\\ntyped-ok\\n\\S*\\$$', '--idle', '30000', '--limit', '60000', '--interval', '100', '--cols', '60', '--rows', '10', '--home', dir, '--path', '/usr/bin:/bin', '--claude-bin', 'false', '--', '/bin/sh'], {
     encoding: 'utf8',

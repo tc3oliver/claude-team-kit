@@ -36,17 +36,20 @@ export type SkillFiles = {
  */
 export const collectSkill = (dir: string, opts: { ignoreMarker?: boolean } = {}): SkillFiles => {
   const out: SkillFiles = { files: new Map(), hashes: {}, problems: [] }
+  const errKind = (e: unknown) => (e as NodeJS.ErrnoException).code ?? 'error'
   let top
   try {
     top = lstatSync(dir)
-  } catch {
+  } catch (e) {
+    // A missing directory is an empty skill; any other errno (EACCES on a parent, ELOOP, ENOTDIR,
+    // EIO) means the skill was never read, so it must stay unusable for publish and apply alike.
+    if (errKind(e) !== 'ENOENT') out.problems.push(`${stripControl(dir)}: directory unreadable (${errKind(e)})`)
     return out
   }
   if (!top.isDirectory()) {
     out.problems.push(`${dir}: not a plain directory`)
     return out
   }
-  const errKind = (e: unknown) => (e as NodeJS.ErrnoException).code ?? 'error'
   const walk = (abs: string, rel: string) => {
     let entries
     try {

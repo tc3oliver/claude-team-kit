@@ -104,13 +104,19 @@ export const undoChanges = async (
       }
     } else {
       const saved = backup?.entries.find(e => e.path === c.path && e.existed && e.sha256 === c.after?.priorSha256)
-      if (!saved?.backup || !existsSync(saved.backup)) {
+      const bytes = saved?.backup && existsSync(saved.backup) ? readFileSync(saved.backup) : null
+      if (!saved || bytes === null) {
         rep.conflicts.push({ key: c.path, reason: 'previous content has no backup copy; left as is' })
+        if (live) setEntry(ledger, 'file', c.path, null)
+      } else if (sha256(bytes) !== saved.sha256) {
+        // The manifest sha was recorded from the exact bytes createBackup wrote, so a mismatch means the
+        // copy was altered afterwards. Never write it over a live user file: refuse and release the entry.
+        rep.conflicts.push({ key: c.path, reason: 'backup copy failed its integrity check; left as is' })
         if (live) setEntry(ledger, 'file', c.path, null)
       } else {
         rep.reverted.push(c.path)
         if (live) {
-          writeFileAtomic(c.path, readFileSync(saved.backup))
+          writeFileAtomic(c.path, bytes)
           setEntry(ledger, 'file', c.path, c.before)
         }
       }

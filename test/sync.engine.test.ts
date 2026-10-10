@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { pathToFileURL } from 'node:url'
 
 import { EXIT } from '../src/cli/context.ts'
 import { staleSkillPaths } from '../src/sync/engine.ts'
@@ -321,6 +322,26 @@ test('publish refuses skills that break the whitelist (symlink, extension)', asy
   assert.equal(await a.sync('publish'), EXIT.error)
   assert.match(a.out.join('\n'), /symlinks are not allowed/)
   assert.equal(remoteRefs(remote), refs)
+})
+
+// The unreadable root has to be the skill's PARENT (lstat on a chmod-000 dir itself succeeds), so
+// nothing is published first: pull would otherwise plan a deletion it cannot write.
+test('publish refuses a skill root that cannot be read (EACCES), not an empty skill', { skip: NO_CHMOD_FIXTURE }, async () => {
+  const f = fixture()
+  assert.equal(await f.a.sync('init', '--remote', f.remote), 0)
+  writeProfile(f.a, { team: { maxWorkers: 5 }, skills: ['beta'] })
+  writeSkill(f.a, 'beta', { 'SKILL.md': SKILL_MD })
+  try {
+    chmodSync(f.a.ctx.paths.skillsDir, 0o000)
+    f.a.out.length = 0
+    assert.equal(await f.a.sync('publish'), EXIT.error)
+    assert.match(f.a.out.join('\n'), /skill beta: .*directory unreadable \(EACCES\)/)
+    assert.match(f.a.out.join('\n'), /nothing was published/)
+  } finally {
+    chmodSync(f.a.ctx.paths.skillsDir, 0o755)
+  }
+  assert.equal(remoteRefs(f.remote), '', 'the remote was not touched')
+  assert.equal(await f.a.sync('publish'), 0, f.a.out.join('\n'))
 })
 
 /** Push arbitrary content to the remote the way a hostile or buggy second client could. */
@@ -752,4 +773,70 @@ test('credentials in an already stored remote are refused and never printed', as
   const status = await a.json('status')
   assert.ok(!JSON.stringify(status.doc).includes('hunter2'))
   assert.ok(!a.out.join('\n').includes('hunter2'))
+})
+
+// The v0.1.2 breaking change made a stored userinfo remote unusable; init must migrate it in place
+// (keeping the clone, its history and unpushed commits) or the upgrade instruction is a dead end.
+test('init migrates a stored credential remote in place; everything else stays refused', async () => {
+  const { remote, a } = fixture()
+  assert.equal(await a.sync('init', '--remote', remote), 0)
+  writeProfile(a, { team: { maxWorkers: 5 }, skills: ['alpha'] })
+  writeSkill(a, 'alpha', { 'SKILL.md': SKILL_MD })
+  assert.equal(await a.sync('publish'), 0, a.out.join('\n'))
+
+  // reproduce the v0.1.1 state: config.json AND the clone's origin carry a userinfo URL
+  const clean = pathToFileURL(remote).href
+  const creds = clean.replace('file://', 'file://user:hunter2@')
+  git(a.repo, 'remote', 'set-url', 'origin', creds)
+  writeFileSync(a.ctx.paths.syncConfig, `${JSON.stringify({ remote: creds, branch: 'main' })}\n`)
+  git(a.repo, 'commit', '-q', '--allow-empty', '-m', 'local unpushed')
+  const headBefore = git(a.repo, 'rev-parse', 'HEAD').trim()
+  const profileBefore = readProfile(a)
+
+  // (a) every command that would operate through the remote fails closed, names the migration,
+  // and never echoes the credential
+  for (const argv of [['pull'], ['publish'], ['resolve', 'team.maxWorkers', 'ours']]) {
+    a.out.length = 0
+    a.err.length = 0
+    assert.equal(await a.sync(...argv), EXIT.error, argv.join(' '))
+    const text = a.out.join('\n') + a.err.join('\n')
+    assert.match(text, /credentials/, argv.join(' '))
+    assert.match(text, /sync init --remote/, `the message points at the migration: ${argv.join(' ')}`)
+    assert.ok(!text.includes('hunter2') && !text.includes('user:hunter2'), argv.join(' '))
+  }
+  // status is read-only and never hands the remote to git: it stays usable and prints it redacted
+  a.out.length = 0
+  a.err.length = 0
+  assert.equal(await a.sync('status'), 0, a.out.join('\n') + a.err.join('\n'))
+  assert.match(a.out.join('\n'), /\*\*\*@/)
+  assert.ok(!a.out.join('\n').includes('hunter2'))
+  // the refused commands touched neither the clone nor the profile
+  assert.equal(git(a.repo, 'rev-parse', 'HEAD').trim(), headBefore)
+  assert.equal(git(a.repo, 'remote', 'get-url', 'origin').trim(), creds)
+  assert.deepEqual(readProfile(a), profileBefore)
+
+  // (c) a different repo (or branch) is still refused, with the stored credential redacted
+  a.out.length = 0
+  a.err.length = 0
+  assert.equal(await a.sync('init', '--remote', pathToFileURL(bareRemote()).href), EXIT.error)
+  const refused = a.out.join('\n') + a.err.join('\n')
+  assert.match(refused, /refusing to switch/)
+  assert.ok(!refused.includes('hunter2'), 'the refusal redacts the stored remote')
+  assert.equal(await a.sync('init', '--remote', clean, '--branch', 'other'), EXIT.error)
+  assert.equal(git(a.repo, 'remote', 'get-url', 'origin').trim(), creds)
+
+  // (b) init with exactly the stored URL minus the userinfo migrates in place
+  a.out.length = 0
+  a.err.length = 0
+  assert.equal(await a.sync('init', '--remote', clean), 0, a.out.join('\n') + a.err.join('\n'))
+  assert.ok(!a.out.join('\n').includes('hunter2'), 'no credential in the migration output')
+  assert.deepEqual(JSON.parse(readFileSync(a.ctx.paths.syncConfig, 'utf8')), { remote: clean, branch: 'main' })
+  assert.equal(git(a.repo, 'remote', 'get-url', 'origin').trim(), clean)
+  assert.equal(git(a.repo, 'rev-parse', 'HEAD').trim(), headBefore, 'history survives: nothing was re-cloned')
+  assert.equal(git(a.repo, 'rev-list', '--count', 'origin/main..HEAD').trim(), '1', 'the unpushed commit survives')
+  assert.deepEqual(readProfile(a), profileBefore, 'the user profile is untouched')
+
+  // the dead end is gone: the fail-closed commands work again on the migrated remote
+  assert.equal(await a.sync('status'), 0, a.out.join('\n'))
+  assert.equal(await a.sync('pull'), 0, a.out.join('\n'))
 })

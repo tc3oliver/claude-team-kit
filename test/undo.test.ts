@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { main } from '../src/cli/index.ts'
 import { runConfig } from '../src/cli/commands/config.ts'
 import { createBackup, sha256 } from '../src/core/fsx.ts'
-import { loadLedger, saveLedger } from '../src/core/ledger.ts'
+import { loadLedger, saveLedger, type FileEntry } from '../src/core/ledger.ts'
 import { saveUserLayer } from '../src/core/profilestore.ts'
 import { runInstall } from '../src/install/install.ts'
 import { runUpdate } from '../src/install/update.ts'
@@ -329,7 +329,8 @@ test('a crash on a middle transaction leaves earlier ones committed; the rerun f
   assert.ok(loadLedger(e.ctx)?.transactions.every(x => x.undoneAt !== undefined))
 })
 
-test('uninstall restores an out-of-dir file that has a prior and a backup copy, instead of deleting it', async t => {
+/** An installed env plus an out-of-dir file CTK overwrote, with its prior content backed up in a real manifest. */
+const restoreFixture = async (t: Parameters<typeof makeEnv>[0]) => {
   const e = makeEnv(t)
   await runInstall(e.ctx, flags, e.root)
   const outside = join(e.dir, 'outside.txt')
@@ -338,14 +339,76 @@ test('uninstall restores an out-of-dir file that has a prior and a backup copy, 
   writeFileSync(outside, 'ctk wrote this')
   const ledger = loadLedger(e.ctx)
   assert.ok(ledger)
-  ledger.entries.push({ kind: 'file', path: outside, sha256: sha256('ctk wrote this'), priorSha256: sha256('prior') })
-  ledger.transactions.push({ id: 'synthetic', op: 'install', at: new Date().toISOString(), backupId, entryChanges: [] })
+  const after: FileEntry = { kind: 'file', path: outside, sha256: sha256('ctk wrote this'), priorSha256: sha256('prior') }
+  ledger.entries.push(after)
+  ledger.transactions.push({
+    id: 'synthetic',
+    op: 'install',
+    at: new Date().toISOString(),
+    backupId,
+    entryChanges: [{ kind: 'file', path: outside, before: null, after }],
+  })
   saveLedger(e.ctx, ledger)
+  const copy = readJson(join(e.ctx.paths.backupsDir, backupId, 'manifest.json')).entries[0].backup as string
+  return { e, outside, copy }
+}
+
+test('uninstall restores an out-of-dir file that has a prior and a backup copy, instead of deleting it', async t => {
+  const { e, outside } = await restoreFixture(t)
   const r = await uninstall(e.ctx)
   assert.equal(r.code, 0, JSON.stringify(r.report))
   assert.equal(readFileSync(outside, 'utf8'), 'prior')
   assert.ok(r.report.reverted.includes(outside))
   assert.ok(!r.report.removed.includes(outside))
+})
+
+test('an intact backup copy restores normally through rollback', async t => {
+  const { e, outside } = await restoreFixture(t)
+  const r = await rollback(e.ctx)
+  assert.equal(r.code, 0, JSON.stringify(r.report))
+  assert.equal(readFileSync(outside, 'utf8'), 'prior')
+  assert.ok(r.report.reverted.includes(outside))
+})
+
+test('a tampered or truncated backup copy is never restored over the live file', async t => {
+  for (const how of ['tamper', 'truncate'] as const) {
+    const { e, outside, copy } = await restoreFixture(t)
+    if (how === 'tamper') {
+      const b = readFileSync(copy)
+      b[0] = (b[0] ?? 0) ^ 0xff
+      writeFileSync(copy, b)
+    } else writeFileSync(copy, 'pri')
+    const r = await rollback(e.ctx)
+    assert.equal(r.code, 2, `${how}: ${JSON.stringify(r.report)}`)
+    assert.match(r.report.conflicts.find(c => c.key === outside)?.reason ?? '', /integrity/, how)
+    assert.equal(readFileSync(outside, 'utf8'), 'ctk wrote this', how)
+    assert.ok(!r.report.reverted.includes(outside), how)
+    // The refused tx is done and its entry released: a rerun must not loop or clobber.
+    const again = await rollback(e.ctx)
+    assert.ok(!again.report.conflicts.some(c => c.key === outside), how)
+    assert.equal(readFileSync(outside, 'utf8'), 'ctk wrote this', how)
+  }
+})
+
+test('a deleted backup copy keeps the existing "no backup copy" conflict', async t => {
+  const { e, outside, copy } = await restoreFixture(t)
+  rmSync(copy)
+  const r = await rollback(e.ctx)
+  assert.equal(r.code, 2)
+  assert.match(r.report.conflicts.find(c => c.key === outside)?.reason ?? '', /no backup copy/)
+  assert.equal(readFileSync(outside, 'utf8'), 'ctk wrote this')
+})
+
+test('uninstall refuses a tampered backup copy too, and the rerun completes without clobbering', async t => {
+  const { e, outside, copy } = await restoreFixture(t)
+  writeFileSync(copy, 'pwned')
+  const r = await uninstall(e.ctx)
+  assert.equal(r.code, 2)
+  assert.match(r.report.conflicts.find(c => c.key === outside)?.reason ?? '', /integrity/)
+  assert.equal(readFileSync(outside, 'utf8'), 'ctk wrote this')
+  const again = await uninstall(e.ctx)
+  assert.equal(again.code, 0, JSON.stringify(again.report))
+  assert.equal(readFileSync(outside, 'utf8'), 'ctk wrote this', 'the rerun left the file alone')
 })
 
 const UNRELATED = { theme: 'dark', permissions: { allow: ['Bash(ls)'] }, hooks: { Stop: [] }, model: 'sonnet' }

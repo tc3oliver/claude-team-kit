@@ -74,7 +74,7 @@ const loadConfig = (ctx: Ctx): SyncConfig | null => {
 const requireReady = (ctx: Ctx): SyncConfig => {
   const cfg = loadConfig(ctx)
   if (!cfg || !existsSync(join(repoOf(ctx), '.git'))) throw new SyncError('sync is not set up: run `ctk sync init --remote <url|path>`')
-  assertNoCredentials(cfg.remote)
+  assertStoredRemoteUsable(cfg)
   if (!isValidProfileName(ctx.profile)) throw new SyncError(`invalid profile name "${ctx.profile}"`)
   return cfg
 }
@@ -152,6 +152,58 @@ const normalizeRemote = (remote: string, cwd: string): string => {
   return URLISH.test(remote) || SCPISH.test(remote) ? remote : resolve(cwd, remote)
 }
 
+/**
+ * The stored URL with its userinfo removed (`scheme://user:pw@rest` -> `scheme://rest`); unchanged
+ * when there is none or it is not a `scheme://` form. The migration target must equal exactly this,
+ * so `sync init` can strip a stored credential but never repoint the clone at a different repo.
+ */
+const stripUserInfo = (remote: string): string => remote.replace(/^([a-z][a-z0-9+.-]*):\/\/[^/?#]*@/i, '$1://')
+
+/** How a stored remote may appear in a message: as typed when clean, never when it carries credentials. */
+const shownRemote = (remote: string): string => {
+  try {
+    assertNoCredentials(remote)
+    return remote
+  } catch {
+    return '<hidden: it contains credentials>'
+  }
+}
+
+/**
+ * A stored credential remote (left by ≤0.1.1) must never reach git, so every command that operates
+ * through the remote fails closed. The only way forward is `sync init --remote <same URL without
+ * userinfo>`, which migrates in place; the error names that exact command.
+ */
+const assertStoredRemoteUsable = (cfg: SyncConfig) => {
+  try {
+    assertNoCredentials(cfg.remote)
+  } catch (e) {
+    const target = stripUserInfo(cfg.remote)
+    const hint = target === cfg.remote ? '' : `; migrate with \`ctk sync init --remote ${target}\` (keeps the clone, its history and your profile)`
+    throw new SyncError(`${(e as Error).message}${hint}`)
+  }
+}
+
+/**
+ * The ≤0.1.1 upgrade path: repoint an already-initialized clone at the same URL with its stored
+ * userinfo removed. Only that exact URL migrates (a different host, path or branch keeps the
+ * refusal), so this cannot be used to switch repos. Nothing is re-cloned or deleted: the profile,
+ * the clone, its history and unpushed commits all survive.
+ */
+const migrateStoredCredentials = async (ctx: Ctx, remote: string, branch: string): Promise<Outcome> => {
+  if (!existsSync(join(repoOf(ctx), '.git'))) throw new SyncError(`${repoOf(ctx)} is not a git clone; remove ${ctx.paths.syncConfig} and re-run \`ctk sync init\``)
+  if (ctx.dryRun) return { exit: 0, data: { status: 'dry-run', remote, branch }, lines: [`would repoint the existing clone to ${remote} (${branch})`] }
+  const ls = await run(ctx, ['ls-remote', '--heads', remote, `refs/heads/${branch}`])
+  if (ls.code !== 0) throw new SyncError(`cannot reach ${remote}: ${ls.stderr.trim()}`)
+  await runOk(ctx, ['remote', 'set-url', 'origin', remote])
+  writeFileAtomic(ctx.paths.syncConfig, toJsonText({ remote, branch }))
+  return {
+    exit: 0,
+    data: { status: 'migrated', remote, branch },
+    lines: [`sync remote migrated to ${remote} (${branch}): the clone, its history and your profile were kept`],
+  }
+}
+
 export const syncInit = async (ctx: Ctx, opts: { remote?: string; branch?: string }): Promise<Outcome> => {
   if (!opts.remote) throw new SyncError('sync init needs --remote <url|path>')
   const branch = opts.branch ?? 'main'
@@ -159,10 +211,13 @@ export const syncInit = async (ctx: Ctx, opts: { remote?: string; branch?: strin
   const remote = normalizeRemote(opts.remote, ctx.cwd)
   const existing = loadConfig(ctx)
   if (existing) {
-    if (existing.remote !== remote || existing.branch !== branch) {
-      throw new SyncError(`sync is already set up for ${existing.remote} (${existing.branch}); refusing to switch to ${remote} (${branch})`)
+    if (existing.remote === remote && existing.branch === branch) {
+      return { exit: 0, data: { status: 'already-initialized', remote, branch }, lines: [`sync already set up: ${remote} (${branch})`] }
     }
-    return { exit: 0, data: { status: 'already-initialized', remote, branch }, lines: [`sync already set up: ${remote} (${branch})`] }
+    if (existing.branch === branch && remote === stripUserInfo(existing.remote)) {
+      return migrateStoredCredentials(ctx, remote, branch)
+    }
+    throw new SyncError(`sync is already set up for ${shownRemote(existing.remote)} (${existing.branch}); refusing to switch to ${remote} (${branch})`)
   }
   if (existsSync(repoOf(ctx))) throw new SyncError(`${repoOf(ctx)} exists without a sync config; move it away and re-run`)
   if (ctx.dryRun) return { exit: 0, data: { status: 'dry-run', remote, branch }, lines: [`would clone ${remote} (${branch}) into ${repoOf(ctx)}`] }

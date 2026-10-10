@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- The 0.1.2 userinfo change left a stored `http(s)` remote unusable with no way out: `sync init` refused to switch an already-initialized remote, so "re-run `ctk sync init`" did not work. `sync init --remote <the same URL without the userinfo>` now migrates the existing clone in place — the profile, the clone, its git history and any unpushed commits are kept, nothing is re-cloned or deleted. Only that exact URL is accepted, so sync can never be silently repointed at another repo, and the stored credential is never handed to `git` or printed. Every other sync command keeps failing closed and now names that command. `ctk sync status` stays usable and prints the remote redacted.
+- A rollback or uninstall verified a backup copy only by its recorded SHA and its existence, then wrote the bytes it read — a tampered, truncated or corrupted copy was restored over a live user file and the transaction reported success. The bytes are now hashed before the write; on a mismatch nothing is written, the file stays byte-identical, a conflict names it and the exit code is 2.
+- `collectSkill` treated every failure to stat a skill root as "the directory is not there", so an unreadable one (EACCES on a parent, ENOTDIR, ELOOP) published and applied as an empty skill. Only ENOENT keeps that behaviour; anything else is a problem that makes the skill unusable for publish and pull.
+- `--json` was ignored when the CLI had no command to run: `ctk --json --profile` printed the text help, and an unknown command printed text on stderr. Both now emit the same JSON failure shape as the rest of the CLI. The v0.1.2 fix stays: a flag-shaped value still cannot hijack the command.
+
+### Changed
+
+- The demo recorder test waits for the shell prompt as an event instead of a fixed 300 ms warm-up, so a slow runner waits for the shell rather than racing a wall clock.
+
 ## [0.1.2] - 2026-10-10 (prerelease)
 
 ### Added

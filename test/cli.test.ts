@@ -127,6 +127,33 @@ test('a flag-shaped value cannot hijack the command', async t => {
   assert.ok(!v.out.join('\n').includes(pkg.version))
 })
 
+test('--json is honoured before the command runs: no-command, unknown command and parse errors all emit JSON', async t => {
+  // parse error: --profile consumed 'doctor' as its value, leaving no command (strict:false never throws)
+  const r = await run(t, ['--json', '--profile', 'doctor'])
+  assert.equal(r.code, 1)
+  assert.equal(r.out.length, 1)
+  assert.ok(r.err.length === 0)
+  assert.equal(JSON.parse(r.out[0] as string).exitCode, 1)
+  // no command, and an unknown command, with --json anywhere in argv
+  const u = await run(t, ['frobnicate', '--json'])
+  assert.equal(u.code, 1)
+  assert.equal(u.out.length, 1)
+  assert.match(JSON.parse(u.out[0] as string).error, /frobnicate/)
+  const h = await run(t, ['--json'])
+  assert.equal(h.code, 1)
+  assert.equal(h.out.length, 1)
+  // without --json the same input keeps the plain-text usage error (HELP on stdout, exit 1)
+  const p = await run(t, ['--profile', 'doctor'])
+  assert.equal(p.code, 1)
+  assert.equal(p.err.length, 0)
+  assert.match(p.out.join('\n'), /Usage: ctk <command>/)
+  // a strict second-parse error with --json also emits the JSON failure shape
+  const s = await run(t, ['doctor', '--nope', '--json'])
+  assert.equal(s.code, 1)
+  assert.equal(s.out.length, 1)
+  assert.match(JSON.parse(s.out[0] as string).error, /nope/)
+})
+
 test('-v before the command prints the version; --config-dir=<dir> inline form works; doctor --json is one document', async t => {
   const e = makeEnv(t)
   const out: string[] = []

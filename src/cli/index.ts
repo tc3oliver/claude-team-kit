@@ -163,7 +163,11 @@ const runSync = async (argv: string[], ctx: Ctx): Promise<number> => {
 }
 
 export async function main(argv: string[], io: Io = processIo()): Promise<number> {
-  let wantsJson = false
+  // Raw-argv scan used ONLY to choose the error format if splitArgs itself throws before
+  // wantsJson can be read from parsed tokens. It cannot leak into command dispatch — the
+  // command, help and version decisions below all run on parsed tokens — so a flag-shaped
+  // VALUE still cannot hijack the command (v0.1.2 fix stays).
+  let wantsJson = argv.includes('--json')
   try {
     const first = splitArgs(argv)
     wantsJson = first.json
@@ -175,11 +179,18 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
     }
     // `ctk help [command]` is the same as `ctk [command] --help`; sync prints its own usage.
     const target = first.command === 'help' ? first.rest[0] : first.command
-    if (first.command === 'help' || (help && first.command !== 'sync') || first.command === undefined) {
+    if (first.command === undefined) {
+      // No command is a usage error; --json users get the failure shape, not the text help.
+      if (!help && wantsJson) return emit({ json: true, out: io.out }, failure('no command given; run `ctk help` for usage'))
+      io.out(HELP)
+      return help ? EXIT.ok : EXIT.error
+    }
+    if (first.command === 'help' || (help && first.command !== 'sync')) {
       io.out(target !== undefined && target in COMMAND_HELP ? commandHelp(target) : HELP)
-      return help || first.command === 'help' ? EXIT.ok : EXIT.error
+      return EXIT.ok
     }
     if (!known.includes(first.command)) {
+      if (wantsJson) return emit({ json: true, out: io.out }, failure(`unknown command "${first.command}"`))
       io.err(`unknown command "${first.command}"\n`)
       io.err(HELP)
       return EXIT.error
@@ -241,8 +252,9 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
     return emit(ctx, report)
   } catch (e) {
     const message = explain(e)
-    if (wantsJson) io.out(JSON.stringify({ exitCode: EXIT.error, error: message }, null, 2))
-    else io.err(`error: ${message}`)
+    // wantsJson may still be the raw-argv scan if splitArgs threw before tokens existed.
+    if (wantsJson) return emit({ json: true, out: io.out }, failure(message))
+    io.err(`error: ${message}`)
     return EXIT.error
   }
 }
