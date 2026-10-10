@@ -9,7 +9,8 @@ Goal: $ARGUMENTS. You are the lead.
 ## 0. Intent gate
 No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one
 sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
-Asked, but the goal has no 2+ independently verifiable slices? Say so in one line and do the work directly.
+**Optional persisted task:** When team intent refers to a `BL-<16-hex>` ID, resolve the *actual* Backlog task before judging whether it has 2+ slices. If a Backlog Skill/CLI is available, use its `show` to obtain Goal, AC, References, Handoff, status and dependency readiness; do not guess the CLI install path or initialize a new backlog. `todo` with satisfied dependencies may be started by the lead; `doing` resumes after reconciling current repo state, without calling `start` twice. For `inbox`, `blocked`, `done`, `cancelled` or unmet dependencies, stop rather than spawning. If the task cannot be accessed and the prompt has no complete Goal and AC, ask for those details and spawn nothing; CTK must still work independently for normal goals without Backlog.
+Asked, but the resolved goal has no 2+ independently verifiable slices? Say so in one line and do the work directly (still honour any explicit persistent task requirements).
 
 ## 1. Preflight
 Call `ctk_team_status` if it exists, then branch (never imply a cap you have not confirmed):
@@ -58,3 +59,4 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 Integrate, run the full verification once, then shut each teammate down: `SendMessage` with `message` an
 object `{"type":"shutdown_request"}`, never a JSON string (refused). Report tasks, files changed, check results.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. Then `/ctk:review`.
+If a Backlog task was explicitly supplied, **only the lead** records verified AC/evidence and closes that persistent task via the installed Backlog CLI after full integration. Workers never mutate it and their temporary TaskCompleted events never imply persistent `done`. If verification fails, preserve Handoff/Blocker and leave BL open. If the CLI is not accessible, report the implementation result without claiming the BL task was updated. Do not make Backlog a prerequisite for team work.

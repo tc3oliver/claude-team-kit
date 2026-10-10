@@ -34,7 +34,7 @@ and the line is not shown.
 |---|---|---|
 | "use multiple agents / a team / in parallel", 「幫我用多個 Agent 重構這個模組」, 「這個功能可以平行開發嗎？」 | Claude loads `ctk:team`. The skill first checks you really asked for a team; if not, it answers with one suggestion sentence and waits. Spawns are still capped (default 3). | `/ctk:team <goal>` |
 | "review my changes", 「幫我檢查一下這次的修改」 | Claude loads `ctk:review` (risk-based). Claude Code also ships a generic `code-review` skill, so it may pick that instead. | `/ctk:review` |
-| "find out why this test fails", 「幫我查一下為什麼測試失敗」 | Claude loads `ctk:debug`. | `/ctk:debug <symptom>` |
+| "use CTK to debug this failure", 「用 CTK 幫我診斷測試失敗」 | Explicit CTK debugging selects `ctk:debug`; generic debugging may use the standalone `diagnosing-bugs` skill when installed. | `/ctk:debug <symptom>` |
 | "how is the team doing", "how much of my 5h limit is left", 「團隊進度如何」 | Claude answers from the `ctk_team_status` tool (live, cap, workers, guard, usage, tasks). A field the tool does not return is reported as unavailable, never guessed. The CTK band is the live view; `/ctk-mission` opens Mission Control. | `/ctk-mission`, `/ctk-stats` |
 | "is CTK working" | Claude points you to `/ctk-doctor` or reads the status tool. | `/ctk-doctor` |
 | "change the worker cap to 2", "turn off the team band" | Claude calls `ctk_config` with `{"action":"propose",...}`. **Nothing is applied**: a confirmation opens in the Mission Control pane and **you** confirm there. Claude will not edit `settings.json`. | `/plugin configure ctk@ctk-kit` |
@@ -43,7 +43,7 @@ and the line is not shown.
 Option names for `ctk_config`: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`,
 `highRiskModel`, `designerModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`.
 
-A plain task ("fix this bug in src/rle.js", "explain what slugify does") does not start a team.
+A plain task ("fix this bug in src/rle.js", "explain what slugify does") does not start a team. When both CTK and the independent `diagnosing-bugs` skill are installed, generic debugging should use one appropriate diagnosis protocol rather than run both. Explicit `/ctk:debug` remains available.
 A vague big task ("refactor the whole system") does not either; if the team skill were ever
 loaded for it, step 0 of the skill replies with one sentence and waits.
 
@@ -106,7 +106,7 @@ No agent can spawn: runs use `--disallowedTools Agent`, or, to keep the model's 
 a `PreToolUse` hook that blocks `Agent` (checked first with a canary prompt). Model: Sonnet.
 Prompts were run in a scratch repo of five small JavaScript modules.
 
-Final results for the shipped descriptions (runs passed / runs):
+Historical results for descriptions **before the optional-skill composition update** (runs passed / runs). The updated CTK debug selection wording has **not** been re-evaluated yet:
 
 | Group | Cases | Passed |
 |---|---|---|

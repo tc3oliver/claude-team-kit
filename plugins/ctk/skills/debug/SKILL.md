@@ -1,10 +1,12 @@
 ---
 name: debug
-description: "Find out why a test, command or behavior fails: reproduce, diagnose, fix, regression test."
+description: "CTK debugging: reproduce, diagnose, fix, regression test. Prefer when explicitly asked for CTK debug or when debugging a CTK team task; standalone diagnosing-bugs handles generic debugging when installed."
 argument-hint: "<symptom or failing command>"
 ---
 
 Symptom: $ARGUMENTS. Work the phases in order; do not skip ahead to a fix.
+
+Use this CTK diagnosis flow when explicitly selected or delegated inside a CTK team. If a separate standalone debugging Skill is available for an ordinary non-CTK request, follow **one** full diagnosis protocol, not both. BetFirst may provide one bounded, reversible probe within the feedback loop; it never bypasses reproduction or final verification. Neither Backlog nor BetFirst is required.
 
 ## 1. Reproduce
 Write the failing command or test first and run it. Record the exact error.
