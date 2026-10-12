@@ -35,6 +35,7 @@ claude plugin marketplace list
 - **git** must exist, because Claude Code clones the repository.
 - If `CLAUDE_CONFIG_DIR` is set, that directory is the Claude Code config; otherwise it is `~/.claude`
   (Windows: `%USERPROFILE%\.claude`). Use that path for every `settings.json` step below.
+
 ### Existing-plugin conflicts (check before making changes)
 
 Use `claude plugin list` and only the relevant, non-secret settings (such as `statusLine` and the Agent Teams flag)
