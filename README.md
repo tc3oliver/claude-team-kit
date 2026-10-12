@@ -51,17 +51,8 @@ Two ways, both through Claude Code's own Plugin Manager.
 Paste this into Claude Code (or another coding agent that can run shell commands):
 
 ```text
-Install Claude Team Kit (CTK), a Claude Code plugin, by following the checklist at
-https://raw.githubusercontent.com/tc3oliver/claude-team-kit/main/INSTALL.md
-
-Rules: use only Claude Code's native Plugin Manager (`claude plugin ...`); no other installer, no `curl | bash`,
-no `npm install`. Check `claude --version` and any existing CTK install first. Show me the exact change to
-settings.json and wait for my yes before editing it; merge only, and keep my other plugins, MCP servers, hooks and
-settings. Do not uninstall or disable anything else, including OMC. Tell me which steps only I can run
-(`/reload-plugins` or a restart, then `/ctk-doctor`) and what the result should look like.
+Install Claude Team Kit (CTK), a Claude Code plugin, by following https://raw.githubusercontent.com/tc3oliver/claude-team-kit/main/INSTALL.md
 ```
-
-The agent follows [INSTALL.md](INSTALL.md): it installs with the two commands below, adds the Agent Teams setting only after you agree, and asks you to reload and run `/ctk-doctor`.
 
 ### Manual install
 
