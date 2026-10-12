@@ -27,14 +27,12 @@ test('the README offers both installs, the agent prompt first and the manual one
   }
 })
 
-test('the README prompt is one copyable block that points at INSTALL.md and states the safety rules', () => {
+test('the README prompt is a single sentence that delegates installation rules to INSTALL.md', () => {
   const block = fences(readme).find(b => b.startsWith('Install Claude Team Kit'))
   assert.ok(block, 'a text block starting with the instruction')
-  assert.ok(block.length < 1400, `the prompt stays short (${block.length} characters)`)
-  assert.match(block, /https:\/\/raw\.githubusercontent\.com\/tc3oliver\/claude-team-kit\/main\/INSTALL\.md/)
-  for (const must of [/native Plugin Manager/, /claude plugin/, /no `curl \| bash`/, /no `npm install`/, /claude --version/, /wait for my yes/, /merge only/, /Do not uninstall or disable anything else, including OMC/, /\/reload-plugins/, /\/ctk-doctor/]) {
-    assert.match(block, must)
-  }
+  assert.equal(block.trim().split('\n').length, 1, 'the prompt is exactly one line')
+  assert.ok(block.length < 200, `the prompt stays short (${block.length} characters)`)
+  assert.match(block, /^Install Claude Team Kit \(CTK\).+https:\/\/raw\.githubusercontent\.com\/tc3oliver\/claude-team-kit\/main\/INSTALL\.md\n$/)
   assert.ok(existsSync(join(ROOT, 'INSTALL.md')))
 })
 
@@ -42,9 +40,22 @@ test('INSTALL.md only runs the native Plugin Manager and never remote code', () 
   const code = fences(guide).join('\n')
   assert.doesNotMatch(code, /\b(curl|wget|npx|iex|Invoke-WebRequest)\b|npm (i|install|ci)\b|\|\s*(ba|z)?sh\b|\bsudo\b/)
   assert.doesNotMatch(code, /uninstall|marketplace remove|plugin disable/, 'the checklist never removes or disables anything')
-  for (const rule of [/native Plugin Manager/, /no `curl \| bash`/i, /Merge, never overwrite/, /Do not uninstall or disable any other plugin, including Oh My Claude Code \(OMC\)/, /Do not read credentials/, /cannot run slash commands/]) {
+  for (const rule of [/native Plugin Manager/, /no `curl \| bash`/i, /Merge, never overwrite/, /Never silently disable, uninstall, reconfigure or overwrite another plugin/, /Do not read credentials/, /cannot run slash commands/]) {
     assert.match(guide, rule)
   }
+})
+
+test('INSTALL.md checks meaningful plugin conflicts and asks before changing anything', () => {
+  assert.match(guide, /Existing-plugin conflicts \(check before making changes\)/)
+  assert.match(guide, /An installed plugin is not, by itself, a conflict/)
+  assert.match(guide, /including those initiated by OMC/)
+  assert.match(guide, /use qualified commands/)
+  assert.match(guide, /does not replace an existing `statusLine`/)
+  assert.match(guide, /If there is a meaningful behavioral conflict, pause and ask/)
+  assert.match(guide, /No answer means stop without changes/)
+  assert.match(guide, /separate action[\s\S]*?explicit approval of the exact command and scope/)
+  assert.ok(guide.indexOf('### Existing-plugin conflicts') < guide.indexOf('## 2. Install'),
+    'the conflict check happens before installing')
 })
 
 test('every plugin command in INSTALL.md is one docs/INSTALLATION.md shows too', () => {
