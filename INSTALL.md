@@ -12,8 +12,10 @@ that is installed with Claude Code's own Plugin Manager. This page is the short 
    itself clones the public GitHub repository; that is the only download.
 3. **Merge, never overwrite.** Change `settings.json` by adding keys with a small edit, after you have shown the change and
    the person agreed. Keep every other plugin, MCP server, hook, permission and setting exactly as it is.
-4. **Remove nothing.** Do not uninstall or disable any other plugin, including Oh My Claude Code (OMC). If you find
-   one, say so and leave it. [Coming from OMC](docs/MIGRATION-FROM-OMC.md) explains how the two differ.
+4. **Check conflicts and ask first.** CTK can coexist with other plugins, including Oh My Claude Code (OMC).
+   Never silently disable, uninstall, reconfigure or overwrite another plugin. If a meaningful overlap could change
+   behavior, explain it and ask the person how to proceed **before** installing, updating or changing settings.
+   No answer means stop without changes. See [Coming from OMC](docs/MIGRATION-FROM-OMC.md).
 5. **Do not read credentials** (`.credentials.json`, tokens, keychains). Installing needs no login.
 6. **You cannot run slash commands yourself.** `/reload-plugins`, `/ctk-doctor` and `/plugin ...` are typed by the
    person. Say so plainly when you reach such a step.
@@ -51,6 +53,28 @@ claude plugin marketplace list
     then add at the new tag and reinstall with `--config`. That is the person's call, not yours: note the options first
     (`/ctk-doctor` shows the cap) and see [update and remove](docs/INSTALLATION.md#update-and-remove-native).
 - If `claude` is not on the PATH, or you are not allowed to run it, give the person the slash commands from step 2 instead.
+
+### Existing-plugin conflicts (check before making changes)
+
+Use the plugin list above and only the relevant, non-secret settings (such as `statusLine` and the Agent Teams flag)
+to inspect other installed team, workflow, skill and HUD plugins. **An installed plugin is not, by itself, a conflict.**
+Identify the actual overlap and its effect; do not guess that plugins are incompatible.
+
+- **OMC or another native-team plugin:** CTK's hard `maxWorkers` limit applies to *all* native teammate spawns in the
+  session, including those initiated by OMC; extra spawns may be refused. CTK and OMC can load together, but that
+  behavior matters if the person uses OMC teams. Both also define team/review/debug skills: use qualified commands
+  such as `/ctk:team` rather than assuming an unqualified `/team` selects the intended plugin.
+- **HUD plugins (OMC HUD, claude-hud, etc.):** a native CTK install does not replace an existing `statusLine`. Keeping
+  that setting is normal, not a reason to disable the HUD. Only flag a conflict if a specific requested change would
+  compete with an existing setting or display.
+- **Other workflow/skill plugins:** overlapping descriptions are not proof of a conflict. If a command, hook or
+  behavior would actually compete, describe which one and the expected impact.
+
+**If there is a meaningful behavioral conflict, pause and ask:** name the affected plugin(s), the specific effect,
+and whether the person wants to **keep both with that effect** or **stop the CTK install** to resolve it separately.
+Do not choose on their behalf. If they want another plugin disabled or removed, treat that as a separate action
+requiring explicit approval of the exact command and scope; never do it automatically as part of CTK installation.
+If you cannot ask or receive no decision, stop before any installation or settings write.
 
 ## 2. Install
 
