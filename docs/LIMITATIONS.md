@@ -153,7 +153,7 @@ in practice:
 
 ## Workflows not run end to end
 
-- **`/ctk:team` on a real task** was run live in the recorded demos (`docs/DEMO.md`: Runs C, D and E):
+- **`/ctk:team` on a real task** was run live in the recorded demos (Runs C, D and E, removed from the tree: `git show cbf785d:docs/DEMO.md`; Run F is in `docs/DEMO.md`):
   the lead cut slices, created dependent tasks, spawned up to three workers, and the cap held.
   What stayed unverified is whether the lead follows every step of the skill (verify command before
   closing a task, shutdown requests); the skill only instructs, and a recorded run showed tasks
@@ -178,7 +178,7 @@ operating system; the mod runs against a simulated host and `claude plugin test`
 
 | Platform | Mods and the guard | Clickable band, Mission Control | Width, UTF-8, ANSI | Plugin install and update |
 |---|---|---|---|---|
-| macOS | **Live**: the cap refused spawns on 2.1.295, guard states and the spawn probe ([REVIEW](REVIEW.md#hard-limit-coverage-probe)) | **Live**, in a tmux pane: real SGR mouse clicks opened it and every view ([Run E](DEMO.md#run-e-asked-in-plain-words-then-the-band-is-clicked-open)); not tried in each terminal emulator by hand | **Live** captures at 200, 130, 100, 80 and 60 columns, UTF-8 locale | **Live**: native install, same-version and version-bump update, a move back to an older ref, uninstall and reinstall ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)), the CLI beside it |
+| macOS | **Live**: the cap refused spawns on 2.1.295, guard states and the spawn probe ([REVIEW](REVIEW.md#hard-limit-coverage-probe)) | **Live**, in a tmux pane: real SGR mouse clicks opened it and every view ([Run F](DEMO.md#run-f-the-redesigned-mission-control-docked-beside-a-live-team)); not tried in each terminal emulator by hand | **Live** captures at 200, 130, 100, 80 and 60 columns, UTF-8 locale | **Live**: native install, same-version and version-bump update, a move back to an older ref, uninstall and reinstall ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)), the CLI beside it |
 | Linux | CI only (simulated host, `claude plugin test`) | Not verified | CI only (layout tests; no live capture) | CI only (`plugin validate --strict`); no live install |
 | Windows native | CI only | Not verified | CI only; an ambiguous-width or legacy console was not seen | CI only; the `.cmd`/`.exe` handling and the Git Bash status line command are covered by unit tests alone. The first Windows runs failed and found real bugs, since fixed ([REVIEW](REVIEW.md#5a-found-by-ci-on-windows)) |
 | Windows Terminal | Not verified | Not verified (needs the terminal to pass mouse reports) | Not verified | Not verified |

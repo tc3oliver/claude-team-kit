@@ -117,7 +117,7 @@ result, to run the full suite once at the end, to close the final task only afte
 workers down. In the illustration the last task belongs to the lead for exactly that reason.
 
 Nothing in code enforces this: no hook stops a task from being completed, and CTK does not use Claude Code's
-`TaskCompleted` hook to block. In the Run D frames the task count rose before the lead had run its own check, and
+`TaskCompleted` hook to block. In the Run D frames (removed from the tree; `git show cbf785d:docs/DEMO.md`) the task count rose before the lead had run its own check, and
 at one point a worker edited a file after the lead had verified it, so the lead ran the check again. A passing check
 shows that the check passed; it is not a guarantee that the work is right.
 
@@ -151,16 +151,16 @@ After three refuted hypotheses it stops and asks. It has not been run on a real 
 - No speed, cost or token comparison is made. Native docs say teams use significantly more tokens than one session,
   and no baseline run exists.
 - The illustration is invented. The real numbers (43 tests, six tasks, three workers, about a dollar) belong to
-  Run D and Run E on a small fixture, with one model family.
+  Run D and Run E on a small fixture (both in git history, `cbf785d`), with one model family.
 
 ## Where each claim was seen
 
 | Claim | Seen in |
 |---|---|
-| Tasks created with dependencies before any worker starts; three workers; the lead keeps the rest pending and hands them to idle workers | Runs C, D and E in [DEMO.md](DEMO.md) |
-| A spawn above the cap refused with `TEAM_CAPACITY_REACHED` | The one recorded attempt in [DEMO.md](DEMO.md#attempt-1-the-cap-refusing-live-not-the-published-run) |
-| A plain sentence started the team skill; the band opened Mission Control by a click | Run E |
-| Reassignment by the lead, and a task done before the lead verified it | Run D |
+| Tasks created with dependencies before any worker starts; three workers; the lead keeps the rest pending and hands them to idle workers | Runs C, D and E, removed from the tree (`cbf785d`); Run F in [DEMO.md](DEMO.md) |
+| A spawn above the cap refused with `TEAM_CAPACITY_REACHED` | The one recorded attempt ("Attempt 1" in `git show cbf785d:docs/DEMO.md`) |
+| A plain sentence started the team skill; the band opened Mission Control by a click | Run F |
+| Reassignment by the lead, and a task done before the lead verified it | Run D, removed from the tree (`cbf785d`) |
 | Risk-scaled review, the debugging procedure, models per role | Not exercised live ([LIMITATIONS.md](LIMITATIONS.md)) |
 
 ## Ideas this workflow borrows
