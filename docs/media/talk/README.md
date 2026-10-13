@@ -1,6 +1,6 @@
 # Talk video: one person managing several AI engineers
 
-A 74-second silent animation for a university talk, built with Remotion. It is an illustration (see
+A 72-second silent animation for a university talk, built with Remotion. It is an illustration (see
 [STORYBOARD.md](STORYBOARD.md)), not a recording and not part of the plugin or the npm package.
 
 ## Files

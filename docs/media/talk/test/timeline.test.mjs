@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { SCENES, DURATION_SEC } from '../src/time.ts'
 import { TASKS } from '../src/data/scenario.ts'
-import { KEY, SUITE_TIMES, TASK_TIMES, busyCount, depsAt, taskStatus, TOASTS, CLOSING_FROM } from '../src/data/timeline.ts'
+import { KEY, SUITE_TIMES, TASK_TIMES, ZOOM_OUT_FROM, busyCount, depsAt, taskStatus, TOASTS } from '../src/data/timeline.ts'
 
 test('the video is 60 to 75 seconds', () => assert.ok(DURATION_SEC >= 60 && DURATION_SEC <= 75))
 
@@ -52,8 +52,8 @@ test('suites run in order and finish before the last task is done', () => {
   assert.ok(SUITE_TIMES.e2e.to < TASK_TIMES.T5.done)
 })
 
-test('toasts do not overlap, and the closing lines leave three seconds before the end', () => {
+test('toasts do not overlap, and the finished board holds for three seconds after the pull-back', () => {
   const sorted = [...TOASTS].sort((a, b) => a.t - b.t)
   sorted.forEach((x, i) => i && assert.ok(x.t >= sorted[i - 1].until, 'toast overlap'))
-  assert.ok(DURATION_SEC - CLOSING_FROM[1] >= 2.9)
+  assert.ok(DURATION_SEC - (ZOOM_OUT_FROM + 1) >= 2.9)
 })

@@ -129,7 +129,6 @@ export function suiteState(id: keyof typeof SUITE_TIMES, t: number) {
 
 export const SUMMARY_FROM = 65.6
 export const ZOOM_OUT_FROM = 67.0
-export const CLOSING_FROM = [69.0, 71.0]
 
 /** The checkout preview the frontend worker builds (scene 3, middle column). */
 export const PREVIEW = {

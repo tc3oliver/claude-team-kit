@@ -88,7 +88,5 @@ export const SUITES = [
 
 export const SUMMARY = ['優惠碼功能完成', '前後端整合完成', '測試通過 21 / 21', '等待人類最終驗收']
 
-export const CLOSING = ['我不再親自寫每一行 Code。', '但我仍然需要對整個系統負責。']
-
 /** Frontend preview: the checkout page the worker is building. */
 export const CART = { subtotal: 1180, code: 'SAVE10', off: 118 }

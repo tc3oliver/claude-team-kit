@@ -9,7 +9,7 @@ export const SCENES = [
   { id: 'parallel', from: 18, to: 32 },
   { id: 'deps', from: 32, to: 43 },
   { id: 'human', from: 43, to: 53 },
-  { id: 'deliver', from: 53, to: 74 },
+  { id: 'deliver', from: 53, to: 72 },
 ] as const
 
 export const DURATION_SEC = SCENES[SCENES.length - 1].to

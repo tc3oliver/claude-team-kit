@@ -1,14 +1,13 @@
-import { AGENTS, CLOSING, SUITES, SUMMARY, TASKS, taskById, type AgentId } from '../data/scenario.ts'
-import { CLOSING_FROM, SUITE_TIMES, SUMMARY_FROM, ZOOM_OUT_FROM, suiteState, taskStatus, TASK_TIMES } from '../data/timeline.ts'
+import { AGENTS, SUITES, SUMMARY, TASKS, taskById, type AgentId } from '../data/scenario.ts'
+import { SUITE_TIMES, SUMMARY_FROM, ZOOM_OUT_FROM, suiteState, taskStatus, TASK_TIMES } from '../data/timeline.ts'
 import { Bar, Card, Pill, StatusBadge, fill, ramp, useT } from '../ui/kit.tsx'
 import { Content, TopBar } from '../ui/Stage.tsx'
 import { C } from '../ui/theme.ts'
 
-/** Scene 6: tests run, everything turns Completed, the lead reports, the camera pulls back, two lines close the story. */
+/** Scene 6: tests run, everything turns Completed, the lead reports, the camera pulls back and holds on the finished board. */
 export function Deliver() {
   const t = useT()
   const out = ramp(t, ZOOM_OUT_FROM, ZOOM_OUT_FROM + 1.0)
-  const black = ramp(t, CLOSING_FROM[0] - 0.6, CLOSING_FROM[0])
   return (
     <div style={fill}>
       <TopBar />
@@ -41,8 +40,6 @@ export function Deliver() {
           </div>
         </div>
       </Content>
-      <div style={{ position: 'absolute', inset: 0, background: C.bg, opacity: black }} />
-      <Closing />
     </div>
   )
 }
@@ -91,22 +88,6 @@ function Summary() {
         </div>
       ))}
     </Card>
-  )
-}
-
-function Closing() {
-  const t = useT()
-  return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 44, textAlign: 'center' }}>
-      {CLOSING.map((line, i) => {
-        const p = ramp(t, CLOSING_FROM[i], CLOSING_FROM[i] + 0.7)
-        return (
-          <div key={line} style={{ fontSize: i === 0 ? 76 : 64, fontWeight: 800, color: i === 0 ? C.text : C.accent, opacity: p, transform: `translateY(${(1 - p) * 20}px)` }}>
-            {line}
-          </div>
-        )
-      })}
-    </div>
   )
 }
 
