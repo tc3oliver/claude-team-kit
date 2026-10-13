@@ -34,7 +34,9 @@ const DASH = '–'
 const SEP = ' │ '
 const DEFAULT_COLUMNS = 80
 const MIN_TIER_SEGMENTS = 3
-const BOLD = ['\x1b[1m', '\x1b[22m']
+const BOLD = ['\x1b[1;36m', '\x1b[22;39m']
+// Dim separators set the status line apart from the band above, which is all one dim colour.
+const DIM_SEP = `\x1b[2m${SEP}\x1b[22m`
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g
 
 const tierOf = columns => (columns >= 120 ? 0 : columns >= 80 ? 1 : 2)
@@ -173,7 +175,7 @@ const layoutLine = (segments, opts) => {
     }
     items = [{ s: only.s, text: truncateToWidth(text, columns, amb) }]
   }
-  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(SEP)
+  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(opts.color === true ? DIM_SEP : SEP)
 }
 
 const elapsed = ms => {
@@ -314,7 +316,8 @@ export const render = (input, env = {}, nowMs = Date.now()) =>
     columns: Math.max(1, columnsFrom(env) - STATUS_LINE_MARGIN),
     tierColumns: columnsFrom(env),
     ambiguous: env.CTK_AMBIGUOUS_WIDTH === '2' ? 2 : 1,
-    color: env.CTK_COLOR === '1',
+    // On unless CTK_COLOR=0 or any non-empty NO_COLOR (no-color.org).
+    color: env.CTK_COLOR !== '0' && !env.NO_COLOR,
   })
 
 export { DASH, SEP, charWidth, displayWidth, fmtCountdown, fmtPct, layoutLine, resetMs, stripAnsi, tierOf, truncateToWidth, usageSegment, windowFigures }

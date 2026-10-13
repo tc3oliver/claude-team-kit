@@ -45,7 +45,7 @@ const withDir = dir => ({ ...FULL, workspace: { current_dir: dir } })
 
 // 2h34m before the 5-hour window resets, 3d12h before the weekly one.
 const NOW = 1791500000 * 1000 - (2 * 3600 + 34 * 60) * 1000
-const at = (input, env = {}) => render(input, env, NOW)
+const at = (input, env = {}) => render(input, { CTK_COLOR: '0', ...env }, NOW)
 const wide = { COLUMNS: '200' }
 
 test('full subscription payload at a wide terminal', () => {
@@ -251,15 +251,16 @@ test('COLUMNS wider than the line leaves it untouched', () => {
 
 test('styling never splits an ANSI sequence and adds no width', () => {
   const styled = at(FULL, { CTK_COLOR: '1', COLUMNS: '100' })
-  assert.ok(styled.startsWith('\x1b[1mOpus 5.5\x1b[22m │ '))
+  assert.ok(styled.startsWith('\x1b[1;36mOpus 5.5\x1b[22;39m\x1b[2m │ \x1b[22m'))
   assert.equal(styled.replace(/\x1b\[[0-9;]*m/g, ''), at(FULL, { COLUMNS: '100' }))
   const narrow = at(FULL, { CTK_COLOR: '1', COLUMNS: '12' })
   assert.equal(narrow, '5h 24% …')
 })
 
-test('plain output has no ANSI unless CTK_COLOR=1', () => {
+test('colour is on by default; CTK_COLOR=0 or NO_COLOR turns it off', () => {
+  assert.equal(render(FULL, wide, NOW).includes('\x1b['), true)
   assert.equal(at(FULL, wide).includes('\x1b'), false)
-  assert.equal(at(FULL, { ...wide, CTK_COLOR: '1' }).includes('\x1b['), true)
+  assert.equal(render(FULL, { ...wide, NO_COLOR: '1' }, NOW).includes('\x1b'), false)
 })
 
 for (const [label, stdin] of [['valid JSON', JSON.stringify(FULL)], ['garbage', 'not json{'], ['empty', '']]) {
@@ -328,7 +329,7 @@ test('inherited GIT_DIR cannot redirect the dirty check', t => {
   const r = spawnSync(process.execPath, [SCRIPT], {
     input: JSON.stringify(withDir(current)),
     encoding: 'utf8',
-    env: { ...process.env, COLUMNS: '200', GIT_DIR: join(other, '.git'), GIT_EXTERNAL_DIFF: `touch ${marker}` },
+    env: { ...process.env, CTK_COLOR: '0', COLUMNS: '200', GIT_DIR: join(other, '.git'), GIT_EXTERNAL_DIFF: `touch ${marker}` },
   })
   assert.equal(r.status, 0)
   assert.ok(r.stdout.startsWith('Opus 5.5 │ '), r.stdout)
@@ -343,7 +344,7 @@ test('system autocrlf (Git for Windows default) does not make a clean worktree l
   const global = join(cfgDir, 'global.gitconfig')
   writeFileSync(sys, '[core]\n\tautocrlf = true\n')
   writeFileSync(global, '')
-  const cfgEnv = { ...process.env, GIT_CONFIG_SYSTEM: sys, GIT_CONFIG_GLOBAL: global }
+  const cfgEnv = { ...process.env, CTK_COLOR: '0', GIT_CONFIG_SYSTEM: sys, GIT_CONFIG_GLOBAL: global }
   const sysGit = (cwd, ...args) =>
     execFileSync('git', ['-c', 'user.name=ctk-test', '-c', 'user.email=ctk-test@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
       cwd,

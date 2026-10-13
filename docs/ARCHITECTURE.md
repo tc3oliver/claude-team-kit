@@ -329,8 +329,8 @@ variables. System and global git config are honoured (Git for Windows ships `cor
 in the system config); only repo-local config is distrusted. Control characters are stripped from
 every string taken from the JSON. The script shows no worker data, makes no network call, and
 prints a line even for empty or malformed input. The width is the `COLUMNS` that Claude Code sets
-before it runs the command (80 when it is missing or not a number); ANSI is off unless
-`CTK_COLOR=1`. A `statusLine` you already have is never replaced, so with your own status
+before it runs the command (80 when it is missing or not a number); colour is on unless
+`CTK_COLOR=0` or `NO_COLOR` is set. A `statusLine` you already have is never replaced, so with your own status
 line the HUD is the mod band only, and the band then shows everything.
 
 ## The CLI

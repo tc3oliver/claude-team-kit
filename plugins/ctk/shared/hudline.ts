@@ -169,11 +169,13 @@ export type LayoutOptions = {
   tierColumns?: number
   /** 2 for terminals that draw East Asian Ambiguous characters (│ · …) two cells wide. */
   ambiguous?: 1 | 2
-  /** Wrap `bold` segments in ANSI bold. The width maths ignores the sequences. */
+  /** Wrap `bold` segments in bold cyan and dim the separators. The width maths ignores the sequences. */
   color?: boolean
 }
 
-const BOLD = ['\x1b[1m', '\x1b[22m'] as const
+const BOLD = ['\x1b[1;36m', '\x1b[22;39m'] as const
+// Dim separators set the status line apart from the band above, which is all one dim colour.
+const DIM_SEP = `\x1b[2m${SEP}\x1b[22m`
 
 // A figure that was not reported is dropped before one that was, whatever its rank.
 const effective = (s: Segment): number => (s.missing === true ? s.prio - 1000 : s.prio)
@@ -226,5 +228,5 @@ export const layoutLine = (segments: readonly Segment[], opts: LayoutOptions): s
     }
     items = [{ s: only.s, text: truncateToWidth(text, columns, amb) }]
   }
-  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(SEP)
+  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(opts.color === true ? DIM_SEP : SEP)
 }

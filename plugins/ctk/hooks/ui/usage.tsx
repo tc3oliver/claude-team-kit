@@ -24,10 +24,12 @@ export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras,
     }),
     divider('u-d2', 'SESSION'),
     <Box key="u-metrics" flexDirection="row" flexWrap="wrap" columnGap={2}>
-      {metric('u-model', 'Model', m.usage.model ?? UNAVAILABLE, m.usage.model === null ? COLOR.muted : undefined, modelW)}
+      {metric('u-model', 'Lead model', m.usage.model ?? UNAVAILABLE, m.usage.model === null ? COLOR.muted : undefined, modelW)}
       {metric('u-cost', 'Cost', m.usage.cost, m.usage.cost === UNAVAILABLE ? COLOR.muted : undefined, 12)}
       {metric('u-tools', 'Tool calls', String(m.usage.toolCalls), undefined, 12)}
     </Box>,
+    // Only once a subagent or teammate started, so a lead-only session keeps the row for the note.
+    ...(m.usage.agentModels === null ? [] : [line('u-agents', `Agents  ${m.usage.agentModels}`)]),
     ...para('u-note', 'Reported by Claude Code; a plan without rate limits shows them as unavailable. Tool calls cover the lead, subagents and teammates. Per-worker cost is not reported.'),
   ]
   // The metrics node is two lines per band; the rest are one each. The note, last, is what a short pane drops.

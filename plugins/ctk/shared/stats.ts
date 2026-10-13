@@ -27,6 +27,8 @@ export type StatsRecord = {
   peakLive: number
   /** Resolved model per accepted spawn, as reported by Claude Code: counts by model id/alias. */
   workerModels: Record<string, number>
+  /** Resolved model per started ordinary subagent (not a teammate), as reported by Claude Code. */
+  subagentModels: Record<string, number>
   /** Counts from TaskCreated / TaskCompleted events; null when no such event ever fired. */
   tasks: { created: number; completed: number } | null
   /**
@@ -71,6 +73,7 @@ export const emptyStats = (sessionId: string, maxWorkers: number, now: number): 
   spawnsOutsideCap: 0,
   peakLive: 0,
   workerModels: {},
+  subagentModels: {},
   tasks: null,
   toolCalls: 0,
   measured: EMPTY_MEASURED(),
@@ -93,6 +96,7 @@ export const parseStats = (raw: unknown): StatsRecord | null => {
     toolCalls: typeof r.toolCalls === 'number' && r.toolCalls >= 0 ? r.toolCalls : 0,
     spawnsSeen: count(r.spawnsSeen),
     spawnsOutsideCap: count(r.spawnsOutsideCap),
+    subagentModels: typeof r.subagentModels === 'object' && r.subagentModels !== null ? r.subagentModels : {},
     measured: { ...EMPTY_MEASURED(), ...(typeof r.measured === 'object' && r.measured !== null ? r.measured : {}) },
   }
 }

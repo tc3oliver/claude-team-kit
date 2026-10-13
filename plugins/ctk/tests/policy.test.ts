@@ -80,6 +80,19 @@ describe('verified acceptance and stats', () => {
     })
   })
 
+  test('an ordinary subagent is counted apart from teammates, by the model it started on', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { modelOf: e => (e.isTeammate ? 'claude-opus-5-5' : 'claude-sonnet-5-5') })
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    await $.agent.spawn(spawnInput(0, false))
+    await $.agent.spawn(spawnInput(1, false))
+    await $.agent.spawn(spawnInput(2))
+    await $.session.end(END)
+    const s = written(w)
+    expect(s.subagentModels).toEqual({ 'claude-sonnet-5-5': 2 })
+    expect(s.workerModels).toEqual({ 'claude-opus-5-5': 1 })
+  })
+
   test('refusals and peak live are counted; the file holds counters only', { options: { maxWorkers: 3 } }, async ($, on) => {
     const w = fresh()
     engine(on, w)
@@ -89,7 +102,7 @@ describe('verified acceptance and stats', () => {
     const s = written(w)
     expect(s).toMatchObject({ spawnsAccepted: 3, spawnsRejected: 2, peakLive: 3, tasks: null })
     expect(Object.keys(s).sort()).toEqual(
-      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsOutsideCap', 'spawnsRejected', 'spawnsSeen', 'startedAt', 'tasks', 'toolCalls', 'updatedAt', 'workerModels'],
+      ['maxWorkers', 'measured', 'peakLive', 'schemaVersion', 'sessionId', 'spawnsAccepted', 'spawnsFailedClosed', 'spawnsOutsideCap', 'spawnsRejected', 'spawnsSeen', 'startedAt', 'subagentModels', 'tasks', 'toolCalls', 'updatedAt', 'workerModels'],
     )
     expect(JSON.stringify(s)).not.toMatch(/work item|worker-|\/w/)
   })

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { createCtx } from '../../hooks/ui/ctx.tsx'
 import { renderUsage } from '../../hooks/ui/usage.tsx'
 import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { engine, fresh, test as worldTest } from '../world.ts'
+import { engine, fresh, spawnInput, test as worldTest } from '../world.ts'
 
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
 const flat = (n: any): string => (typeof n === 'string' ? n : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : ''))
@@ -33,7 +33,7 @@ describe('usage bars', () => {
     const Box = (p: any) => p.children
     const kit: any = { Box, Text: Box, Button: Box }
     const ctx = createCtx(kit, { bodyColumns: 100 })
-    const base: any = { usage: { fiveHourPct: 13, sevenDayPct: null, contextUsed: 42, fiveHourReset: '2h45m', sevenDayReset: null, fiveHour: 'whatever', sevenDay: 'x', contextPct: 'y', cost: '$1', toolCalls: 1, model: null } }
+    const base: any = { usage: { fiveHourPct: 13, sevenDayPct: null, contextUsed: 42, fiveHourReset: '2h45m', sevenDayReset: null, fiveHour: 'whatever', sevenDay: 'x', contextPct: 'y', cost: '$1', toolCalls: 1, model: null, agentModels: null } }
     const draw = (m: any) => JSON.stringify(renderUsage(kit, m, {} as any, {} as any, ctx))
     const a = draw(base)
     const b = draw({ usage: { ...base.usage, fiveHour: 'other wording', sevenDay: 'zzz' } })
@@ -41,6 +41,23 @@ describe('usage bars', () => {
     expect(a).toContain('[──────────] –')
     expect(b).toContain('[█░░░░░░░░░] 13%  reset 2h45m')
     expect(b).toContain('[──────────] –')
+  })
+})
+
+describe('usage agents line', () => {
+  worldTest('lists subagent and teammate models next to the lead model', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { modelOf: e => (e.isTeammate ? 'sonnet' : 'claude-sonnet-5-5') })
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    const p = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: PANE })
+    await p.press({ key: 'mc:view:usage' })
+    expect(flat(await p.drawn())).not.toContain('Agents')
+    await $.agent.spawn(spawnInput(0, false))
+    await $.agent.spawn(spawnInput(1))
+    await p.press({ key: 'mc:view:usage' })
+    const t = flat(await p.drawn())
+    expect(t).toContain('Lead model')
+    expect(t).toContain('Agents  Sonnet×1 Sonnet 5.5×1')
   })
 })
 

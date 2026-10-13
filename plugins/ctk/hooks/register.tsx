@@ -231,6 +231,7 @@ async function boot($: EngineInterface, c: Ctx) {
           ...prior,
           maxWorkers: c.opts.maxWorkers,
           workerModels: prior.workerModels ?? {},
+          subagentModels: prior.subagentModels ?? {},
           measured: { ...c.stats.measured, ...prior.measured },
         }
       }
@@ -479,6 +480,8 @@ export const register: Register = (on, options) => {
     if (startsOutsideCap(e, c.teamsEnabled)) c.stats.spawnsOutsideCap += 1
     if (e.isTeammate !== true) {
       const r = await next(routed(e, c.opts))
+      // Started, not merely requested: only a result with an agentId ran a subagent.
+      if (r.deny === undefined && r.agentId !== undefined) c.stats.subagentModels[r.model] = (c.stats.subagentModels[r.model] ?? 0) + 1
       // Let the band and Mission Control list this subagent now. A failed read never touches the spawn (and must not throw: the spawn already ran).
       try {
         await refresh($, c)
@@ -731,7 +734,9 @@ export const register: Register = (on, options) => {
     })
     return (
       <Button key={OPEN_KEY} plain label="Open CTK Mission Control" onPress={noop}>
-        <Text bold>{entry}</Text>
+        {/* Accent and underline say the band is a button; the figures stay dim. */}
+        <Text bold underline color="suggestion">{entry.trimEnd()}</Text>
+        <Text> </Text>
         <Text dimColor>{line}</Text>
       </Button>
     )
