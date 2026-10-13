@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproduces docs/assets/team-demo.*: one real, live /ctk:team session on the wordkit fixture,
+# Reproduces docs/assets/{team-demo,mission-control-f}.*: one real, live /ctk:team session on the wordkit fixture,
 # recorded with record.mjs and rendered with render-svg.mjs / render-video.mjs.
 # bash + tmux, macOS or Linux. It spends real money (a few US dollars) and needs a logged-in,
 # dedicated Claude Code config dir. Never point it at ~/.claude (record.mjs refuses).

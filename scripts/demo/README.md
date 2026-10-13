@@ -118,8 +118,8 @@ node scripts/demo/render-svg.mjs docs/assets/install.frames.jsonl \
 ## GIF and MP4: `render-video.mjs`
 
 ```sh
-node scripts/demo/render-video.mjs docs/assets/team-demo.frames.jsonl --work-dir /tmp/ctk-demo/video \
-  --gif docs/assets/team-demo.gif --mp4 docs/assets/team-demo.mp4 --target-seconds 40
+node scripts/demo/render-video.mjs docs/assets/mission-control-f.frames.jsonl --work-dir /tmp/ctk-demo/video \
+  --gif docs/assets/mission-control-f.gif --mp4 docs/assets/mission-control-f.mp4 --target-seconds 40
 ```
 
 It uses the same timing as the animated SVG (`--speed` or `--target-seconds`, `--max-gap`,
@@ -143,7 +143,7 @@ that makes the capped timeline last about N seconds.
 
 ## The team demo
 
-`team-demo.sh` rebuilds the whole `docs/assets/team-demo.*` set from scratch; the prose is in
+`team-demo.sh` rebuilds the whole `docs/assets/mission-control-f.*` set (`CTK_DEMO_RUN=f`) from scratch; the prose is in
 `docs/DEMO.md`. It needs a dedicated, logged-in config dir, a masks file, tmux, ffmpeg and Chrome, and it
 spends real money.
 
