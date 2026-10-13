@@ -43,6 +43,7 @@
     "!plugins/ctk/tsconfig.json",
     "!plugins/ctk/tests",
     "!plugins/ctk/statusline/test",
+    "!docs/media",
     "!docs/assets/*.gif",
     "!docs/assets/*.mp4",
     "!docs/assets/*-poster.png",
