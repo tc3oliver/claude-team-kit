@@ -259,7 +259,7 @@ describe('layout rules', () => {
   test('bold styling adds no width and never changes what is dropped', () => {
     const plain = line(100)
     const styled = line(100, SEGMENTS, { color: true })
-    expect(styled.startsWith('\x1b[1mSonnet 5.5\x1b[22m')).toBe(true)
+    expect(styled.startsWith('\x1b[1;36mSonnet 5.5\x1b[22;39m\x1b[2m │ \x1b[22m')).toBe(true)
     expect(stripAnsi(styled)).toBe(plain)
     expect(displayWidth(styled)).toBe(displayWidth(plain))
   })

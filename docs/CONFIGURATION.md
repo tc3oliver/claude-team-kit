@@ -210,7 +210,7 @@ key already has a value, and [ROLLBACK](ROLLBACK.md) for undoing changes.
 | Variable | Effect |
 |---|---|
 | `CLAUDE_CONFIG_DIR` | Config directory when `--config-dir` is not given. Also read by the mod to find where to write stats. |
-| `CTK_COLOR=1` | Enable bold in the status line fallback (off by default). |
+| `CTK_COLOR=0` | Turn off colour in the status line (bold cyan model, dim separators; on by default). Any non-empty `NO_COLOR` does the same. |
 | `COLUMNS` | Set by Claude Code for the status line command: the terminal width the layout follows (80 when missing or invalid). |
 | `CTK_AMBIGUOUS_WIDTH=2` | For terminals that draw East Asian ambiguous characters (`│`, `…`, `·`) two cells wide. Read by the status line and, through Claude Code's `env` block, by the band. |
 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Set by Claude Code's `env` block; required for Agent Teams. The mod reads it (`/ctk-doctor`, the team skill's preflight). |

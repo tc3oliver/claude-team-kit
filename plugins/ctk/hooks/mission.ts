@@ -1,6 +1,7 @@
 import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import { spanText } from './band.ts'
+import { fmtModels } from '../shared/format.ts'
+import { modelLabel, spanText } from './band.ts'
 import { isLiveStatus } from './team.ts'
 import type { Snapshot, Subagent } from './team.ts'
 
@@ -368,6 +369,8 @@ export type Mission = {
     cost: string
     toolCalls: number
     model: string | null
+    /** `Sonnet 5.5×3 Haiku 5.5×1`: what the subagents and teammates started this session ran on; null before any. */
+    agentModels: string | null
   }
 }
 
@@ -462,8 +465,21 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
       cost: stats.measured.costUsd === null ? UNAVAILABLE : `$${stats.measured.costUsd.toFixed(2)}`,
       toolCalls: stats.toolCalls,
       model: stats.measured.model,
+      agentModels: agentModelsText(stats),
     },
   }
+}
+
+// Teammates and subagents together, merged by display name so `sonnet` and `claude-sonnet-5-5` do not split.
+const agentModelsText = (s: StatsRecord): string | null => {
+  const counts: Record<string, number> = {}
+  for (const src of [s.workerModels, s.subagentModels]) {
+    for (const [id, n] of Object.entries(src)) {
+      const label = modelLabel(id) ?? id
+      counts[label] = (counts[label] ?? 0) + n
+    }
+  }
+  return fmtModels(counts) || null
 }
 
 /** `5s`, `4m`, `1h05m`; used for "last activity" and "idle for". */
@@ -582,7 +598,7 @@ export const missionText = (m: Mission): string => {
     ...(m.subagents.total > 0 ? [`  subagents: ${m.subagents.total} ordinary (${m.subagents.live} live); not teammates, so the cap does not count them`] : []),
     `  tasks:    ${tasks}`,
     `  team time: ${m.teamElapsedMs === null ? UNAVAILABLE : fmtSpan(m.teamElapsedMs)}`,
-    `  usage:    5h ${m.usage.fiveHour}; week ${m.usage.sevenDay}; context ${m.usage.contextPct}; cost ${m.usage.cost}; ${m.usage.toolCalls} tool calls`,
+    `  usage:    5h ${m.usage.fiveHour}; week ${m.usage.sevenDay}; context ${m.usage.contextPct}; cost ${m.usage.cost}; ${m.usage.toolCalls} tool calls; agent models ${m.usage.agentModels ?? 'none'}`,
   ]
   if (m.empty.workers !== null) lines.push(`  note: ${m.empty.workers}`)
   if (m.empty.tasks !== null) lines.push(`  note: ${m.empty.tasks}`)

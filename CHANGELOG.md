@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Mission Control's Usage view showed only the lead's model, so a session that also ran Sonnet subagents looked Opus-only. Ordinary subagents' models were never recorded at all — only teammates' were. They are now kept in the stats file as `subagentModels`, and the view labels the card "Lead model" and adds an `Agents` line with every subagent and teammate model this session started (for example `Sonnet 5.5×3 Haiku 5.5×1`). The status tool's usage line carries the same figures.
+
+### Changed
+
+- The status line is coloured by default — the model in bold cyan, the separators dim — so it reads apart from the band above the prompt. `CTK_COLOR=0` or any non-empty `NO_COLOR` turns it off; before, it was plain unless `CTK_COLOR=1`.
+- The band's `CTK ▸` entry is drawn in the theme's accent colour and underlined, so it reads as the button it is.
+
 ## [0.1.3] - 2026-10-10 (prerelease)
 
 ### Fixed
