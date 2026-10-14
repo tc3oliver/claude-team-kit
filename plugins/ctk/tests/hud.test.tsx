@@ -87,19 +87,19 @@ describe('pure formatting', () => {
     s.tasks = { created: 6, completed: 3 }
     s.workerModels = { sonnet: 2, haiku: 1 }
     expect(band(s, 200)).toBe(
-      'Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $1.23 (12m) │ models haiku×1 sonnet×2',
+      'Sonnet 5.5 │ Ctx 42% │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ 🔧 153 │ 🤖 2/3 (1 busy) │ Tasks 3/6 │ $1.23 (12m) │ models haiku×1 sonnet×2',
     )
   })
 
   const WIDTHS: [number, string][] = [
-    [160, 'Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $1.23 (12m) │ models haiku×1 sonnet×2'],
-    [120, 'Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $1.23 (12m)'],
-    [100, 'Sonnet 5.5 │ 5h 28% 2h34m │ Wk 51% 3d12h │ T153 │ A2/3 │ Ctx 42% │ Tasks 3/6 │ $1.23'],
-    [80, 'Sonnet 5.5 │ 5h 28% 2h34m │ Wk 51% 3d12h │ T153 │ A2/3 │ Ctx 42%'],
-    [79, '5h 28% 2h34m │ Wk 51% 3d12h │ T153'],
-    [50, '5h 28% 2h34m │ Wk 51% 3d12h │ T153'],
-    [33, '5h 28% 2h34m │ Wk 51% 3d12h'],
-    [30, '5h 28% 2h34m'],
+    [160, 'Sonnet 5.5 │ Ctx 42% │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ 🔧 153 │ 🤖 2/3 (1 busy) │ Tasks 3/6 │ $1.23 (12m) │ models haiku×1 sonnet×2'],
+    [120, 'Sonnet 5.5 │ Ctx 42% │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ 🔧 153 │ 🤖 2/3 (1 busy) │ Tasks 3/6 │ $1.23 (12m)'],
+    [100, 'Sonnet 5.5 │ Ctx 42% │ 5h 28% 2h34m │ Wk 51% 3d12h │ 🔧153 │ 🤖2/3 │ Tasks 3/6 │ $1.23'],
+    [80, 'Sonnet 5.5 │ Ctx 42% │ 5h 28% 2h34m │ Wk 51% 3d12h │ 🔧153 │ 🤖2/3'],
+    [79, 'Ctx 42% │ 5h 28% 2h34m │ Wk 51% 3d12h'],
+    [50, 'Ctx 42% │ 5h 28% 2h34m │ Wk 51% 3d12h'],
+    [33, 'Ctx 42% │ 5h 28% 2h34m'],
+    [30, 'Ctx 42% │ 5h 28% 2h34m'],
   ]
   for (const [columns, expected] of WIDTHS) {
     test(`the band in a ${columns}-column terminal`, () => {
@@ -126,20 +126,20 @@ describe('pure formatting', () => {
     s.tasks = { created: 6, completed: 3 }
     s.spawnsRejected = 1
     const out = band(s, 200, { coordinated: true })
-    expect(out).toBe('Tools 153 │ Agents 2/3 (refused 1) │ Tasks 3/6')
+    expect(out).toBe('🔧 153 │ 🤖 2/3 (refused 1) │ Tasks 3/6')
     for (const dup of ['Sonnet', '5h', 'Wk', 'Ctx', '$']) expect(out).not.toContain(dup)
   })
 
   test('a refused spawn travels with the agents segment and survives the abbreviated form', () => {
     const s = filled()
     s.spawnsRejected = 2
-    expect(band(s, 100)).toContain('A2/3 !2')
+    expect(band(s, 100)).toContain('🤖2/3 !2')
   })
 
   test('missing figures render as dashes, never as 0% or a made-up reset', () => {
     const s = emptyStats('s', 3, 0)
     const out = formatBand(s, snapshotOf(null, null, NOW), 195, { nowMs: NOW })
-    expect(out).toBe('– │ 5h – │ Wk – │ Tools 0 │ Agents –/3 │ Ctx – │ –')
+    expect(out).toBe('– │ Ctx – │ 5h – │ Wk – │ 🔧 0 │ 🤖 –/3 │ –')
     expect(out).not.toMatch(/0%|\(\d/)
   })
 
@@ -173,7 +173,7 @@ describe('pure formatting', () => {
   })
 
   test('segments exist for each required figure', () => {
-    expect(bandSegments(filled(), snap(), { nowMs: NOW }).map(x => x.id)).toEqual(['model', '5h', 'wk', 'tools', 'agents', 'ctx', 'cost'])
+    expect(bandSegments(filled(), snap(), { nowMs: NOW }).map(x => x.id)).toEqual(['model', 'ctx', '5h', 'wk', 'tools', 'agents', 'cost'])
   })
 
   test('elapsed formatting', () => {
@@ -223,7 +223,7 @@ describe('HUD band', () => {
       const m = await mount($, surface)
       const found = await m.find({ text: /Sonnet/ })
       expect(found?.text).toBe(
-        'CTK ▸ Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ready │ Ctx 42% │ Sub 1 │ $1.23 (12m)',
+        'CTK ▸ Sonnet 5.5 │ Ctx 42% │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ 🔧 0 │ 🤖 2/3 (1 busy) │ Sub 1 │ $1.23 (12m)',
       )
       expect([...new Set(calls)].sort()).toEqual(['agent.list', 'session.model', 'session.usage'])
     })
@@ -233,20 +233,20 @@ describe('HUD band', () => {
     host(on, [])
     await measure($)
     const m = await mount($, 'terminal', { ...PROPS, hasSurvey: true })
-    expect(await m.find({ text: /Agents/ })).toBeUndefined()
+    expect(await m.find({ text: /🤖/ })).toBeUndefined()
   })
 
   test('nothing drawn before the first measurement', OFF, async ($, on) => {
     host(on, [])
     const m = await mount($, 'terminal')
-    expect(await m.find({ text: /Agents/ })).toBeUndefined()
+    expect(await m.find({ text: /🤖/ })).toBeUndefined()
   })
 
   test('hidden when hudBand is false', { options: { hudBand: false, recordStats: false } }, async ($, on) => {
     host(on, [])
     await measure($)
     const m = await mount($, 'terminal')
-    expect(await m.find({ text: /Agents/ })).toBeUndefined()
+    expect(await m.find({ text: /🤖/ })).toBeUndefined()
   })
 
   for (const columns of [200, 160, 120, 100, 80, 60, 40]) {
@@ -265,8 +265,8 @@ describe('HUD band', () => {
     await measure($)
     const wide = await (await mount($, 'terminal', { ...PROPS, bodyColumns: 200 })).find({ text: /5h/ })
     const narrow = await (await mount($, 'terminal', { ...PROPS, bodyColumns: 70 })).find({ text: /5h/ })
-    expect(wide?.text).toContain('Agents 2/3')
-    expect(narrow?.text).toBe('CTK ▸ 5h 28% 2h34m │ Wk 51% 3d12h │ T0')
+    expect(wide?.text).toContain('🤖 2/3')
+    expect(narrow?.text).toBe('CTK ▸ Ctx 42% │ 5h 28% 2h34m │ Wk 51% 3d12h')
   })
 
   test('an unreadable terminal width falls back to 80 columns', OFF, async ($, on) => {
@@ -281,30 +281,30 @@ describe('HUD band', () => {
     host(on, [], USAGE, { statusLine: { type: 'command', command: 'node "/cfg/ctk/bin/ctk-statusline.mjs"' } })
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
     await measure($)
-    const found = await (await mount($, 'terminal')).find({ text: /Agents/ })
-    expect(found?.text).toBe('CTK ▸ Tools 0 │ Agents 2/3 (1 busy) │ Guard – │ Sub 1')
+    const found = await (await mount($, 'terminal')).find({ text: /🤖/ })
+    expect(found?.text).toBe('CTK ▸ 🔧 0 │ 🤖 2/3 (1 busy) │ Guard – │ Sub 1')
   })
 
   test('another tool’s status line does not hide anything', OFF, async ($, on) => {
     host(on, [], USAGE, { statusLine: { type: 'command', command: 'npx some-other-hud' } })
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
     await measure($)
-    const found = await (await mount($, 'terminal')).find({ text: /Agents/ })
+    const found = await (await mount($, 'terminal')).find({ text: /🤖/ })
     expect(found?.text).toContain('5h 28%')
   })
 
   test('without usage data every usage figure is a dash and the band still draws', OFF, async ($, on) => {
     host(on, [], { startedAt: NOW - MIN, context: { window: 200000 }, rateLimits: [] })
     await measure($)
-    const found = await (await mount($, 'terminal')).find({ text: /Agents/ })
-    expect(found?.text).toBe('CTK ▸ Sonnet 5.5 │ 5h – │ Wk – │ Tools 0 │ Agents 2/3 (1 busy) │ Guard ready │ Ctx – │ Sub 1 │ –')
+    const found = await (await mount($, 'terminal')).find({ text: /🤖/ })
+    expect(found?.text).toBe('CTK ▸ Sonnet 5.5 │ Ctx – │ 5h – │ Wk – │ 🔧 0 │ 🤖 2/3 (1 busy) │ Sub 1 │ –')
   })
 })
 
 describe('git branch in the band', () => {
   test('is shown after the usage figures when the CTK status line is not configured, and dropped in the narrowest form', () => {
     expect(band(filled(), 130, { branch: 'main' })).toContain('git:main')
-    expect(bandSegments(filled(), snap(), { nowMs: NOW, branch: 'main' }).map(x => x.id).slice(0, 4)).toEqual(['model', '5h', 'wk', 'branch'])
+    expect(bandSegments(filled(), snap(), { nowMs: NOW, branch: 'main' }).map(x => x.id).slice(0, 5)).toEqual(['model', 'ctx', '5h', 'wk', 'branch'])
     expect(band(filled(), 70, { branch: 'main' })).not.toContain('git:')
   })
 

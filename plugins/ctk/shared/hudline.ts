@@ -26,6 +26,8 @@ export type Segment = {
   /** True when the figure was not reported: drawn as a dash and dropped before any real figure. */
   missing?: boolean
   bold?: boolean
+  /** Reminder colour when colour is on: yellow for `warn`, bold red for `bad`. */
+  tone?: 'warn' | 'bad'
 }
 
 // --- Display width -----------------------------------------------------------------------
@@ -169,11 +171,12 @@ export type LayoutOptions = {
   tierColumns?: number
   /** 2 for terminals that draw East Asian Ambiguous characters (│ · …) two cells wide. */
   ambiguous?: 1 | 2
-  /** Wrap `bold` segments in bold cyan and dim the separators. The width maths ignores the sequences. */
+  /** Wrap `bold` segments in bold cyan, `tone` segments in their reminder colour, and dim the separators. The width maths ignores the sequences. */
   color?: boolean
 }
 
 const BOLD = ['\x1b[1;36m', '\x1b[22;39m'] as const
+const TONE = { warn: ['\x1b[33m', '\x1b[39m'], bad: ['\x1b[1;31m', '\x1b[22;39m'] } as const
 // Dim separators set the status line apart from the band above, which is all one dim colour.
 const DIM_SEP = `\x1b[2m${SEP}\x1b[22m`
 
@@ -228,5 +231,9 @@ export const layoutLine = (segments: readonly Segment[], opts: LayoutOptions): s
     }
     items = [{ s: only.s, text: truncateToWidth(text, columns, amb) }]
   }
-  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(opts.color === true ? DIM_SEP : SEP)
+  const paint = (i: { s: Segment; text: string }): string => {
+    const wrap = opts.color === true ? (i.s.bold === true ? BOLD : i.s.tone === undefined ? undefined : TONE[i.s.tone]) : undefined
+    return wrap ? `${wrap[0]}${i.text}${wrap[1]}` : i.text
+  }
+  return items.map(paint).join(opts.color === true ? DIM_SEP : SEP)
 }

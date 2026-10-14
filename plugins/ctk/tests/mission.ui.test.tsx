@@ -71,7 +71,7 @@ describe('the band opens Mission Control', () => {
     await team($, on)
     const m = await band($)
     const button = await m.find({ type: 'Button', key: OPEN_KEY })
-    expect(button?.text).toMatch(/^CTK ▸ .*Agents 2\/3/)
+    expect(button?.text).toMatch(/^CTK ▸ .*🤖 2\/3/)
   })
 
   test('keyboard: the entry is a labelled button the engine can focus and press with Enter', async ($, on) => {
@@ -142,12 +142,12 @@ describe('the band while no team runs', () => {
 
   test('full (the default) shows everything', async ($, on) => {
     await idle($, on)
-    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('Agents 0/3')
+    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('🤖 0/3')
   })
 
   test('once a teammate has started, hidden and minimal give way to the full band', { options: { hudIdle: 'hidden' } }, async ($, on) => {
     await team($, on)
-    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('Agents 2/3')
+    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('🤖 2/3')
   })
 })
 
@@ -252,13 +252,13 @@ describe('Mission Control views', () => {
     await team($, on)
     const b = await band($)
     const p = await pane($)
-    expect((await b.find({ key: OPEN_KEY }))?.text).toContain('Agents 2/3')
+    expect((await b.find({ key: OPEN_KEY }))?.text).toContain('🤖 2/3')
     await p.press({ key: 'mc:hud:compact' })
-    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toMatch(/^CTK ▸ 5h 28% 2h34m/)
+    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toMatch(/^CTK ▸ Ctx 42% │ 5h 28% 2h34m/)
     await p.press({ key: 'mc:hud:standard' })
-    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('T7')
+    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('🔧7')
     await p.press({ key: 'mc:hud:full' })
-    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('Tools 7')
+    expect((await (await band($)).find({ key: OPEN_KEY }))?.text).toContain('🔧 7')
     await p.press({ key: 'mc:hud:auto' })
   })
 

@@ -56,7 +56,7 @@ export type BandOptions = {
    * engine reports for the band plus its margin; a forced HUD form passes its own.
    */
   tierColumns?: number
-  /** The guard's one-word state (`ON`, `ERR`, `–`), shown as `Guard ON`; left out when not given. */
+  /** The guard's one-word state (`ready`, `ON`, `ERR`, ...); drawn only when it needs attention (`ERR`, `unavailable`, `–`). */
   guard?: string
   /** Ordinary subagents live now (not teammates); shown as `Sub 2` only when above zero. */
   subagentsLive?: number
@@ -66,12 +66,15 @@ export type BandOptions = {
   branch?: string | null
 }
 
+/** Guard states that need no words: it is working, or has nothing to do yet. */
+export const GUARD_QUIET = new Set(['ON', 'ready'])
+
 /** Above this many tasks the band points at Mission Control for the whole list. */
 const MORE_TASKS = 6
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
-const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 70, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
+const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 110, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -80,6 +83,10 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
 
   if (mine) {
     out.push({ id: 'model', prio: RANK.model, bold: true, ...modelSegment(s.measured.model) })
+    const ctx = s.measured.contextPct
+    const ctxN = ctx === null || !Number.isFinite(ctx) ? null : ctx
+    const text = `Ctx ${fmtPct(ctx)}`
+    out.push({ id: 'ctx', prio: RANK.context, missing: fmtPct(ctx) === DASH, tone: ctxN === null ? undefined : ctxN >= 80 ? 'bad' : ctxN >= 60 ? 'warn' : undefined, forms: [text, text, text] })
     out.push(
       usageSegment('5h', '5h', RANK.fiveHour, { pct: s.measured.fiveHourPct, resetsAtMs: resetMs(s.measured.fiveHourResetsAt) }, now),
       usageSegment('wk', 'Wk', RANK.sevenDay, { pct: s.measured.sevenDayPct, resetsAtMs: resetMs(s.measured.sevenDayResetsAt) }, now),
@@ -89,16 +96,11 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
     const full = `git:${opts.branch}`
     out.push({ id: 'branch', prio: RANK.branch, forms: [truncateToWidth(full, 28, opts.ambiguous), truncateToWidth(full, 20, opts.ambiguous), ''] })
   }
-  out.push({ id: 'tools', prio: RANK.tools, forms: [`Tools ${s.toolCalls}`, `T${s.toolCalls}`, `T${s.toolCalls}`] })
+  out.push({ id: 'tools', prio: RANK.tools, forms: [`🔧 ${s.toolCalls}`, `🔧${s.toolCalls}`, `🔧${s.toolCalls}`] })
   out.push(agentsSegment(s, snap))
-  if (opts.guard !== undefined) {
+  if (opts.guard !== undefined && !GUARD_QUIET.has(opts.guard)) {
     const text = `Guard ${opts.guard}`
     out.push({ id: 'guard', prio: RANK.guard, missing: opts.guard === DASH, forms: [text, text, ''] })
-  }
-  if (mine) {
-    const ctx = s.measured.contextPct
-    const text = `Ctx ${fmtPct(ctx)}`
-    out.push({ id: 'ctx', prio: RANK.context, missing: fmtPct(ctx) === DASH, forms: [text, text, text] })
   }
   if (opts.subagentsLive !== undefined && opts.subagentsLive > 0) {
     const n = opts.subagentsLive
@@ -132,7 +134,7 @@ const modelSegment = (id: string | null): Pick<Segment, 'forms' | 'missing'> => 
   return label === null ? { missing: true, forms: [DASH, DASH, DASH] } : { forms: [label, label, ''] }
 }
 
-// `Agents 2/3`: live teammates (busy and idle, the figure the cap counts) over the cap. A refused
+// `🤖 2/3`: live teammates (busy and idle, the figure the cap counts) over the cap. A refused
 // spawn is the cap doing its job, so it travels with the segment and is dropped with it.
 const agentsSegment = (s: StatsRecord, snap: Snapshot): Segment => {
   const live = num(snap.live)
@@ -143,9 +145,9 @@ const agentsSegment = (s: StatsRecord, snap: Snapshot): Segment => {
     prio: RANK.agents,
     missing: snap.live === null,
     forms: [
-      `Agents ${live}/${s.maxWorkers}${refused > 0 ? ` (refused ${refused})` : busy}`,
-      `A${live}/${s.maxWorkers}${refused > 0 ? ` !${refused}` : ''}`,
-      `A${live}/${s.maxWorkers}${refused > 0 ? ` !${refused}` : ''}`,
+      `🤖 ${live}/${s.maxWorkers}${refused > 0 ? ` (refused ${refused})` : busy}`,
+      `🤖${live}/${s.maxWorkers}${refused > 0 ? ` !${refused}` : ''}`,
+      `🤖${live}/${s.maxWorkers}${refused > 0 ? ` !${refused}` : ''}`,
     ],
   }
 }

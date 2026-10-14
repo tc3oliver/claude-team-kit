@@ -1,39 +1,37 @@
-# Claude Team Kit 0.1.4 (prerelease)
+# Claude Team Kit 0.1.5 (prerelease)
 
-A small fix release for Mission Control and the status line. No new runtime dependencies (still only
-`zod`), and the worker cap, model routing and sync behaviour are unchanged.
+A small release for the band and the status line: the figures you check most are easier to find. No
+new runtime dependencies (still only `zod`), and the worker cap, model routing and sync behaviour are
+unchanged.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## Usage shows every model the session ran on
+## Context first, and coloured
 
-Mission Control's Usage view showed only the lead's model, so a session that also ran Sonnet
-subagents looked Opus-only. Ordinary subagents' models were never recorded at all, only teammates'.
+- `Ctx` now sits right after the model and is the last figure dropped on a narrow terminal.
+- It turns **yellow from 60%** and **bold red from 80%**, plain below. `CTK_COLOR=0` or any non-empty
+  `NO_COLOR` still turns colour off. The band does the same when the CTK status line is not set up.
+- The status line shows the **directory name** (the last part of the working directory) before the
+  git branch.
 
-- The card is now labelled **Lead model**, and an **Agents** line lists every subagent and teammate
-  model started this session, merged by display name (for example `Sonnet 5.5×3 Haiku 5.5×1`). It
-  appears once one has started, so a lead-only session keeps the row for the note.
-- The stats file gains `subagentModels`, counted only for a subagent that actually started. A stats
-  file written by an earlier version still reads, with an empty count.
-- The status tool's usage line (`ctk_team_status`) carries the same figures.
+## A quieter band
 
-## The status line and the band read apart
-
-- The status line is **coloured by default**: the model in bold cyan, the separators dim.
-  `CTK_COLOR=0` or any non-empty `NO_COLOR` turns it off. Before, it was plain unless `CTK_COLOR=1`.
-  The width maths ignores the escape sequences, so what fits and what is dropped is unchanged.
-- The band's `CTK ▸` entry above the prompt is drawn in the theme's accent colour and underlined, so
-  it reads as the button it is (a click opens Mission Control).
+- Tool calls and live agents are `🔧 153` and `🤖 2/3 (1 busy)`.
+- `Guard ready` and `Guard ON` are gone. The guard is named only when it needs attention (`ERR`,
+  `unavailable`, `–`); `/ctk-doctor` and Mission Control still show its state. With
+  `hud.idle: minimal` the band is just the `CTK ▸` entry until something needs saying.
+- One blank line above the band separates it from the conversation.
+- The emoji take two cells each, so a very narrow terminal drops a figure a little sooner.
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.3 to 0.1.4 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.4 to 0.1.5 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
-If you preferred the plain status line, set `CTK_COLOR=0` in the `env` object of your
+If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
 `settings.json`.
 
 ## Install
@@ -54,7 +52,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.3`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.4`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -93,8 +91,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.4` with the npm tarball attached. The earlier prereleases
-`v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.5` with the npm tarball attached. The earlier prereleases
+`v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.4` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.5` does. `npm publish` stays a
 manual step after review.

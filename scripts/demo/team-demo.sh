@@ -158,9 +158,9 @@ prepare() {
 record() {
   require_inputs
   local ABORT='(?:[4-9]|\d{2,}) busy|· \$[2-9]\.\d\d|· \$\d{2,}'
-  [ "$RUN" = e ] && ABORT='Agents (?:[4-9]|\d{2,})/|[│·] \$[3-9]\.\d\d|[│·] \$\d{2,}'
+  [ "$RUN" = e ] && ABORT='🤖 (?:[4-9]|\d{2,})/|[│·] \$[3-9]\.\d\d|[│·] \$\d{2,}'
   # Run f: no budget, only a runaway guard at $10 and the cap (more than 3 agents)
-  [ "$RUN" = f ] && ABORT='Agents (?:[4-9]|\d{2,})/|[│·] \$\d{2,}\.\d\d'
+  [ "$RUN" = f ] && ABORT='🤖 (?:[4-9]|\d{2,})/|[│·] \$\d{2,}\.\d\d'
   local masks=() extra=() script=team-demo.script.json
   if [ "$NATIVE" = 1 ]; then script=team-demo-c.script.json; [ "$RUN" = e ] && script=mission-control-e.script.json; [ "$RUN" = f ] && script=mission-control-f.script.json; extra=(--meta "install=native (marketplace add ${CTK_DEMO_MARKETPLACE:-tc3oliver/claude-team-kit})"); fi
   [ -n "${CTK_DEMO_MASKS_FILE:-}" ] && masks=(--mask-file "$CTK_DEMO_MASKS_FILE")
@@ -181,7 +181,7 @@ record() {
 render_mission() {
   local f=$ASSETS/$PREFIX.frames.jsonl svg="$ROOT/scripts/demo/render-svg.mjs"
   node "$svg" "$f" --out "$ASSETS/$PREFIX.svg" --target-seconds 45 --max-gap 2 --title 'ctk: from the band to Mission Control'
-  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-band.svg" --at-regex 'Agents 3/3[\s\S]*Guard ON' --title 'ctk: the band while three workers run'
+  node "$svg" "$f" --static-out "$ASSETS/$PREFIX-band.svg" --at-regex '🤖 3/3' --title 'ctk: the band while three workers run'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-overview.svg" --at-regex 'CTK MISSION CONTROL[\s\S]*SLOTS' --title 'ctk: Mission Control, overview'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-workers.svg" --at-regex '(RUNNING|IDLE|DONE) +\S+ [\d.]+[\s\S]*Select (a worker )?for details' --title 'ctk: Mission Control, workers'
   node "$svg" "$f" --static-out "$ASSETS/$PREFIX-tasks.svg" --at-regex 'marked complete[\s\S]*needs ' --title 'ctk: Mission Control, tasks and their dependencies'

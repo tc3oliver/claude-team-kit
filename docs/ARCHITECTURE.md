@@ -196,10 +196,10 @@ and those counters. It is redrawn on events only (a session measure, a turn end,
 a spawn decision, and at most once a second for tool calls); nothing polls.
 
 ```
-Sonnet 5.5 │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ git:main │ Tools 153 │ Agents 2/3 (1 busy) │ Ctx 42% │ Tasks 3/6 │ $0.94 (12m)
+Sonnet 5.5 │ Ctx 42% │ 5h 28% (2h34m) │ Wk 51% (3d12h) │ git:main │ 🔧 153 │ 🤖 2/3 (1 busy) │ Tasks 3/6 │ $0.94 (12m)
 ```
 
-`Agents 2/3` is live teammates (busy and idle: the figure the cap counts) over the cap, with
+`🔧 153` is tool calls and `🤖 2/3` is live teammates (busy and idle: the figure the cap counts) over the cap, with
 `(refused n)` once the cap has refused a spawn. `Tasks a/b` is completed/created. A figure Claude
 Code did not report is `–`, never `0%` and never an invented reset time. The band yields to
 Claude Code's survey prompt.
@@ -233,8 +233,8 @@ runs both over thousands of random inputs so they cannot drift. The terminal wid
 
 | Terminal | Form |
 |---|---|
-| 120 columns or more | Full wording: `5h 28% (2h34m)`, `Tools 153`, `Agents 2/3 (1 busy)` |
-| 80 to 119 | Abbreviated: `5h 28% 2h34m`, `T153`, `A2/3` |
+| 120 columns or more | Full wording: `5h 28% (2h34m)`, `🔧 153`, `🤖 2/3 (1 busy)` |
+| 80 to 119 | Abbreviated: `5h 28% 2h34m`, `🔧153`, `🤖2/3` |
 | under 80 | The three most important figures only, abbreviated |
 
 If the form is still too wide, whole figures are dropped, lowest rank first, so a figure is never
@@ -318,7 +318,7 @@ touching a spawn decision. The band, stats and counters can fail; the cap fails 
 
 `ctk-statusline.mjs` is intended for builds without mods (older Claude Code; WSL is reported
 unsupported for mods and has not been tested). Claude Code runs it as the `statusLine` command and passes a JSON document on stdin;
-the script prints one line such as `Opus 5.5 │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m) │ main*`.
+the script prints one line such as `Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m) │ my-repo │ main*`. Context is placed first and turns yellow from 60% and red from 80%; the directory name is the last part of the working directory.
 It reads only that JSON, `.git/HEAD` for the branch (and the repository's git config files),
 and runs one `git status --porcelain -uno` (250 ms timeout) for the dirty marker. A repository's
 own config can make git run commands (`core.fsmonitor`, filters, hooks, pagers, aliases,

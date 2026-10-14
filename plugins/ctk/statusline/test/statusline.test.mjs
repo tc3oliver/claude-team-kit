@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { displayWidth, fmtCountdown, render, resetMs, STATUS_LINE_MARGIN, tierOf, truncateToWidth } from '../ctk-statusline.mjs'
 
@@ -49,17 +49,17 @@ const at = (input, env = {}) => render(input, { CTK_COLOR: '0', ...env }, NOW)
 const wide = { COLUMNS: '200' }
 
 test('full subscription payload at a wide terminal', () => {
-  assert.equal(at(FULL, wide), 'Opus 5.5 │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m)')
+  assert.equal(at(FULL, wide), 'Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m)')
 })
 
 test('abbreviated between 80 and 119 columns', () => {
-  assert.equal(at(FULL, { COLUMNS: '100' }), 'Opus 5.5 │ 5h 24% 2h34m │ Wk 61% 3d12h │ Ctx 42% │ $1.23')
+  assert.equal(at(FULL, { COLUMNS: '100' }), 'Opus 5.5 │ Ctx 42% │ 5h 24% 2h34m │ Wk 61% 3d12h │ $1.23')
   assert.equal(at(FULL, { COLUMNS: '80' }), at(FULL, { COLUMNS: '100' }))
 })
 
 test('only the essentials under 80 columns', () => {
-  assert.equal(at(FULL, { COLUMNS: '79' }), '5h 24% 2h34m │ Wk 61% 3d12h │ Ctx 42%')
-  assert.equal(at(FULL, { COLUMNS: '31' }), '5h 24% 2h34m │ Wk 61% 3d12h')
+  assert.equal(at(FULL, { COLUMNS: '79' }), 'Ctx 42% │ 5h 24% 2h34m │ Wk 61% 3d12h')
+  assert.equal(at(FULL, { COLUMNS: '31' }), 'Ctx 42% │ 5h 24% 2h34m')
 })
 
 test('no usable terminal width means a safe 80 columns', () => {
@@ -80,22 +80,22 @@ test('the line fits every width from 1 to 250 columns', () => {
 
 test('API-key payload without rate_limits shows dashes, not zeros', () => {
   const { rate_limits, ...rest } = FULL
-  assert.equal(at(rest, wide), 'Opus 5.5 │ 5h – │ Wk – │ Ctx 42% │ $1.23 (12m)')
+  assert.equal(at(rest, wide), 'Opus 5.5 │ Ctx 42% │ 5h – │ Wk – │ $1.23 (12m)')
 })
 
 test('empty object and nulls', () => {
-  assert.equal(at({}, wide), '– │ 5h – │ Wk – │ Ctx – │ –')
-  assert.equal(at({ context_window: { used_percentage: null } }, wide), '– │ 5h – │ Wk – │ Ctx – │ –')
-  assert.equal(at(null, wide), '– │ 5h – │ Wk – │ Ctx – │ –')
+  assert.equal(at({}, wide), '– │ Ctx – │ 5h – │ Wk – │ –')
+  assert.equal(at({ context_window: { used_percentage: null } }, wide), '– │ Ctx – │ 5h – │ Wk – │ –')
+  assert.equal(at(null, wide), '– │ Ctx – │ 5h – │ Wk – │ –')
 })
 
 test('a window with a percentage but no reset time shows without a countdown', () => {
-  assert.equal(at({ rate_limits: { five_hour: { used_percentage: 12 } } }, wide), '– │ 5h 12% │ Wk – │ Ctx – │ –')
+  assert.equal(at({ rate_limits: { five_hour: { used_percentage: 12 } } }, wide), '– │ Ctx – │ 5h 12% │ Wk – │ –')
 })
 
 test('a window whose reset time has passed is a dash, not last window’s number', () => {
   const stale = { rate_limits: { five_hour: { used_percentage: 99, resets_at: NOW / 1000 - 60 } } }
-  assert.equal(at(stale, wide), '– │ 5h – │ Wk – │ Ctx – │ –')
+  assert.equal(at(stale, wide), '– │ Ctx – │ 5h – │ Wk – │ –')
 })
 
 test('the reset time is epoch seconds; milliseconds and ISO strings mean the same instant', () => {
@@ -123,7 +123,7 @@ test('percentages are rounded', () => {
 })
 
 test('effort is shown after the model when present, in the wide form only', () => {
-  assert.equal(at({ ...FULL, effort: { level: 'high' } }, wide), 'Opus 5.5 high │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m)')
+  assert.equal(at({ ...FULL, effort: { level: 'high' } }, wide), 'Opus 5.5 high │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m)')
   assert.ok(at({ ...FULL, effort: { level: 'high' } }, { COLUMNS: '100' }).startsWith('Opus 5.5 │'))
 })
 
@@ -176,18 +176,18 @@ test('layout helpers behave', () => {
   assert.equal(tierOf(79), 2)
 })
 
-test('no git segment when the workspace is not a repository', t => {
+test('the directory name is shown without a repository, and no branch', t => {
   const dir = tempDir(t)
-  assert.equal(at(withDir(dir), wide), at(FULL, wide))
+  assert.equal(at(withDir(dir), wide), `Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m) │ ${basename(dir)}`)
 })
 
 test('no git segment without a workspace directory', () => {
-  assert.equal(at(FULL, wide), 'Opus 5.5 │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m)')
+  assert.equal(at(FULL, wide), 'Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m)')
 })
 
 test('branch is read from .git/HEAD', t => {
   const dir = makeRepo(t)
-  assert.equal(at(withDir(dir), wide), 'Opus 5.5 │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ Ctx 42% │ $1.23 (12m) │ main')
+  assert.equal(at(withDir(dir), wide), `Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ Wk 61% (3d12h) │ $1.23 (12m) │ ${basename(dir)} │ main`)
 })
 
 test('branch is read from a subdirectory of the repository', t => {
@@ -240,9 +240,9 @@ test('Claude Code indents the status line and keeps two columns free: the line i
 })
 
 test('a width too narrow for any figure ends with an ellipsis', () => {
-  const line = at(FULL, { COLUMNS: '12' })
-  assert.equal(line, '5h 24% …')
-  assert.equal(displayWidth(line), 8)
+  const line = at(FULL, { COLUMNS: '8' })
+  assert.equal(line, 'Ctx…')
+  assert.equal(displayWidth(line), 4)
 })
 
 test('COLUMNS wider than the line leaves it untouched', () => {
@@ -254,7 +254,14 @@ test('styling never splits an ANSI sequence and adds no width', () => {
   assert.ok(styled.startsWith('\x1b[1;36mOpus 5.5\x1b[22;39m\x1b[2m │ \x1b[22m'))
   assert.equal(styled.replace(/\x1b\[[0-9;]*m/g, ''), at(FULL, { COLUMNS: '100' }))
   const narrow = at(FULL, { CTK_COLOR: '1', COLUMNS: '12' })
-  assert.equal(narrow, '5h 24% …')
+  assert.equal(narrow, 'Ctx 42%')
+})
+
+test('context turns yellow from 60% and red from 80%, and stays plain below', () => {
+  const ctx = pct => render({ ...FULL, context_window: { used_percentage: pct } }, wide, NOW)
+  assert.ok(!ctx(59).includes('\x1b[33m') && !ctx(59).includes('\x1b[1;31m'))
+  assert.ok(ctx(60).includes('\x1b[33mCtx 60%\x1b[39m'))
+  assert.ok(ctx(80).includes('\x1b[1;31mCtx 80%\x1b[22;39m'))
 })
 
 test('colour is on by default; CTK_COLOR=0 or NO_COLOR turns it off', () => {

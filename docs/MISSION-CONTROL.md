@@ -62,7 +62,7 @@ Claude Code started as members of a team, which the worker cap counts. An `Agent
 ordinary subagent: the cap does not count it, and it is not a worker. Those are listed in their own section
 ("Ordinary subagents", with the type, status and description the roster reports), counted on the Overview as
 `Subagents`, and shown on the band as `Sub 2`. Nothing else is known about them: no model, no tool calls, no cost.
-`Guard ON` means a spawn event has reached the guard, and its text says how many of those were teammates; it does
+`Guard ON` (shown here, not on the band, which names the guard only when it needs attention) means a spawn event has reached the guard, and its text says how many of those were teammates; it does
 not mean a team started.
 
 **An empty page says why.** With no teammate, Workers says whether Agent Teams are off, or that none has started

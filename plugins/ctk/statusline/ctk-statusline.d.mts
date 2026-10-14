@@ -5,6 +5,7 @@ export type Segment = {
   forms: readonly [string, string, string]
   missing?: boolean
   bold?: boolean
+  tone?: 'warn' | 'bad'
 }
 export type Window = { pct: number | null | undefined; resetsAtMs: number | null }
 export type LayoutOptions = { columns: number; tierColumns?: number; ambiguous?: 1 | 2; color?: boolean }

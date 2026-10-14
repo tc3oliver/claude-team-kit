@@ -290,15 +290,15 @@ test('team-demo.sh guard: aborts at a cost of $2.00 or more or more than 3 busy 
 test('team-demo.sh guard for the Mission Control run: more than 3 agents or $3.00 or more', () => {
   const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
   const guard = new RegExp([...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)[1] as string)
-  for (const hit of ['Agents 4/3', 'Agents 12/3', 'Guard ON │ Ctx 5% │ $3.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
-  for (const miss of ['Agents 3/3 (1 busy)', 'Agents 0/3', '│ $2.99 (4m)', 'Tools 31 │ Agents 3/3', '$0.94']) assert.doesNotMatch(miss, guard, miss)
+  for (const hit of ['🤖 4/3', '🤖 12/3', 'Ctx 5% │ $3.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
+  for (const miss of ['🤖 3/3 (1 busy)', '🤖 0/3', '│ $2.99 (4m)', '🔧 31 │ 🤖 3/3', '$0.94']) assert.doesNotMatch(miss, guard, miss)
 })
 
 test('team-demo.sh guard for Run F: more than 3 agents or $10.00 or more, not $9.99', () => {
   const script = readFileSync(join(import.meta.dirname, '..', 'scripts', 'demo', 'team-demo.sh'), 'utf8')
   const guard = new RegExp([...script.matchAll(/ABORT='([^']+)'/g)].map(m => m[1] as string)[2] as string)
-  for (const hit of ['Agents 4/3', 'Agents 12/3', 'Guard ON │ Ctx 5% │ $10.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
-  for (const miss of ['Agents 3/3 (1 busy)', 'Agents 0/3', '│ $9.99 (4m)', '│ $3.50 (4m)', 'Tools 31 │ Agents 3/3']) assert.doesNotMatch(miss, guard, miss)
+  for (const hit of ['🤖 4/3', '🤖 12/3', 'Ctx 5% │ $10.00 (2m)', '│ $12.10']) assert.match(hit, guard, hit)
+  for (const miss of ['🤖 3/3 (1 busy)', '🤖 0/3', '│ $9.99 (4m)', '│ $3.50 (4m)', '🔧 31 │ 🤖 3/3']) assert.doesNotMatch(miss, guard, miss)
 })
 
 test('mask-frames applies masks after capture and says so in the meta line', () => {

@@ -65,7 +65,7 @@ If you cannot ask or receive no decision, stop before any installation or settin
   over an existing install and never remove one to "start clean": an uninstall deletes the person's plugin options
   (`maxWorkers`, the model choices, the band), and a reinstall does not restore them.
   - **Not listed** → go to step 2 (fresh install).
-  - **Listed at the current release** (`v0.1.4` as of this writing; the newest tag under
+  - **Listed at the current release** (`v0.1.5` as of this writing; the newest tag under
     <https://github.com/tc3oliver/claude-team-kit/releases> is authoritative) → skip to step 3 and keep everything as it
     is. There is nothing to install and the options are already correct.
   - **Listed at an older version** → *update*, do not reinstall. From a shell:
@@ -99,10 +99,10 @@ update` later moves to whatever `main` is at. Every CTK release so far is a **Gi
 tag. To install a known release instead of tracking `main`, pin the tag on the first command:
 
 ```sh
-claude plugin marketplace add tc3oliver/claude-team-kit#<release-tag>   # e.g. #v0.1.4
+claude plugin marketplace add tc3oliver/claude-team-kit#<release-tag>   # e.g. #v0.1.5
 ```
 
-`<release-tag>` is any tag under <https://github.com/tc3oliver/claude-team-kit/releases>; the latest is `v0.1.4`. A
+`<release-tag>` is any tag under <https://github.com/tc3oliver/claude-team-kit/releases>; the latest is `v0.1.5`. A
 pinned install stays frozen at that tag (`plugin update` will not switch it to a different one) — see the pinned case in
 step 1 for how to move it later. Pin the newest release unless the person asked for a specific older one; do not pin an
 old tag by default.

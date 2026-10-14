@@ -111,10 +111,10 @@ describe('ordinary subagents, as in the real session', () => {
     expect(s).toMatchObject({ live: 0, rejected: 0, subagents: { total: 6 } })
   })
 
-  test('the band shows how many are live, apart from Agents n/cap', async ($, on) => {
+  test('the band shows how many are live, apart from 🤖 n/cap', async ($, on) => {
     await run($, on)
     const line = flat(await (await band($)).drawn())
-    expect(line).toContain('Agents 0/3')
+    expect(line).toContain('🤖 0/3')
     expect(line).toContain('Sub 3')
   })
 

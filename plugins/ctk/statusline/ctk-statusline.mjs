@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ctk status line: reads the status line JSON Claude Code writes to stdin and prints one
-// line (model, 5h and weekly usage with reset countdowns, context, cost, git branch), laid
+// line (model, context, 5h and weekly usage with reset countdowns, cost, directory, git branch), laid
 // out for the terminal width Claude Code reports in $COLUMNS. Reads only .git/HEAD and the
 // repo's git config files, and runs one `git status` for the dirty marker. No network, no
 // credentials, no transcript, no tool or agent counts (Claude Code does not put them in the
@@ -9,7 +9,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const CONTROL = /[\x00-\x1f\x7f-\x9f]/g
@@ -35,6 +35,8 @@ const SEP = ' │ '
 const DEFAULT_COLUMNS = 80
 const MIN_TIER_SEGMENTS = 3
 const BOLD = ['\x1b[1;36m', '\x1b[22;39m']
+// A segment's `tone` is a reminder colour: yellow for warn, bold red for bad.
+const TONE = { warn: ['\x1b[33m', '\x1b[39m'], bad: ['\x1b[1;31m', '\x1b[22;39m'] }
 // Dim separators set the status line apart from the band above, which is all one dim colour.
 const DIM_SEP = `\x1b[2m${SEP}\x1b[22m`
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g
@@ -175,7 +177,11 @@ const layoutLine = (segments, opts) => {
     }
     items = [{ s: only.s, text: truncateToWidth(text, columns, amb) }]
   }
-  return items.map(i => (opts.color === true && i.s.bold === true ? `${BOLD[0]}${i.text}${BOLD[1]}` : i.text)).join(opts.color === true ? DIM_SEP : SEP)
+  const paint = i => {
+    const wrap = opts.color === true ? (i.s.bold === true ? BOLD : TONE[i.s.tone]) : undefined
+    return wrap ? `${wrap[0]}${i.text}${wrap[1]}` : i.text
+  }
+  return items.map(paint).join(opts.color === true ? DIM_SEP : SEP)
 }
 
 const elapsed = ms => {
@@ -267,6 +273,7 @@ const gitSegment = dir => {
 }
 
 // Segments in display order; `prio` is what survives a narrow terminal (higher is kept longer).
+// Context is first after the model and the last to go, and turns yellow at 60% and red at 80%.
 // Tools and agents are not here on purpose: Claude Code's status line JSON has no such counts and
 // reading the transcript is off the table, so the Mods band, which counts tool events, shows them.
 export const segmentsFor = (input, nowMs = Date.now()) => {
@@ -277,7 +284,10 @@ export const segmentsFor = (input, nowMs = Date.now()) => {
   const dir = str(input?.workspace?.current_dir) ?? str(input?.cwd)
   const cost = num(input?.cost?.total_cost_usd)
   const ms = num(input?.cost?.total_duration_ms)
-  const ctx = fmtPct(num(cw.used_percentage))
+  const ctxN = num(cw.used_percentage)
+  const ctx = fmtPct(ctxN)
+  const ctxTone = ctxN === null ? undefined : ctxN >= 80 ? 'bad' : ctxN >= 60 ? 'warn' : undefined
+  const dirName = dir === null ? null : str(basename(dir))
   const costText = cost === null ? DASH : `$${cost.toFixed(2)}`
   const git = dir === null ? null : gitSegment(dir)
 
@@ -285,9 +295,9 @@ export const segmentsFor = (input, nowMs = Date.now()) => {
     model === null
       ? { id: 'model', prio: 60, missing: true, bold: true, forms: [DASH, DASH, DASH] }
       : { id: 'model', prio: 60, bold: true, forms: [effort ? `${model} ${effort}` : model, model, ''] },
+    { id: 'ctx', prio: 110, missing: ctx === DASH, tone: ctxTone, forms: [`Ctx ${ctx}`, `Ctx ${ctx}`, `Ctx ${ctx}`] },
     usageSegment('5h', '5h', 100, { pct: num(rl.five_hour?.used_percentage), resetsAtMs: resetMs(rl.five_hour?.resets_at) }, nowMs),
     usageSegment('wk', 'Wk', 90, { pct: num(rl.seven_day?.used_percentage), resetsAtMs: resetMs(rl.seven_day?.resets_at) }, nowMs),
-    { id: 'ctx', prio: 70, missing: ctx === DASH, forms: [`Ctx ${ctx}`, `Ctx ${ctx}`, `Ctx ${ctx}`] },
     {
       id: 'cost',
       prio: 30,
@@ -295,6 +305,10 @@ export const segmentsFor = (input, nowMs = Date.now()) => {
       forms: [ms === null || cost === null ? costText : `${costText} (${elapsed(ms)})`, costText, ''],
     },
   ]
+  if (dirName) {
+    const name = truncateToWidth(dirName, 24)
+    segments.push({ id: 'dir', prio: 25, forms: [name, name, ''] })
+  }
   if (git !== null) segments.push({ id: 'git', prio: 20, forms: [git, git, ''] })
   return segments
 }

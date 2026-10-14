@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-15 (prerelease)
+
+### Changed
+
+- The status line puts `Ctx` right after the model, keeps it longest on a narrow terminal, and colours it as a reminder: yellow from 60% and bold red from 80%, plain below. The band does the same when the CTK status line is not configured.
+- The status line shows the name of the working directory (the last path component, cut at 24 cells) before the git branch.
+- The band writes tool calls and live agents as `🔧 153` and `🤖 2/3 (1 busy)` instead of `Tools 153` and `Agents 2/3 (1 busy)`. The guard is named (`Guard ERR`, `Guard unavailable`, `Guard –`) only when it needs attention; `ON` and `ready` are no longer spelled out, and `hud.idle: minimal` shows just the `CTK ▸` entry while the guard is fine.
+- The band has one blank line above it, so it reads apart from the conversation.
+- `scripts/demo/team-demo.sh` aborts on `🤖 N/` instead of `Agents N/`; a recording that starts more teammates than the cap still stops.
+
 ## [0.1.4] - 2026-10-13 (prerelease)
 
 ### Fixed

@@ -29,6 +29,7 @@ const randomSegments = (): ts.Segment[] =>
       prio: rand(120),
       missing: rand(5) === 0,
       bold: rand(3) === 0,
+      ...(rand(3) === 0 ? { tone: pick(['warn', 'bad'] as const) } : {}),
       forms: [pick(WORDS), rand(2) === 0 ? f : pick(WORDS), rand(3) === 0 ? '' : f] as const,
     }
   })

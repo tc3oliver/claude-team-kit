@@ -4,7 +4,7 @@ import { readOptions } from '../shared/policy.ts'
 import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import { BAND_MARGIN, formatBand, formatSummary } from './band.ts'
+import { BAND_MARGIN, formatBand, formatSummary, GUARD_QUIET } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
 import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
@@ -713,7 +713,7 @@ export const register: Register = (on, options) => {
   // opens Mission Control. The line itself is laid out for the room left after the `CTK ▸` entry.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!c.opts.hudBand || !c.ready || e.props.hasSurvey) return next(e)
-    const { Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const entry = 'CTK ▸ '
     const guard = guardOf(c.stats, c.snap, c.teamsEnabled, c.ready).label
     // Until a teammate has started, the band may show less: only the entry and the guard, or nothing
@@ -722,7 +722,7 @@ export const register: Register = (on, options) => {
     const idle = c.mission.workers.size === 0 && (c.snap.live ?? 0) === 0 && c.stats.spawnsAccepted === 0 && !waiting
     if (idle && c.opts.hudIdle === 'hidden') return next(e)
     const room = e.props.bodyColumns - displayWidth(entry, c.ambiguous)
-    const line = idle && c.opts.hudIdle === 'minimal' ? `Guard ${guard}` : formatBand(c.stats, c.snap, room, {
+    const line = idle && c.opts.hudIdle === 'minimal' ? (GUARD_QUIET.has(guard) ? '' : `Guard ${guard}`) : formatBand(c.stats, c.snap, room, {
       nowMs: c.lastNow,
       ambiguous: c.ambiguous,
       coordinated: c.coordinated,
@@ -733,12 +733,14 @@ export const register: Register = (on, options) => {
       tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,
     })
     return (
-      <Button key={OPEN_KEY} plain label="Open CTK Mission Control" onPress={noop}>
-        {/* Accent and underline say the band is a button; the figures stay dim. */}
-        <Text bold underline color="suggestion">{entry.trimEnd()}</Text>
-        <Text> </Text>
-        <Text dimColor>{line}</Text>
-      </Button>
+      <Box marginTop={1}>
+        <Button key={OPEN_KEY} plain label="Open CTK Mission Control" onPress={noop}>
+          {/* Accent and underline say the band is a button; the figures stay dim. */}
+          <Text bold underline color="suggestion">{entry.trimEnd()}</Text>
+          <Text> </Text>
+          <Text dimColor>{line}</Text>
+        </Button>
+      </Box>
     )
   })
 
