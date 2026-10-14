@@ -104,6 +104,12 @@ export const truncateToWidth = (s: string, max: number, ambiguous: 1 | 2 = 1): s
 
 const finite = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
+/** How loud a pressure figure (context, a rate-limit window) is: yellow from 60%, red from 80%, plain below or when unknown. */
+export const pressureTone = (pct: number | null | undefined): 'warn' | 'bad' | undefined => {
+  const n = finite(pct)
+  return n === null ? undefined : n >= 80 ? 'bad' : n >= 60 ? 'warn' : undefined
+}
+
 /** A usage percentage, rounded; null (a dash) when it was not reported. */
 export const fmtPct = (v: number | null | undefined): string => {
   const n = finite(v)
@@ -155,9 +161,11 @@ export const usageSegment = (id: string, label: string, prio: number, w: Window,
   const f = windowFigures(w, nowMs)
   if (f.missing) return { id, prio, missing: true, forms: [`${label} ${DASH}`, `${label} ${DASH}`, `${label} ${DASH}`] }
   const base = `${label} ${f.pct}`
+  const tone = pressureTone(w.pct)
   return {
     id,
     prio,
+    ...(tone === undefined ? {} : { tone }),
     forms: f.countdown === null ? [base, base, base] : [`${base} (${f.countdown})`, `${base} ${f.countdown}`, `${base} ${f.countdown}`],
   }
 }
@@ -191,7 +199,7 @@ const effective = (s: Segment): number => (s.missing === true ? s.prio - 1000 : 
  * line is never cut mid-figure. Only when a single segment alone does not fit is it shortened
  * (a more abbreviated form first, then `…`). Segments keep their given display order.
  */
-export const layoutLine = (segments: readonly Segment[], opts: LayoutOptions): string => {
+export const layoutItems = (segments: readonly Segment[], opts: LayoutOptions): { s: Segment; text: string }[] => {
   const columns = Number.isFinite(opts.columns) && opts.columns >= 1 ? Math.floor(opts.columns) : DEFAULT_COLUMNS
   const amb = opts.ambiguous === 2 ? 2 : 1
   const tier = tierOf(Number.isFinite(opts.tierColumns) && (opts.tierColumns as number) >= 1 ? (opts.tierColumns as number) : columns)
@@ -231,6 +239,11 @@ export const layoutLine = (segments: readonly Segment[], opts: LayoutOptions): s
     }
     items = [{ s: only.s, text: truncateToWidth(text, columns, amb) }]
   }
+  return items
+}
+
+export const layoutLine = (segments: readonly Segment[], opts: LayoutOptions): string => {
+  const items = layoutItems(segments, opts)
   const paint = (i: { s: Segment; text: string }): string => {
     const wrap = opts.color === true ? (i.s.bold === true ? BOLD : i.s.tone === undefined ? undefined : TONE[i.s.tone]) : undefined
     return wrap ? `${wrap[0]}${i.text}${wrap[1]}` : i.text

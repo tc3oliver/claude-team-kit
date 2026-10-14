@@ -86,3 +86,13 @@ test('tier thresholds agree', () => {
   assert.equal(mjs.SEP, ts.SEP)
   assert.equal(mjs.DASH, ts.DASH)
 })
+
+test('pressure tone: both copies colour 60% and 80% the same, and a usage window carries it', () => {
+  for (const v of [null, undefined, Number.NaN, -1, 0, 59.9, 60, 79.99, 80, 100, 250]) {
+    assert.equal(mjs.pressureTone(v), ts.pressureTone(v), String(v))
+  }
+  const now = 1_000_000
+  for (const pct of [10, 60, 85]) {
+    assert.deepEqual(mjs.usageSegment('5h', '5h', 100, { pct, resetsAtMs: now + 3600_000 }, now), ts.usageSegment('5h', '5h', 100, { pct, resetsAtMs: now + 3600_000 }, now))
+  }
+})

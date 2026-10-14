@@ -87,10 +87,13 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     const st = statusOf(w.status)
     // The numbers are never cut: from the narrowest room, 'last' and 'ago' go first, then the time since spawn, then the tool count; the task is what gets the ellipsis.
     const task = w.currentTask ?? DASH
-    const age = w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)
+    // An idle worker shows how long it has been idle (from TeammateIdle), a dash when not observed; any other shows its last activity.
+    const idle = w.status === 'idle'
+    const age = idle ? (w.idleMs === null ? DASH : fmtSpan(w.idleMs)) : w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)
+    const word = idle ? 'idle' : 'last'
     const tools = `${w.toolCalls ?? DASH} tools`
     const clock = w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs)
-    const tails = [[tools, clock, `last ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
+    const tails = [[tools, clock, `${word} ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
     const need = Math.min(displayWidth(task, ambiguous), TASK_MIN)
     const tail = tails.find(t => room - gw - displayWidth(t, ambiguous) - 3 >= need) ?? tails[tails.length - 1]!
     const detail = `${ctx.clip(task, Math.max(1, room - gw - displayWidth(tail, ambiguous) - 3))} · ${tail}`

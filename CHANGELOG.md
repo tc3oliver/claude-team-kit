@@ -4,11 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.6] - 2026-10-15 (prerelease)
+
+### Fixed
+
+- The band's `Ctx` was never coloured, although 0.1.5 said it was: the colour was computed but the band was drawn as one dim text. The band is now drawn piece by piece, so a figure under pressure is yellow (from 60%) or bold red (from 80%) and the rest stays dim. `5h` and `Wk` follow the same rule in the band and the status line.
+
+### Changed
+
+- Mission Control's header shows a badge for each figure under pressure (`Ctx 82%`, `5h 61%`, `Wk 70%`, from 60%), so it is visible on every page. The header stays one line: `read-only`, then weekly and 5h, then the long title give way, context last.
+- One rule for pressure everywhere: quiet below 60%, yellow from 60%, red from 80%. The Overview and Usage bars for context, 5h and weekly used 70/90 and drew a healthy bar green; they now follow the band. Task progress bars are unchanged. Usage lists `CTX` first.
+- Overview lists the workers (up to four, each a button that opens its detail, then `+N · 2: Workers`) instead of the duplicate WORKERS and REFUSED cards, and keeps the context line visible down to 50 columns. The session line (tool calls, ordinary subagents) moved out of the Overview; Usage has the tool calls.
+- Workers shows how long an idle teammate has been idle (`idle 4m`, or a dash when not observed).
+- Doctor keeps to the page's row budget and ends with `+N more` when there are many fixes.
+
 ## [0.1.5] - 2026-10-15 (prerelease)
 
 ### Changed
 
-- The status line puts `Ctx` right after the model, keeps it longest on a narrow terminal, and colours it as a reminder: yellow from 60% and bold red from 80%, plain below. The band does the same when the CTK status line is not configured.
+- The status line puts `Ctx` right after the model, keeps it longest on a narrow terminal, and colours it as a reminder: yellow from 60% and bold red from 80%, plain below. The band was meant to do the same when the CTK status line is not configured, but 0.1.5 did not draw it (the band was one dim text); fixed in the next release.
 - The status line shows the name of the working directory (the last path component, cut at 24 cells) before the git branch.
 - The band writes tool calls and live agents as `🔧 153` and `🤖 2/3 (1 busy)` instead of `Tools 153` and `Agents 2/3 (1 busy)`. The guard is named (`Guard ERR`, `Guard unavailable`, `Guard –`) only when it needs attention; `ON` and `ready` are no longer spelled out, and `hud.idle: minimal` shows just the `CTK ▸` entry while the guard is fine.
 - The band has one blank line above it, so it reads apart from the conversation.

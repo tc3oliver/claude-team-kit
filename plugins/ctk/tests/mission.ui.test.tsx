@@ -74,6 +74,24 @@ describe('the band opens Mission Control', () => {
     expect(button?.text).toMatch(/^CTK ▸ .*🤖 2\/3/)
   })
 
+  test('a context figure under pressure is drawn in the warning colours, a quiet one stays dim', async ($, on) => {
+    const w = await team($, on)
+    const colourOf = async (): Promise<string[]> => {
+      const out: string[] = []
+      const walk = (n: any): void => {
+        if (n === null || typeof n !== 'object') return
+        if (n.type === 'Text' && flat(n).startsWith('Ctx')) out.push(`${n.props?.color ?? 'dim'}`)
+        for (const c of n.children ?? []) walk(c)
+      }
+      walk(await (await band($)).drawn())
+      return out
+    }
+    expect(await colourOf()).toEqual(['dim'])
+    w.usage!.context!.percent = 85
+    await $.turn.complete({ answer: '', reason: 'answer', durationMs: 1 })
+    expect(await colourOf()).toEqual(['error'])
+  })
+
   test('keyboard: the entry is a labelled button the engine can focus and press with Enter', async ($, on) => {
     await team($, on)
     const m = await band($)
@@ -155,7 +173,7 @@ describe('Mission Control views', () => {
   test('overview: guard, workers, tasks, team time and usage', async ($, on) => {
     await team($, on)
     const t = await texts(await pane($))
-    for (const want of ['ACTIVE', 'SLOTS', 'WORKERS', '2/3', 'TASKS', '0/3', '2 pending', '1 doing', '1 blocked', '1 ready', '5H', '28%', 'resets 2h34m', '7 tool calls']) {
+    for (const want of ['ACTIVE', 'SLOTS', 'w-rle', '2/3', 'TASKS', '0/3', '1 blocked', 'CTX', '5H', '28%', '2h34m']) {
       expect(t).toContain(want)
     }
   })

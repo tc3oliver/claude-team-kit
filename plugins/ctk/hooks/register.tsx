@@ -4,7 +4,7 @@ import { readOptions } from '../shared/policy.ts'
 import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import { BAND_MARGIN, formatBand, formatSummary, GUARD_QUIET } from './band.ts'
+import { BAND_MARGIN, BAND_SEP, bandParts, formatSummary, GUARD_QUIET } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
 import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
@@ -722,23 +722,33 @@ export const register: Register = (on, options) => {
     const idle = c.mission.workers.size === 0 && (c.snap.live ?? 0) === 0 && c.stats.spawnsAccepted === 0 && !waiting
     if (idle && c.opts.hudIdle === 'hidden') return next(e)
     const room = e.props.bodyColumns - displayWidth(entry, c.ambiguous)
-    const line = idle && c.opts.hudIdle === 'minimal' ? (GUARD_QUIET.has(guard) ? '' : `Guard ${guard}`) : formatBand(c.stats, c.snap, room, {
-      nowMs: c.lastNow,
-      ambiguous: c.ambiguous,
-      coordinated: c.coordinated,
-      branch: c.branch,
-      guard,
-      subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
-      pendingChange: waiting,
-      tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,
-    })
+    const parts =
+      idle && c.opts.hudIdle === 'minimal'
+        ? GUARD_QUIET.has(guard) ? [] : [{ text: `Guard ${guard}` }]
+        : bandParts(c.stats, c.snap, room, {
+            nowMs: c.lastNow,
+            ambiguous: c.ambiguous,
+            coordinated: c.coordinated,
+            branch: c.branch,
+            guard,
+            subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
+            pendingChange: waiting,
+            tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,
+          })
     return (
       <Box marginTop={1}>
         <Button key={OPEN_KEY} plain label="Open CTK Mission Control" onPress={noop}>
-          {/* Accent and underline say the band is a button; the figures stay dim. */}
+          {/* Accent and underline say the band is a button; the figures stay dim unless one needs attention. */}
           <Text bold underline color="suggestion">{entry.trimEnd()}</Text>
           <Text> </Text>
-          <Text dimColor>{line}</Text>
+          {parts.flatMap((p, i) => [
+            ...(i > 0 ? [<Text key={`s${i}`} dimColor>{BAND_SEP}</Text>] : []),
+            p.tone === undefined ? (
+              <Text key={`p${i}`} dimColor>{p.text}</Text>
+            ) : (
+              <Text key={`p${i}`} bold={p.tone === 'bad'} color={p.tone === 'bad' ? 'error' : 'warning'}>{p.text}</Text>
+            ),
+          ])}
         </Button>
       </Box>
     )

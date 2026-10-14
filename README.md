@@ -136,7 +136,7 @@ Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: O
 - The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
 - The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
 - Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
-- Status: public preview, released as the GitHub pre-release [`v0.1.5`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.5): the band and the status line are easier to scan. Context sits right after the model and turns yellow from 60% and red from 80%, the status line shows the directory name, and the band uses 🔧 and 🤖 for tool calls and agents and no longer spells out the guard unless it needs attention. The install commands above follow `main`.
+- Status: public preview, released as the GitHub pre-release [`v0.1.6`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.6): Mission Control is easier to scan. Context, 5h and weekly usage turn yellow from 60% and red from 80% in the band, the status line, every page header and the bars; the Overview lists the workers instead of repeating a count, and an idle teammate shows how long it has been idle. The install commands above follow `main`.
 
 More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 

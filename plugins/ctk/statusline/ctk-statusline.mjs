@@ -35,6 +35,11 @@ const SEP = ' │ '
 const DEFAULT_COLUMNS = 80
 const MIN_TIER_SEGMENTS = 3
 const BOLD = ['\x1b[1;36m', '\x1b[22;39m']
+// Yellow from 60%, red from 80%, plain below or when unknown (same rule as the band and the panes).
+const pressureTone = pct => {
+  const n = num(pct)
+  return n === null ? undefined : n >= 80 ? 'bad' : n >= 60 ? 'warn' : undefined
+}
 // A segment's `tone` is a reminder colour: yellow for warn, bold red for bad.
 const TONE = { warn: ['\x1b[33m', '\x1b[39m'], bad: ['\x1b[1;31m', '\x1b[22;39m'] }
 // Dim separators set the status line apart from the band above, which is all one dim colour.
@@ -131,9 +136,11 @@ const usageSegment = (id, label, prio, w, nowMs) => {
   const f = windowFigures(w, nowMs)
   if (f.missing) return { id, prio, missing: true, forms: [`${label} ${DASH}`, `${label} ${DASH}`, `${label} ${DASH}`] }
   const base = `${label} ${f.pct}`
+  const tone = pressureTone(w.pct)
   return {
     id,
     prio,
+    ...(tone === undefined ? {} : { tone }),
     forms: f.countdown === null ? [base, base, base] : [`${base} (${f.countdown})`, `${base} ${f.countdown}`, `${base} ${f.countdown}`],
   }
 }
@@ -273,7 +280,7 @@ const gitSegment = dir => {
 }
 
 // Segments in display order; `prio` is what survives a narrow terminal (higher is kept longer).
-// Context is first after the model and the last to go, and turns yellow at 60% and red at 80%.
+// Context is first after the model and the last to go; context and both usage windows turn yellow at 60% and red at 80%.
 // Tools and agents are not here on purpose: Claude Code's status line JSON has no such counts and
 // reading the transcript is off the table, so the Mods band, which counts tool events, shows them.
 export const segmentsFor = (input, nowMs = Date.now()) => {
@@ -286,7 +293,6 @@ export const segmentsFor = (input, nowMs = Date.now()) => {
   const ms = num(input?.cost?.total_duration_ms)
   const ctxN = num(cw.used_percentage)
   const ctx = fmtPct(ctxN)
-  const ctxTone = ctxN === null ? undefined : ctxN >= 80 ? 'bad' : ctxN >= 60 ? 'warn' : undefined
   const dirName = dir === null ? null : str(basename(dir))
   const costText = cost === null ? DASH : `$${cost.toFixed(2)}`
   const git = dir === null ? null : gitSegment(dir)
@@ -295,7 +301,7 @@ export const segmentsFor = (input, nowMs = Date.now()) => {
     model === null
       ? { id: 'model', prio: 60, missing: true, bold: true, forms: [DASH, DASH, DASH] }
       : { id: 'model', prio: 60, bold: true, forms: [effort ? `${model} ${effort}` : model, model, ''] },
-    { id: 'ctx', prio: 110, missing: ctx === DASH, tone: ctxTone, forms: [`Ctx ${ctx}`, `Ctx ${ctx}`, `Ctx ${ctx}`] },
+    { id: 'ctx', prio: 110, missing: ctx === DASH, tone: pressureTone(ctxN), forms: [`Ctx ${ctx}`, `Ctx ${ctx}`, `Ctx ${ctx}`] },
     usageSegment('5h', '5h', 100, { pct: num(rl.five_hour?.used_percentage), resetsAtMs: resetMs(rl.five_hour?.resets_at) }, nowMs),
     usageSegment('wk', 'Wk', 90, { pct: num(rl.seven_day?.used_percentage), resetsAtMs: resetMs(rl.seven_day?.resets_at) }, nowMs),
     {
@@ -334,7 +340,7 @@ export const render = (input, env = {}, nowMs = Date.now()) =>
     color: env.CTK_COLOR !== '0' && !env.NO_COLOR,
   })
 
-export { DASH, SEP, charWidth, displayWidth, fmtCountdown, fmtPct, layoutLine, resetMs, stripAnsi, tierOf, truncateToWidth, usageSegment, windowFigures }
+export { DASH, SEP, charWidth, pressureTone, displayWidth, fmtCountdown, fmtPct, layoutLine, resetMs, stripAnsi, tierOf, truncateToWidth, usageSegment, windowFigures }
 
 const main = async () => {
   let raw = ''

@@ -1,5 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
+import { createCtx } from '../../hooks/ui/ctx.tsx'
+import { renderDoctor } from '../../hooks/ui/doctor.tsx'
 import { parseDoctor } from '../../hooks/doctor.ts'
 import { MC_PANE_ID } from '../../hooks/mission.ts'
 import { engine, fresh, test } from '../world.ts'
@@ -52,4 +54,14 @@ describe('doctor view', () => {
       expect(t).toContain('1 needs a fix')
     })
   }
+
+  test('6 actions at 44 columns stay in the row budget, keep the summary and count the rest', () => {
+    const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
+    const text = ['CTK readiness (read-only; nothing is changed):', ...Array.from({ length: 6 }, (_, i) => `[action] problem ${i}\n         fix: do thing ${i}`), '[info]   x: unknown', '6 action(s) needed'].join('\n')
+    const out: any[] = renderDoctor(kit, {} as any, { doctorText: text } as any, {} as any, createCtx(kit, { bodyColumns: 44 }))
+    const rows = out.map(n => [n].flat().join(''))
+    expect(rows.length).toBeLessThanOrEqual(11)
+    expect(rows[0]).toContain('6 need a fix')
+    expect(rows[rows.length - 1]).toMatch(/^\+\d+ more/)
+  })
 })

@@ -1,5 +1,5 @@
 import { DASH, fmtModels, pct, usd } from '../shared/format.ts'
-import { fmtCountdown, fmtPct, layoutLine, resetMs, truncateToWidth, usageSegment } from '../shared/hudline.ts'
+import { fmtCountdown, fmtPct, layoutItems, layoutLine, pressureTone, resetMs, SEP, truncateToWidth, usageSegment } from '../shared/hudline.ts'
 import type { Segment } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import type { Snapshot } from './team.ts'
@@ -84,9 +84,8 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
   if (mine) {
     out.push({ id: 'model', prio: RANK.model, bold: true, ...modelSegment(s.measured.model) })
     const ctx = s.measured.contextPct
-    const ctxN = ctx === null || !Number.isFinite(ctx) ? null : ctx
     const text = `Ctx ${fmtPct(ctx)}`
-    out.push({ id: 'ctx', prio: RANK.context, missing: fmtPct(ctx) === DASH, tone: ctxN === null ? undefined : ctxN >= 80 ? 'bad' : ctxN >= 60 ? 'warn' : undefined, forms: [text, text, text] })
+    out.push({ id: 'ctx', prio: RANK.context, missing: fmtPct(ctx) === DASH, tone: pressureTone(ctx), forms: [text, text, text] })
     out.push(
       usageSegment('5h', '5h', RANK.fiveHour, { pct: s.measured.fiveHourPct, resetsAtMs: resetMs(s.measured.fiveHourResetsAt) }, now),
       usageSegment('wk', 'Wk', RANK.sevenDay, { pct: s.measured.sevenDayPct, resetsAtMs: resetMs(s.measured.sevenDayResetsAt) }, now),
@@ -159,8 +158,23 @@ const agentsSegment = (s: StatsRecord, snap: Snapshot): Segment => {
  */
 export const BAND_MARGIN = 5
 
-export const formatBand = (s: StatsRecord, snap: Snapshot, bodyColumns: number, opts: BandOptions = {}): string =>
-  layoutLine(bandSegments(s, snap, opts), { columns: bodyColumns, tierColumns: opts.tierColumns ?? bodyColumns + BAND_MARGIN, ambiguous: opts.ambiguous })
+const bandLayout = (s: StatsRecord, snap: Snapshot, bodyColumns: number, opts: BandOptions) => ({
+  segments: bandSegments(s, snap, opts),
+  layout: { columns: bodyColumns, tierColumns: opts.tierColumns ?? bodyColumns + BAND_MARGIN, ambiguous: opts.ambiguous },
+})
+
+export const formatBand = (s: StatsRecord, snap: Snapshot, bodyColumns: number, opts: BandOptions = {}): string => {
+  const { segments, layout } = bandLayout(s, snap, bodyColumns, opts)
+  return layoutLine(segments, layout)
+}
+
+/** The same line as pieces, so the band can colour a figure that needs attention (`tone`) and leave the rest dim. */
+export const bandParts = (s: StatsRecord, snap: Snapshot, bodyColumns: number, opts: BandOptions = {}): { text: string; tone?: 'warn' | 'bad' }[] => {
+  const { segments, layout } = bandLayout(s, snap, bodyColumns, opts)
+  return layoutItems(segments, layout).map(i => (i.s.tone === undefined ? { text: i.text } : { text: i.text, tone: i.s.tone }))
+}
+
+export { SEP as BAND_SEP }
 
 const limitLine = (label: string, pctValue: number | null, resetsAt: string | null, now: number): string => {
   const left = fmtCountdown(resetMs(resetsAt), now)

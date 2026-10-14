@@ -1,3 +1,4 @@
+import { pressureTone } from '../../shared/hudline.ts'
 import type { Mission } from '../mission.ts'
 
 // Semantic colours as Mods theme keys only: raw strings do not follow the person's theme, so they
@@ -44,6 +45,21 @@ export const progressBar = (pct: number | null, width = 10): { text: string; col
   const filled = Math.round((p / 100) * width)
   const color = p >= 90 ? COLOR.error : p >= 70 ? COLOR.ready : COLOR.done
   return { text: `[${'█'.repeat(filled)}${'░'.repeat(width - filled)}] ${Math.round(p)}%`, color }
+}
+
+/** The theme colour for a pressure figure: red from 80%, yellow from 60%, none below (same thresholds as the band and the status line). */
+export const pressureColor = (pct: number | null | undefined): ThemeColor | undefined => {
+  const t = pressureTone(pct)
+  return t === 'bad' ? COLOR.error : t === 'warn' ? COLOR.ready : undefined
+}
+
+/**
+ * A bar for a figure that is pressure, not progress (context, a rate-limit window): quiet below 60%,
+ * yellow from 60%, red from 80%. A task bar stays `progressBar`, where more is better.
+ */
+export const pressureBar = (pct: number | null, width = 10): { text: string; color: ThemeColor | undefined } => {
+  const b = progressBar(pct, width)
+  return b.color === COLOR.muted ? b : { text: b.text, color: pressureColor(pct) }
 }
 
 /** `── TITLE ─────` across `width` cells (titles are ASCII). */

@@ -1,28 +1,26 @@
 import { displayWidth } from '../../shared/hudline.ts'
-import { fmtSpan, UNAVAILABLE } from '../mission.ts'
+import { fmtAge, fmtSpan, UNAVAILABLE, viewKey, workerKey } from '../mission.ts'
 import type { McState, Mission } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
 import { hudButtons } from './hud.tsx'
-import { COLOR, GLYPH, guardColor, progressBar } from './theme.ts'
+import { glyphProps } from './motion.ts'
+import { COLOR, GLYPH, guardColor, pressureBar, progressBar, statusColor, statusOf } from './theme.ts'
 import type { ThemeColor } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
 
 const num = (v: number | null): string => (v === null ? UNAVAILABLE : String(v))
 
-/** `resets 2h34m` from the usage text; the whole text when the figure was not observed. */
-const resetNote = (text: string, pct: number | null): string => (pct === null ? text : (text.match(/resets in ([^)]*)/)?.[1] ? `resets ${text.match(/resets in ([^)]*)/)?.[1]}` : ''))
-
-/** Cards 4 across from this much room, otherwise 2 by 2; each card is CARD_MIN to CARD_MAX cells wide, side by side. */
-const CARDS_ROW = 52
-const CARD_MIN = 11
-const CARD_MAX = 14
 const LABEL = 11
+/** Worker rows shown before the `+N` row. */
+const MAX_WORKERS = 4
+
+const pctText = (pct: number | null): string => (pct === null ? '–' : `${Math.round(pct)}%`)
+const ago = (ms: number | null): string => fmtAge(ms).replace(/ ago$/, '')
 
 export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extras, ctx: Ctx) => {
-  const { Box, Text } = kit
-  const { line, metric, pad, clip, wrap, fit, wide, room, ambiguous } = ctx
+  const { Text } = kit
+  const { line, pad, clip, wrap, fit, compact, room, ambiguous } = ctx
   const empty = m.workers.length === 0
-  const atCapacity = m.active !== null && m.active >= m.cap
 
   // One glyph per cap slot: running, idle, then free. Finished workers hold no slot, so they follow the meter as counts.
   const slots = Math.min(m.cap, 12)
@@ -46,24 +44,72 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
     </Text>
   )
 
-  const across = room >= CARDS_ROW
-  const w = Math.max(CARD_MIN, Math.min(CARD_MAX, across ? Math.floor((room - 6) / 4) : Math.floor((room - 2) / 2)))
-  const cardList = [
-    metric('m-workers', 'WORKERS', m.active === null ? UNAVAILABLE : `${m.active}/${m.cap}`, m.active === null ? COLOR.muted : atCapacity ? (m.rejected > 0 ? COLOR.error : COLOR.ready) : COLOR.active, w),
-    metric('m-tasks', 'TASKS', m.tasks.total === null ? UNAVAILABLE : `${num(m.tasks.completed)}/${m.tasks.total}`, m.tasks.total === null ? COLOR.muted : m.tasks.total > 0 && m.tasks.completed === m.tasks.total ? COLOR.done : undefined, w),
-    metric('m-refused', 'REFUSED', String(m.rejected), m.rejected > 0 ? COLOR.error : undefined, w),
-    metric('m-cost', 'COST', m.usage.cost, m.usage.cost === UNAVAILABLE ? COLOR.muted : undefined, w),
-  ]
-  const cards =
-    across
-      ? [<Box key="cards" flexDirection="row" columnGap={2}>{cardList}</Box>]
-      : [<Box key="cards1" flexDirection="row" columnGap={2}>{cardList.slice(0, 2)}</Box>, <Box key="cards2" flexDirection="row" columnGap={2}>{cardList.slice(2)}</Box>]
+  // One button per worker (a Button holds Text only). Fields not observed are a dash, never 0.
+  const nameCap = compact ? 8 : 12
+  const shownWorkers = m.workers.slice(0, MAX_WORKERS)
+  const nameW = Math.min(nameCap, Math.max(4, ...shownWorkers.map(w => displayWidth(w.name, ambiguous))))
+  const tailOf = (w: (typeof m.workers)[number]) => `${w.toolCalls ?? '–'} tools · ${w.idleMs !== null ? 'idle' : 'last'} ${w.idleMs !== null ? ago(w.idleMs) : w.lastActivityMs === null ? '–' : ago(w.lastActivityMs)}`
+  const statusW = compact ? 0 : 9
+  const fixed = 2 + nameW + 1 + statusW
+  const tailW = Math.min(Math.max(0, ...shownWorkers.map(w => displayWidth(tailOf(w), ambiguous))), Math.max(0, room - fixed))
+  const taskW = room - fixed - tailW - 1
+  const workerRows = shownWorkers.map(w => {
+    const st = statusOf(w.status)
+    return (
+      <ctx.kit.Button key={workerKey(w.agentId)} plain label={`Worker ${w.name}`} onPress={() => {}}>
+        <Text wrap="truncate-end">
+          <Text color={statusColor(st)} {...glyphProps(ctx.motion, st === 'running', `worker:${w.agentId}`)}>{GLYPH[st]} </Text>
+          <Text bold>{pad(w.name, nameW)} </Text>
+          {compact ? null : <Text color={statusColor(st)}>{pad(w.status.toUpperCase(), 8)} </Text>}
+          {taskW > 3 ? <Text dimColor={w.currentTask === null}>{pad(w.currentTask ?? '–', taskW)} </Text> : null}
+          <Text dimColor>{pad(tailOf(w), tailW)}</Text>
+        </Text>
+      </ctx.kit.Button>
+    )
+  })
+  const more = m.workers.length - shownWorkers.length
+  const moreRow =
+    more > 0 ? (
+      <ctx.kit.Button key="o-more-workers" plain label="Workers" onPress={() => {}}>
+        <Text dimColor wrap="truncate-end">{clip(`+${more} · 2: Workers`)}</Text>
+      </ctx.kit.Button>
+    ) : null
 
-  const barWidth = wide ? 20 : 10
-  const quota = (key: string, label: string, pct: number | null, text: string) => {
-    const b = progressBar(pct, barWidth)
-    return line(key, `${pad(label, LABEL)}${b.text} ${pct === null ? '' : '· '}${resetNote(text, pct)}`.trimEnd(), { color: b.color })
+  const lbl = compact ? 6 : LABEL
+  const t = m.tasks
+  const tb = progressBar(t.total === null ? null : t.total === 0 ? null : (t.completed ?? 0) / t.total * 100, compact ? 6 : 10)
+  const readyIds = t.rows.filter(r => r.ready).map(r => `#${r.id}`)
+  const tasksRow =
+    t.total === null
+      ? line('o-tasks', `${pad('TASKS', lbl)}${UNAVAILABLE}`, { color: COLOR.muted })
+      : line('o-tasks', `${pad('TASKS', lbl)}${tb.text} ${num(t.completed)}/${t.total} marked complete${t.ready === null ? '' : ` · ready ${readyIds[0] ?? 'none'}${readyIds.length > 1 ? ` +${readyIds.length - 1}` : ''}`}${t.blocked === null ? '' : ` · ${t.blocked} blocked`}`, { color: t.total > 0 && t.completed === t.total ? COLOR.done : tb.color })
+
+  const cb = pressureBar(m.usage.contextUsed, compact ? 6 : 10)
+  const costText = `${compact ? '' : 'COST '}${m.usage.cost} · ${compact ? '' : 'team '}${fmtSpan(m.teamElapsedMs)}`
+  const ctxRow = (
+    <Text key="o-ctx" wrap="truncate-end">
+      <Text dimColor>{pad('CTX', lbl)}</Text>
+      <Text color={cb.color}>{clip(cb.text, room - lbl)}</Text>
+      <Text dimColor>{clip(`${compact ? ' · ' : '          '}${costText}`, Math.max(0, room - lbl - displayWidth(cb.text, ambiguous)))}</Text>
+    </Text>
+  )
+
+  // 5H and WK share a line; the bars only where they fit.
+  const quota = (label: string, pct: number | null, reset: string | null) => {
+    const b = pressureBar(pct, 10)
+    const note = reset === null || pct === null ? '' : ` · ${reset}`
+    return { label, text: compact ? `${pctText(pct)}${note}` : `${b.text}${note}`, color: b.color }
   }
+  const q5 = quota('5H', m.usage.fiveHourPct, m.usage.fiveHourReset)
+  const q7 = quota('WK', m.usage.sevenDayPct, m.usage.sevenDayReset)
+  const quotaRow = (
+    <Text key="o-quota" wrap="truncate-end">
+      <Text dimColor>{pad(q5.label, lbl)}</Text>
+      <Text color={q5.color}>{q5.text}</Text>
+      <Text dimColor>{'  '}{q7.label} </Text>
+      <Text color={q7.color}>{q7.text}</Text>
+    </Text>
+  )
 
   const empties = empty
     ? [
@@ -80,17 +126,6 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
     return lines.slice(0, max).map((t, i, a) => line(`${key}-${i}`, `${pad(i === 0 ? label : '', LABEL)}${i === a.length - 1 && lines.length > a.length ? clip(`${t} …`, room - LABEL) : t}`, opts))
   }
 
-  const tasksDetail =
-    m.tasks.total === null || empty
-      ? []
-      : block(
-          'o-tasks',
-          'tasks',
-          m.tasks.detailed && !m.tasks.partial
-            ? `${num(m.tasks.pending)} pending · ${num(m.tasks.inProgress)} doing · ${num(m.tasks.blocked)} blocked · ${num(m.tasks.ready)} ready`
-            : `counts from task events; ${m.tasks.partial ? 'some predate CTK' : 'no detail yet'}`,
-        )
-
   // The code is never clipped: when the whole row does not fit it takes a line of its own.
   const refusedHead = `✗ ${m.rejected} spawn(s) refused above the cap`
   const refusal =
@@ -106,24 +141,21 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
   const bad = m.guard.state === 'error' || m.guard.state === 'unavailable'
   const guardWhy = block('o-why', 'guard', m.guard.short, bad ? { color: guardColor(m) } : { dim: true }, bad ? 3 : 2)
 
-  const session = block('o-session', 'session', `${m.usage.contextPct} ctx · ${m.usage.toolCalls} tool calls · ${m.teamElapsedMs === null ? UNAVAILABLE : fmtSpan(m.teamElapsedMs)} team`)
-
+  // The refusal sits right after the workers so `fit` drops the quieter lines first, never the code.
   const rows = [
     meter,
-    ...cards,
+    ...workerRows,
+    ...(moreRow === null ? [] : [moreRow]),
     ...empties,
-    quota('q-5h', '5H', m.usage.fiveHourPct, m.usage.fiveHour),
-    quota('q-7d', 'WK', m.usage.sevenDayPct, m.usage.sevenDay),
     ...refusal,
+    tasksRow,
+    ctxRow,
+    quotaRow,
     ...outside,
-    ...tasksDetail,
     ...subagents,
     ...guardWhy,
-    ...session,
   ]
-  // Each card node is two lines (a label over its value), so the nodes are counted against a budget reduced by the extra lines.
-  const extra = cards.length
-  const shown = fit('o', rows, ctx.rows - extra)
+  const shown = fit('o', rows, ctx.rows)
   // The HUD form control lives in Config; it appears here only when real lines are left over.
-  return shown.length + extra < ctx.rows ? [...shown, hudButtons(kit, mc, ctx)] : shown
+  return shown.length < ctx.rows ? [...shown, hudButtons(kit, mc, ctx)] : shown
 }

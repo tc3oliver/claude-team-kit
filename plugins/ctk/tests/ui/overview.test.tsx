@@ -29,28 +29,67 @@ const team = async ($: any, on: any) => {
 }
 
 describe('overview', () => {
-  for (const cols of [60, 80, 130]) {
+  for (const cols of [80, 100, 130]) {
     test(`${cols} columns: guard, workers, quota bars and cost; the quota not observed is a muted dash bar`, async ($, on) => {
       await team($, on)
       const p = await pane($, cols)
       const t = await texts(p)
-      for (const want of ['ACTIVE', 'SLOTS', '1/3', '[███', '28%', 'resets 2h34m', '[──────────', '$0.94', 'unavailable']) expect(t).toContain(want)
+      for (const want of ['ACTIVE', 'SLOTS', '1/3', '[███', '28%', '2h34m', '[──────────', '$0.94', 'unavailable']) expect(t).toContain(want)
       expect(t).not.toContain('Weekly quota [░░░')
       await p.unmount()
     })
   }
 
-  test('four metric cards across from 56 cells, 2 by 2 below; a card never invents a zero', async ($, on) => {
+  test('no WORKERS or REFUSED card; TASKS stays unavailable, never 0/0, when no task event was seen', async ($, on) => {
     await team($, on)
-    for (const cols of [60, 130, 44]) {
+    for (const cols of [44, 60, 130]) {
       const p = await pane($, cols)
       const t = await texts(p)
-      for (const want of ['WORKERS', 'TASKS', 'REFUSED', 'COST']) expect(t).toContain(want)
+      for (const gone of ['WORKERS', 'REFUSED']) expect(t).not.toContain(gone)
+      for (const want of ['TASKS', 'CTX']) expect(t).toContain(want)
       await p.unmount()
     }
-    // No task event was seen: the TASKS card says unavailable, not 0/0.
     const p = await pane($, 80)
     expect(await texts(p)).toMatch(/TASKS\s+unavailable/)
+    await p.unmount()
+  })
+
+  test('one button per worker keyed to its detail page; names, tools and a dash for what was not observed', async ($, on) => {
+    await team($, on)
+    await $.agent.spawn(spawnInput(1, true, { name: 'w-b' }))
+    const p = await pane($, 100)
+    const t = await texts(p)
+    for (const want of ['w-rle', 'w-b', 'RUNNING', 'tools']) expect(t).toContain(want)
+    const buttons = (n: any): any[] => (typeof n === 'string' ? [] : [...(n.type === 'Button' ? [n] : []), ...(n.children ?? []).flatMap(buttons)])
+    const keys = buttons(await p.drawn()).map((b: any) => b.props.key).filter((k: string) => k?.startsWith('mc:worker:'))
+    expect(keys).toHaveLength(2)
+    await p.press({ key: keys[0] })
+    expect(await texts(p)).toContain('w-rle')
+    expect(await texts(p)).toContain('Worker')
+    await p.unmount()
+  })
+
+  test('more than 4 workers: 4 rows and a +N · 2: Workers row that opens Workers', { options: { maxWorkers: 6 } }, async ($, on) => {
+    await team($, on)
+    for (let i = 1; i < 5; i++) await $.agent.spawn(spawnInput(i, true, { name: `w-x${i}` }))
+    const p = await pane($, 100)
+    const t = await texts(p)
+    expect(t).toContain('+1 · 2: Workers')
+    expect(t).not.toContain('w-x4')
+    await p.press({ key: 'mc:view:workers' })
+    expect(await texts(p)).toContain('w-x4')
+    await p.unmount()
+  })
+
+  test('Ctx stays visible at 50 columns with 3 workers in the 11-row budget', async ($, on) => {
+    await team($, on)
+    await $.agent.spawn(spawnInput(1, true, { name: 'w-b' }))
+    await $.agent.spawn(spawnInput(2, true, { name: 'w-c' }))
+    const p = await pane($, 50)
+    await p.press({ key: 'mc:refresh' })
+    const t = await texts(p)
+    expect(t).toContain('CTX')
+    expect(t).toContain('42%')
     await p.unmount()
   })
 
@@ -176,15 +215,6 @@ describe('guard sentence and cards', () => {
     const t = await texts(p)
     for (const stub of ['Over', 'Work', 'Task', 'Use', 'Cfg', 'Stat', 'Doc']) expect(t).toContain(stub)
     for (const cut of ['Usag', 'Conf', 'Doct']) expect(t).not.toContain(cut)
-    await p.unmount()
-  })
-
-  test('four cards sit side by side at 60 columns, two rows in all', async ($, on) => {
-    await team($, on)
-    const p = await pane($, 60)
-    const root: any = await p.drawn()
-    const row = (n: any): any => (typeof n === 'string' ? null : n.type === 'Box' && n.props.flexDirection === 'row' && (n.children ?? []).length === 4 && (n.children ?? []).every((c: any) => c.props?.flexDirection === 'column') ? n : (n.children ?? []).map(row).find(Boolean))
-    expect(row(root)?.children).toHaveLength(4)
     await p.unmount()
   })
 })

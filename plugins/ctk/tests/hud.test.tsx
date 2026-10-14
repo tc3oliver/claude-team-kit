@@ -1,7 +1,7 @@
 import { describe, expect, mock } from 'claude-code/testing'
 import type { AgentInfo, On } from 'claude-code'
 
-import { BAND_MARGIN, bandSegments, formatBand, formatSummary, fmtElapsed, modelLabel } from '../hooks/band.ts'
+import { BAND_MARGIN, bandParts, bandSegments, formatBand, formatSummary, fmtElapsed, modelLabel } from '../hooks/band.ts'
 import { test } from './world.ts'
 import { snapshotOf } from '../hooks/team.ts'
 import { displayWidth } from '../shared/hudline.ts'
@@ -312,5 +312,26 @@ describe('git branch in the band', () => {
     expect(band(filled(), 130, { branch: 'main', coordinated: true })).not.toContain('git:')
     expect(band(filled(), 130, { branch: null })).not.toContain('git:')
     expect(band(filled(), 200, { branch: 'feature/' + 'x'.repeat(60) })).toMatch(/git:feature\/x+…/)
+  })
+})
+
+describe('the band colours a figure that needs attention', () => {
+  const parts = (ctx: number, five = 28.4) => {
+    const s = filled()
+    s.measured.contextPct = ctx
+    s.measured.fiveHourPct = five
+    return bandParts(s, snap(), 200, { nowMs: NOW })
+  }
+  const tone = (ps: ReturnType<typeof parts>, text: string) => ps.find(p => p.text.startsWith(text))?.tone
+
+  test('Ctx is plain below 60%, warn from 60%, bad from 80%', () => {
+    expect([59, 60, 79, 80].map(v => tone(parts(v), 'Ctx'))).toEqual([undefined, 'warn', 'warn', 'bad'])
+  })
+
+  test('the 5h window follows the same rule, and the parts join to the plain line', () => {
+    expect(tone(parts(10, 85), '5h')).toBe('bad')
+    expect(tone(parts(10, 28), '5h')).toBeUndefined()
+    const s = filled()
+    expect(bandParts(s, snap(), 150, { nowMs: NOW }).map(p => p.text).join(' │ ')).toBe(formatBand(s, snap(), 150, { nowMs: NOW }))
   })
 })

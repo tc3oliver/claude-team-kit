@@ -2,30 +2,63 @@ import { BACK_KEY, CLOSE_KEY, MC_VIEWS, REFRESH_KEY, viewKey } from '../mission.
 import type { McState, Mission } from '../mission.ts'
 import { BODY_ROWS } from './ctx.tsx'
 import type { Ctx } from './ctx.tsx'
-import { pillOf } from './theme.ts'
+import { displayWidth } from '../../shared/hudline.ts'
+import { pillOf, pressureColor } from './theme.ts'
 import type { Kit } from './types.ts'
 
 // Widths in cells. The hotkey button draws "1: " before its label (seen in real cells), so a tab is label + 3.
 const FOOT_FULL = 84
 const FOOT_MID = 58
 const FOOT_SHORT = 34
-const HEAD_FULL = 46
 const PREFIX = 3
 
 /** Whole short words for the narrow tier: a label cut to four letters reads as a typo (Usag, Conf, Doct). */
 const STUB: Record<string, string> = { overview: 'Over', workers: 'Work', tasks: 'Task', usage: 'Use', config: 'Cfg', stats: 'Stat', doctor: 'Doc' }
 
-/** The state pill: guard state, or CAPACITY once the team is full, so a full team is never drawn green. */
+/** Longer than this and the title shrinks to `◆ CTK` so the pill and the pressure badges still fit on one line. */
+const TITLE = '◆ CTK MISSION CONTROL'
+const TITLE_SHORT = '◆ CTK'
+
+/**
+ * The header: title, the state pill (guard state, or CAPACITY once the team is full, so a full team is
+ * never drawn green), then a badge for each figure under pressure (context, the 5h and weekly windows
+ * from 60%), then `read-only`. It is always one line, because a wrapped header costs a body row: the
+ * title shortens first, then the optional parts that do not fit are left out, context last.
+ */
 export const header = (kit: Kit, m: Mission, ctx: Ctx) => {
   const { Box, Text } = kit
   const pill = pillOf(m)
+  const width = (parts: readonly string[]): number => parts.reduce((n, t) => n + displayWidth(t, ctx.ambiguous), 0) + 2 * Math.max(0, parts.length - 1)
+  const badges = [
+    { key: 'ctx', text: `Ctx ${Math.round(m.usage.contextUsed ?? 0)}%`, pct: m.usage.contextUsed },
+    { key: '5h', text: `5h ${Math.round(m.usage.fiveHourPct ?? 0)}%`, pct: m.usage.fiveHourPct },
+    { key: 'wk', text: `Wk ${Math.round(m.usage.sevenDayPct ?? 0)}%`, pct: m.usage.sevenDayPct },
+  ].filter(b => pressureColor(b.pct) !== undefined)
+  const withCtx = [pill.text, ...badges.slice(0, 1).filter(b => b.key === 'ctx').map(b => b.text)]
+  const title = width([TITLE, ...withCtx]) <= ctx.room ? TITLE : TITLE_SHORT
+  const shown: typeof badges = []
+  let used = [title, pill.text]
+  for (const b of badges) {
+    if (width([...used, b.text]) > ctx.room) continue
+    used = [...used, b.text]
+    shown.push(b)
+  }
+  const readOnly = width([...used, 'read-only']) <= ctx.room
   return (
     <Box key="head" flexDirection="row" flexWrap="wrap" columnGap={2}>
-      <Text bold>◆ CTK MISSION CONTROL</Text>
+      <Text bold>{title}</Text>
       <Text bold color={pill.color}>
         {pill.text}
       </Text>
-      {ctx.room >= HEAD_FULL ? <Text dimColor>read-only</Text> : null}
+      {shown.map(b => {
+        const color = pressureColor(b.pct)
+        return (
+          <Text key={b.key} bold={color === 'error'} color={color}>
+            {b.text}
+          </Text>
+        )
+      })}
+      {readOnly ? <Text dimColor>read-only</Text> : null}
     </Box>
   )
 }

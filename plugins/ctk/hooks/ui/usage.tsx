@@ -1,7 +1,7 @@
 import { UNAVAILABLE } from '../mission.ts'
 import type { McState, Mission } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
-import { COLOR, progressBar } from './theme.ts'
+import { COLOR, pressureBar } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
 
 export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras, ctx: Ctx) => {
@@ -11,16 +11,16 @@ export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras,
   const modelW = Math.max(10, Math.min(24, room - 28))
   const bands = room >= modelW + 28 ? 1 : 2
   const bars: [string, string, number | null, string | null, string][] = [
+    ['u-ctx', 'CTX', m.usage.contextUsed, null, m.usage.contextPct],
     ['u-5h', '5H', m.usage.fiveHourPct, m.usage.fiveHourReset, m.usage.fiveHour],
     ['u-7d', 'WEEK', m.usage.sevenDayPct, m.usage.sevenDayReset, m.usage.sevenDay],
-    ['u-ctx', 'CTX', m.usage.contextUsed, null, m.usage.contextPct],
   ]
   const nodes = [
     divider('u-d1', 'LIMITS'),
     ...bars.map(([key, label, pct, reset, text]) => {
-      const b = progressBar(pct)
+      const b = pressureBar(pct)
       const tail = pct === null ? `  ${text}` : reset === null ? '' : `  reset ${reset}`
-      return line(key, `${label.padEnd(5)}${b.text}${tail}`, { color: b.color })
+      return line(key, `${label.padEnd(5)}${b.text}${tail}`, b.color === undefined ? {} : { color: b.color })
     }),
     divider('u-d2', 'SESSION'),
     <Box key="u-metrics" flexDirection="row" flexWrap="wrap" columnGap={2}>

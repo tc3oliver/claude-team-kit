@@ -22,7 +22,8 @@ export const renderDoctor = (_kit: Kit, _m: Mission, mc: McState, _extras: Extra
   const watch = rows.filter(r => r.level === 'info' && (/unknown|not checked|not enabled|not computed/.test(r.text) || (r === guard && !guardOn)))
   const ok = rows.filter(r => r.level === 'ok')
   const notes = rows.filter(r => r.level === 'info' && !watch.includes(r))
-  return [
+  // The summary comes first, then fixes, then watch rows; ctx.fit cuts from the tail and says how many are left.
+  return ctx.fit('d', [
     ...(ctx.compact ? [] : [line('d-head', HEADER, { dim: true })]),
     actions.length === 0
       ? watch.length === 0
@@ -37,5 +38,5 @@ export const renderDoctor = (_kit: Kit, _m: Mission, mc: McState, _extras: Extra
     ...(guardOn ? para('d-g', `${GLYPH.done} ${short(guard!.text)}`, { color: COLOR.done }) : []),
     ...(ok.length === 0 ? [] : para('d-ok', `${GLYPH.done} ${ok.filter(r => r !== guard).map(r => short(r.text)).join(' · ')}`, { color: COLOR.done })),
     ...(notes.length === 0 ? [] : para('d-n', `${GLYPH.pending} ${notes.length} more note${notes.length === 1 ? '' : 's'}: /ctk-doctor lists them`, { dim: true })),
-  ]
+  ])
 }

@@ -1,6 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { fmtClock } from '../../hooks/ui/workers.tsx'
+import { createCtx } from '../../hooks/ui/ctx.tsx'
+import { fmtClock, renderWorkers } from '../../hooks/ui/workers.tsx'
 import { BACK_KEY, MC_PANE_ID, workerKey } from '../../hooks/mission.ts'
 import { displayWidth } from '../../shared/hudline.ts'
 import { engine, fresh, spawnInput, test } from '../world.ts'
@@ -154,4 +155,20 @@ test('elapsed is m:ss, h:mm:ss past an hour', () => {
   expect(fmtClock(0)).toBe('0:00')
   expect(fmtClock(65_000)).toBe('1:05')
   expect(fmtClock(3_725_000)).toBe('1:02:05')
+})
+
+describe('Workers page idle time', () => {
+  const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
+  const flatten = (n: any): string => (Array.isArray(n) ? n.map(flatten).join('') : n?.props === undefined ? String(n ?? '') : flatten(n.props.children))
+  const detail = (idleMs: number | null) => {
+    const w: any = { agentId: 'a1', name: 'w1', status: 'idle', model: null, toolCalls: 7, currentTask: null, elapsedMs: 760_000, lastActivityMs: 240_000, idleMs, recent: [] }
+    const m: any = { workers: [w], subagents: { total: 0, rows: [] }, empty: {} }
+    return renderWorkers(kit, m, {} as any, {} as any, createCtx(kit, { bodyColumns: 80 })).map(flatten).find((r: string) => r.includes('tools'))!
+  }
+  test('an idle worker shows how long it has been idle', () => {
+    expect(detail(240_000)).toContain('7 tools · 12:40 · idle 4m')
+  })
+  test('idle time not observed is a dash, never 0', () => {
+    expect(detail(null)).toContain('12:40 · idle –')
+  })
 })

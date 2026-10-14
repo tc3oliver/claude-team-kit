@@ -258,10 +258,17 @@ test('styling never splits an ANSI sequence and adds no width', () => {
 })
 
 test('context turns yellow from 60% and red from 80%, and stays plain below', () => {
-  const ctx = pct => render({ ...FULL, context_window: { used_percentage: pct } }, wide, NOW)
+  const ctx = pct => render({ model: FULL.model, context_window: { used_percentage: pct } }, wide, NOW)
   assert.ok(!ctx(59).includes('\x1b[33m') && !ctx(59).includes('\x1b[1;31m'))
   assert.ok(ctx(60).includes('\x1b[33mCtx 60%\x1b[39m'))
   assert.ok(ctx(80).includes('\x1b[1;31mCtx 80%\x1b[22;39m'))
+})
+
+test('a usage window is coloured by the same rule', () => {
+  const win = pct => render({ rate_limits: { five_hour: { used_percentage: pct, resets_at: 1791500000 } } }, wide, NOW)
+  assert.ok(!win(59).includes('\x1b[33m'))
+  assert.ok(win(61).includes('\x1b[33m5h 61%'))
+  assert.ok(win(85).includes('\x1b[1;31m5h 85%'))
 })
 
 test('colour is on by default; CTK_COLOR=0 or NO_COLOR turns it off', () => {

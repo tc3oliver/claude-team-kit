@@ -20,6 +20,7 @@ export function stripAnsi(s: string): string
 export function fmtPct(v: number | null | undefined): string
 export function fmtCountdown(resetAtMs: number | null, nowMs: number): string | null
 export function resetMs(v: unknown): number | null
+export function pressureTone(pct: number | null | undefined): 'warn' | 'bad' | undefined
 export function tierOf(columns: number): 0 | 1 | 2
 export function windowFigures(w: Window, nowMs: number): { pct: string; countdown: string | null; missing: boolean }
 export function usageSegment(id: string, label: string, prio: number, w: Window, nowMs: number): Segment
