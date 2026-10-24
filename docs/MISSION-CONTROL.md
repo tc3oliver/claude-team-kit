@@ -23,7 +23,7 @@ beside the transcript; on the main screen it opens above the prompt.
 | View | Contents | Source |
 |---|---|---|
 | Overview | A state pill in the header (`● ACTIVE`, `◇ READY`, `▲ CAPACITY`, `✗ ERROR`, `○ unavailable`); a slot meter with one glyph per cap slot (running, idle, free) and the finished and failed counts; one row per worker (up to 4, then `+N · 2: Workers`; select one for its detail page) with status, current task, tool count and last-activity or idle time; the TASKS bar (`marked complete`, next ready task, blocked); context and cost; 5-hour and weekly quota on one line (bars from 62 cells); the refusal and the guard's reason; ordinary subagents | the roster (`$.agent.list`), CTK's counters, `$.session.usage()` |
-| Workers | two lines per worker when there is room (name, status, model, activity bar; then current task, tool calls, time since spawn, last activity), one line otherwise; select one for its detail page, which also lists its last tool calls | the spawn result (model), `tool.call` events carrying the worker's agent id, turn and `TeammateIdle` events |
+| Workers | two lines per worker when there is room (name, status, model, activity bar; then current task, tool calls, time since spawn, last activity), one line otherwise; select one for its detail page, which also lists its last tool calls and has an **Open transcript** button (Claude Code 2.1.300 or newer; on an older version the press does nothing) | the spawn result (model), `tool.call` events carrying the worker's agent id, turn and `TeammateIdle` events |
 | Tasks | a progress bar with `n/N marked complete`, the ready frontier, a layered graph of the declared dependencies, then the list (id, status, owner, what it waits for); select one for what it waits for and what waits for it | the `TaskCreate` and `TaskUpdate` calls CTK saw (their named fields only) |
 | Usage | model, context, 5-hour and weekly bars with reset countdowns, session cost, tool calls | `$.session.usage()`, `$.session.model()`, CTK's tool-call count |
 | Config | any change waiting for your confirmation first, then the HUD form for this session, then the options in groups | the plugin's options |
@@ -31,6 +31,19 @@ beside the transcript; on the main screen it opens above the prompt.
 | Doctor | the `/ctk-doctor` report with what needs a fix first, then what is unknown or off, then one line for everything that is fine; read when you open the view | `$.env.get`, `$.settings.read`, `$.tool.list` |
 
 The cap is enforced by the CTK mod; Mission Control only displays it and never changes it.
+
+## Notifications and the report
+
+- **Notifications.** A desktop notification (title `CTK`) says when a teammate failed or was killed,
+  when all teammates finished, and when a spawn was refused at the cap (at most one per minute).
+  Each failure is announced once. A terminal without a notification channel shows nothing.
+- **`/ctk-report`** prints a Markdown block to paste into a PR body: team duration, spawns accepted
+  and refused, session cost and tool calls, models, the task list as CTK saw it, and the paths of
+  files the write tools changed. It carries counts and paths only, never file contents, and the
+  figures are labelled like the Stats view (counted by CTK, measured by Claude Code).
+- **Compaction.** When the conversation is compacted, the summarizer is asked to keep the live
+  teammates and open tasks. The request is a short paragraph; the summary itself is written by the
+  model, so this is guidance, not a guarantee.
 
 **The state pill.** `ACTIVE` appears only after a spawn has reached the guard in this session. `CAPACITY` appears
 once the live teammates reach the cap: amber while nothing was refused, red once a spawn was refused with

@@ -99,6 +99,8 @@ Claude Code provides the agent team and its shared task list. CTK's skill guides
 
 Click the `CTK ▸` line above the prompt, or run `/ctk-mission`. Seven views: Overview, Workers, Tasks, Usage, Config, Stats and Doctor; keys `1` to `7` switch, `Esc` closes. Figures come from Claude Code's own events and API, and anything CTK could not observe reads `unavailable`, never a made-up zero.
 
+When a team finishes, `/ctk-report` prints a Markdown summary (tasks, spawns, cost, changed files) to paste into a PR body. Desktop notifications say when a teammate fails or all have finished.
+
 <p align="center">
   <a href="docs/assets/mission-control-f-workers.svg"><img src="docs/assets/mission-control-f-workers.svg" alt="Mission Control Workers view beside the transcript: three workers on Sonnet 5.5, each with its task, tool-call count, elapsed time and last activity" width="640"></a><br>
   <b>Live workers</b><br>

@@ -60,6 +60,8 @@ export type World = {
   lag: Map<string, number>
   /** mtimeMs $.fs.list reports for a path; 0 when unset. */
   mtimes: Map<string, number>
+  /** Every $.ui.notify text, in order. */
+  notices: string[]
   /** Host calls answered since the world was made, by event name (the perf-measurement spy). */
   hostCalls: Map<string, number>
 }
@@ -113,6 +115,7 @@ export const fresh = (): World => ({
   failWrites: false,
   lag: new Map(),
   mtimes: new Map(),
+  notices: [],
   hostCalls: new Map(),
 })
 
@@ -230,6 +233,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
   })
   // What the engine itself draws where no plugin does.
   on('ui.render', () => ({ type: 'Box', props: { key: 'engine-default' }, children: [] }) as never)
+  on('ui.notify', (_$, e) => (w.notices.push(e.text), { value: { isSent: true, channel: 'terminal_bell' } }) as never)
   on('ui.close', (_$, e) => {
     w.closed.push(e.id)
     return { value: undefined } as never

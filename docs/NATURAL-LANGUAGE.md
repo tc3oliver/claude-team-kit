@@ -90,7 +90,7 @@ comparable across versions.
 
 ## How it was tested
 
-`plugins/ctk/evals/` holds 20 cases (`<case>/prompt.md` plus `graders/*.md`), in the format of
+`plugins/ctk/evals/` holds 22 cases (`<case>/prompt.md` plus `graders/*.md`), in the format of
 `claude plugin eval` (verified to load and run, for example
 `claude plugin eval plugins/ctk --case ctk-sync-en --runs 1 --ablation none --trust-plugin`).
 Each grader asserts that a `Skill` tool call with the expected name happened (positive cases) or

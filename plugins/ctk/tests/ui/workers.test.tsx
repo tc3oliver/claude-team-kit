@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
 import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { fmtClock, renderWorkers } from '../../hooks/ui/workers.tsx'
+import { fmtClock, renderWorkers, transcriptKey } from '../../hooks/ui/workers.tsx'
 import { BACK_KEY, MC_PANE_ID, workerKey } from '../../hooks/mission.ts'
 import { displayWidth } from '../../shared/hudline.ts'
 import { engine, fresh, spawnInput, test } from '../world.ts'
@@ -137,6 +137,7 @@ describe('Workers page', () => {
     expect(rows.find(r => r.startsWith('Recent'))).toMatch(/Bash ‹ Read one\.ts/)
     expect(rows.join('\n')).not.toContain('sk-secret')
     expect(rows.length).toBeLessThanOrEqual(11)
+    expect(JSON.stringify(await p.drawn())).toContain(transcriptKey(id))
     await p.press({ key: BACK_KEY })
     await p.press({ key: workerKey(w.agents[1]!.id) })
     expect((await bodyRows(p)).find(r => r.startsWith('Recent'))).toContain('unavailable (no tool call')

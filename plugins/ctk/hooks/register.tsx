@@ -14,7 +14,10 @@ import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, 
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
 import { readBranch } from './branch.ts'
+import { TRANSCRIPT_PREFIX } from './ui/workers.tsx'
 import { filterBashOutput, hashOutput } from './outfilter.ts'
+import { formatReport } from './report.ts'
+import { capNotice, NOTIFY_TITLE, teamNotices, teamSummary } from './notify.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -24,6 +27,7 @@ import {
   missionText,
   newMcState,
   newMissionState,
+  noteFileChange,
   noteSpawn,
   noteTaskCall,
   noteTeammateIdle,
@@ -53,6 +57,8 @@ type Ctx = {
   snap: Snapshot
   /** The main loop's last turn cache counts, from turn.complete's usage; null before one. */
   cache: CacheUsage | null
+  /** When the last cap-refusal notice went out (clock ms); 0 before one. */
+  lastCapNotice: number
   /** True once a response read from the cache: before that, a 0% read is the first write, not a lapse. */
   cacheWarm: boolean
   /** Spawns that passed the cap and have not returned yet; bumped before the first await. */
@@ -96,6 +102,8 @@ type Ctx = {
   paneOpen: boolean
   /** True from session end: a late pane draw must not arm another timer. */
   ended: boolean
+  /** Teammates already announced as failed or killed, so each is announced once. */
+  announced: Set<string>
 }
 
 async function ctkDir($: EngineInterface): Promise<string | null> {
@@ -196,6 +204,14 @@ async function refreshBranch($: EngineInterface, c: Ctx) {
   }
 }
 
+/** At most one cap-refusal notice per this gap. */
+const CAP_NOTICE_GAP_MS = 60_000
+
+// One desktop notification per event; a terminal without a channel, or any failure, says nothing.
+async function announce($: EngineInterface, texts: string[]) {
+  for (const text of texts) await $.ui.notify(text, { title: NOTIFY_TITLE }).catch(() => undefined)
+}
+
 // Re-reads the roster and usage, then redraws the band and writes stats. Never throws.
 async function refresh($: EngineInterface, c: Ctx, write = true) {
   try {
@@ -206,7 +222,10 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
       $.session.model().catch(() => null),
     ])
     if (now > 0) c.lastNow = now
+    const before = c.snap
     c.snap = snapshotOf(agents, usage, now)
+    // Not awaited: $.ui.notify runs the person's Notification hooks first, and a slow one must not hold a spawn or a turn.
+    void announce($, teamNotices(before, c.snap, c.announced))
     if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
@@ -379,6 +398,13 @@ async function handlePress($: EngineInterface, c: Ctx, key: string) {
       await openMission($, c)
       return
     }
+    if (key.startsWith(TRANSCRIPT_PREFIX)) {
+      // $.ui.view arrived in Claude Code 2.1.300, after the generated types: on an older build the call
+      // throws, as it does for an agent that ended or left the list; both are caught below.
+      // The cast is erased at compile time: the call site must stay `$.ui.view(...)` for the validator.
+      await ($.ui as unknown as { view: (args: { agentId: string }) => Promise<unknown> }).view({ agentId: key.slice(TRANSCRIPT_PREFIX.length) })
+      return
+    }
     const r = pressMc(c.mc, key)
     c.mc = r.mc
     if (r.effect === 'close') {
@@ -509,6 +535,7 @@ export const register: Register = (on, options) => {
     snap: emptySnapshot(),
     cache: null,
     cacheWarm: false,
+    lastCapNotice: 0,
     inflight: 0,
     pending: new Map(),
     lastNow: 0,
@@ -531,6 +558,7 @@ export const register: Register = (on, options) => {
     moTimer: null,
     paneOpen: false,
     ended: false,
+    announced: new Set(),
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -574,6 +602,12 @@ export const register: Register = (on, options) => {
         const starting = c.inflight - 1
         release()
         c.stats.spawnsRejected += 1
+        // A lead that retries a refused spawn would otherwise raise one notice per try.
+        const now = await $.clock.now().catch(() => 0)
+        if (now - c.lastCapNotice >= CAP_NOTICE_GAP_MS) {
+          c.lastCapNotice = now
+          void announce($, [capNotice(live, c.opts.maxWorkers)])
+        }
         await refresh($, c)
         return { deny: capacityDeny(live, starting, c.opts.maxWorkers) }
       }
@@ -663,6 +697,11 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command the CTK band is the way in.
     }
+    try {
+      await $.command.register({ name: 'ctk-report', description: 'Print a team summary for a PR body (tasks, spawns, cost, changed files).' })
+    } catch {
+      // Without the command /ctk-stats still prints the counters.
+    }
     c.cache = null
     c.cacheWarm = false
     // Off: recalls from before it was turned off would stay on disk. On: only dead sessions' files go.
@@ -691,6 +730,14 @@ export const register: Register = (on, options) => {
     noteWorkerTurnEnd(c.mission, (e as { agentId?: string }).agentId, c.lastNow)
     return r
   })
+
+  // Whatever compacts, the summarizer is told to keep the live team and open tasks; with no team it is untouched.
+  on('session.compact', async ($, e, next) => {
+    // A subagent's or teammate's own compaction (agentId set) is about its task, not the lead's team.
+    if (e.trigger === 'precompute' || (e as { agentId?: string }).agentId !== undefined) return next(e)
+    const summary = teamSummary(c.snap, c.mission.tasks.values(), c.opts.maxWorkers)
+    return next(summary === null ? e : { ...e, instructions: e.instructions ? `${e.instructions}\n\n${summary}` : summary })
+  }).catch(($, e, next) => next(e))
 
   on('session.end', async ($, e, next) => {
     stopMotion(c, true)
@@ -730,6 +777,7 @@ export const register: Register = (on, options) => {
       noteWorkerToolCall(c.mission, e.agentId, c.lastNow, toolLabel(e.tool, e))
       // The task board is built from the Task tools' named fields only (see noteTaskCall), and only
       // from a call that ran: a denied or failed one changes nothing.
+      if (r.deny === undefined && r.isError !== true) noteFileChange(c.mission, e.tool, e)
       if ((e.tool === 'TaskCreate' || e.tool === 'TaskUpdate') && r.deny === undefined) {
         noteTaskCall(c.mission, e.tool, e as unknown as Record<string, unknown>, (r as { result?: unknown }).result)
       }
@@ -803,6 +851,12 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'ctk-stats' }, async ($, e, next) => {
     await refresh($, c)
     return { text: formatSummary(c.stats, c.snap, c.lastNow) }
+  })
+
+  on('command.run', { command: 'ctk-report' }, async ($, e, next) => {
+    await refresh($, c)
+    const teamMs = c.mission.teamStartedAt === null ? null : Math.max(0, c.lastNow - c.mission.teamStartedAt)
+    return { text: formatReport({ stats: c.stats, tasks: c.mission.tasks.values(), files: c.mission.files, filesDropped: c.mission.filesDropped, cwd: await $.session.cwd().catch(() => null), teamMs }) }
   })
 
   // The command is the way in where the band is hidden, and the answer where no pane can be drawn.

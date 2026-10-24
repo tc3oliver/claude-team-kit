@@ -1,14 +1,17 @@
 import { DASH, displayWidth } from '../../shared/hudline.ts'
 import { modelLabel } from '../band.ts'
-import { fmtAge, fmtSpan, UNAVAILABLE, workerKey } from '../mission.ts'
+import { BACK_KEY, fmtAge, fmtSpan, UNAVAILABLE, workerKey } from '../mission.ts'
 import type { McState, Mission, WorkerRow } from '../mission.ts'
 import { moreText } from './ctx.tsx'
 import type { Ctx } from './ctx.tsx'
-import { backButton } from './frame.tsx'
 import { glyphProps } from './motion.ts'
 import { COLOR, GLYPH, statusColor, statusOf } from './theme.ts'
 import type { Status } from './theme.ts'
 import type { Extras, Kit } from './types.ts'
+
+/** Press id of a worker's "Open transcript" button; the host answers it with `$.ui.view({ agentId })`. */
+export const TRANSCRIPT_PREFIX = 'mc:transcript:'
+export const transcriptKey = (agentId: string): string => `${TRANSCRIPT_PREFIX}${agentId}`
 
 const ACT_W = 4
 const RAMP = '▁▃▅▇'
@@ -124,7 +127,10 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
       field('w-recent', 'Recent', picked.recent.length === 0 ? `${UNAVAILABLE} (no tool call of its own loop was seen)` : picked.recent.join(' ‹ ')),
       field('w-last', 'Last activity', fmtAge(picked.lastActivityMs)),
       field('w-idle', 'Idle for', picked.status === 'idle' ? fmtSpan(picked.idleMs) : 'not idle'),
-      backButton(kit, ctx),
+      <kit.Box key="w-actions" flexDirection="row" columnGap={2}>
+        {ctx.button(BACK_KEY, 'Back')}
+        {ctx.button(transcriptKey(picked.agentId), 'Open transcript')}
+      </kit.Box>,
     ]
   }
   const subagents = () =>
