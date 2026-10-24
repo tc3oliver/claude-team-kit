@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { AgentInfo } from 'claude-code'
 
+import { cacheHealth, formatBand } from '../hooks/band.ts'
+
 import {
   BACK_KEY,
   buildMission,
@@ -27,7 +29,7 @@ import {
   viewKey,
   workerKey,
 } from '../hooks/mission.ts'
-import { isLiveStatus, snapshotOf } from '../hooks/team.ts'
+import { emptySnapshot, isLiveStatus, snapshotOf } from '../hooks/team.ts'
 import { emptyStats } from '../shared/stats.ts'
 
 const NOW = Date.UTC(2026, 9, 9, 3)
@@ -405,5 +407,17 @@ describe('pane presses', () => {
   test('unknown keys and unknown views change nothing', () => {
     expect(pressMc(mc, 'something-else').mc).toBe(mc)
     expect(pressMc(mc, 'mc:view:nope').mc).toBe(mc)
+  })
+})
+
+describe('cache health', () => {
+  test('classifies the last response by read share', async () => {
+    expect(cacheHealth(null)).toBeNull()
+    expect(cacheHealth({ input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })).toBeNull()
+    expect(cacheHealth({ input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 })?.state).toBe('ok')
+    expect(cacheHealth({ input_tokens: 10, cache_read_input_tokens: 40, cache_creation_input_tokens: 50 })?.state).toBe('low')
+    const cold = cacheHealth({ input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
+    expect(cold?.state).toBe('cold')
+    expect(formatBand(emptyStats('s', 3, 0), emptySnapshot(), 200, { cache: cold })).toContain('Cache cold')
   })
 })

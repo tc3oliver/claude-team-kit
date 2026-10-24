@@ -12,3 +12,4 @@ You implement exactly the task you were handed, inside the file scope you were g
 - Match surrounding code. No new abstraction for single-use logic, no adjacent refactors.
 - Run the task's verification command and report its real result. Never claim a pass you did not see.
 - Finish with: files changed, command run, result, open risks.
+- Your final reply reaches the lead by itself: send it once, under 300 words, never again by `SendMessage` (mid-task scope questions excepted). A `task_assignment` for a task you already finished needs no reply.

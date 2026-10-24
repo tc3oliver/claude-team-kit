@@ -20,6 +20,7 @@ export const OPTION_NAMES = [
   'hudIdle',
   'recordStats',
   'teamHint',
+  'bashFilter',
 ] as const satisfies readonly (keyof PolicyOptions)[]
 export type OptionName = (typeof OPTION_NAMES)[number]
 
@@ -65,6 +66,7 @@ const META: Record<OptionName, Meta> = {
   hudIdle: { label: 'Band while no team runs', hint: 'What the band shows until a teammate has started.', allowed: 'full, minimal or hidden' },
   recordStats: { label: 'Record stats', hint: 'Write small per-session counters for the ctk stats command.', allowed: 'on or off' },
   teamHint: { label: 'Team hint', hint: 'Add one hidden hint line to a prompt that asks for several agents or a team.', allowed: 'on or off' },
+  bashFilter: { label: 'Bash output filter', hint: 'Shrink long test, build and log output to its failures; the full text stays recallable.', allowed: 'on or off' },
 }
 
 /** The sections Mission Control groups the options into, in display order. */
@@ -72,7 +74,7 @@ export const OPTION_GROUPS: { title: string; names: OptionName[] }[] = [
   { title: 'Team', names: ['maxWorkers'] },
   { title: 'Models', names: ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'designerModel'] },
   { title: 'Band', names: ['hudBand', 'hudIdle'] },
-  { title: 'Other', names: ['recordStats', 'teamHint'] },
+  { title: 'Other', names: ['recordStats', 'teamHint', 'bashFilter'] },
 ]
 
 /** The group title for an option label as the pane receives it; unknown labels fall under Other. */
@@ -189,7 +191,7 @@ export const validateChange = (name: string, raw: unknown, opts: PolicyOptions):
     value = n
   } else {
     try {
-      value = name === 'hudBand' || name === 'recordStats' || name === 'teamHint' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
+      value = name === 'hudBand' || name === 'recordStats' || name === 'teamHint' || name === 'bashFilter' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
     } catch (err) {
       return fail('invalid_value', (err as Error).message)
     }

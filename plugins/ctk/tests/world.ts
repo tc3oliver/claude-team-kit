@@ -58,6 +58,8 @@ export type World = {
   failWrites: boolean
   /** Teammates the roster does not list yet: id -> list calls left before it appears. */
   lag: Map<string, number>
+  /** mtimeMs $.fs.list reports for a path; 0 when unset. */
+  mtimes: Map<string, number>
   /** Host calls answered since the world was made, by event name (the perf-measurement spy). */
   hostCalls: Map<string, number>
 }
@@ -110,6 +112,7 @@ export const fresh = (): World => ({
   tools: [],
   failWrites: false,
   lag: new Map(),
+  mtimes: new Map(),
   hostCalls: new Map(),
 })
 
@@ -133,6 +136,10 @@ export type EngineOptions = {
   rosterLag?: number
   /** What the engine answers a model's tool call with (`result`); defaults to 'ok'. */
   toolResult?: (e: Record<string, unknown>) => unknown
+  /** Context the engine attaches to a tool call's result. */
+  toolContext?: string[]
+  /** Answers a call as core would after an error: `{ isError: true, result: text }`. */
+  toolError?: (e: Record<string, unknown>) => string | undefined
   /** Microtasks agent.list takes to answer; the roster is read when asked, then held back. */
   listDelay?: number
 }
@@ -196,7 +203,11 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     return { value: w.model } as never
   })
   // Any tool other than the plugin's own: the engine runs it and answers.
-  on('tool.call', (_$, e) => ({ result: opts.toolResult?.(e as unknown as Record<string, unknown>) ?? 'ok' }) as never)
+  on('tool.call', (_$, e) => {
+    const error = opts.toolError?.(e as unknown as Record<string, unknown>)
+    if (error !== undefined) return { isError: true, result: error } as never
+    return { result: opts.toolResult?.(e as unknown as Record<string, unknown>) ?? 'ok', ...(opts.toolContext ? { context: opts.toolContext } : {}) } as never
+  })
   on('ui.open', (_$, e) => {
     w.opened.push({ ...e })
     return { value: w.placePanes ? { isPlaced: true } : { isPlaced: false, reason: 'no room' } } as never
@@ -229,6 +240,12 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     const text = w.files.get(norm(e.path))
     if (text === undefined) throw new Error('ENOENT')
     return { value: text } as never
+  })
+  on('fs.list', (_$, e) => {
+    const dir = `${norm(e.path ?? '')}/`
+    const files = [...w.files].filter(([k]) => k.startsWith(dir) && !k.slice(dir.length).includes('/')).map(([k, v]) => ({ name: k.slice(dir.length), kind: 'file', size: v.length, mtimeMs: w.mtimes.get(k) ?? 0, isLink: false }))
+    const dirs = new Set([...w.files.keys()].filter(k => k.startsWith(dir) && k.slice(dir.length).includes('/')).map(k => k.slice(dir.length).split('/')[0]!))
+    return { value: [...files, ...[...dirs].map(name => ({ name, kind: 'dir', size: 0, mtimeMs: 0, isLink: false }))] } as never
   })
   on('fs.write', (_$, e) => {
     if (opts.writeFails || w.failWrites) throw new Error('disk full')

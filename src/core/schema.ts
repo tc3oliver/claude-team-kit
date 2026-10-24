@@ -25,6 +25,7 @@ export const profileSchema = z.strictObject({
   routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema, designer: roleSchema }),
   hud: z.strictObject({ band: z.boolean(), idle: z.enum(HUD_IDLE), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
+  output: z.strictObject({ bashFilter: z.boolean() }),
   claude: z.strictObject({ enableAgentTeams: z.boolean(), enableTaskTools: z.boolean() }),
   portable: z.strictObject({
     settings: z.strictObject({
@@ -56,6 +57,7 @@ export const profileLayerSchema = z.strictObject({
     .optional(),
   hud: z.strictObject({ band: z.boolean().optional(), idle: z.enum(HUD_IDLE).optional(), statusLine: z.enum(['auto', 'off']).optional() }).optional(),
   stats: z.strictObject({ record: z.boolean().optional() }).optional(),
+  output: z.strictObject({ bashFilter: z.boolean().optional() }).optional(),
   claude: z.strictObject({ enableAgentTeams: z.boolean().optional(), enableTaskTools: z.boolean().optional() }).optional(),
   portable: z.strictObject({ settings: profileSchema.shape.portable.shape.settings.optional() }).optional(),
   skills: profileSchema.shape.skills.optional(),
@@ -74,6 +76,7 @@ export const DEFAULT_PROFILE: Profile = {
   },
   hud: { band: DEFAULT_OPTIONS.hudBand, idle: DEFAULT_OPTIONS.hudIdle, statusLine: 'auto' },
   stats: { record: DEFAULT_OPTIONS.recordStats },
+  output: { bashFilter: DEFAULT_OPTIONS.bashFilter },
   // Task tools (TaskCreate/TaskUpdate/TaskList) are left out by Claude Code on current default models
   // unless CLAUDE_CODE_ENABLE_TODO_TOOLS=1. Enabling them adds tool definitions to every session, so
   // this is opt-in; without them /ctk:team coordinates through messages.
@@ -116,4 +119,5 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   hudIdle: p.hud.idle,
   recordStats: p.stats.record,
   teamHint: p.team.hint,
+  bashFilter: p.output.bashFilter,
 })

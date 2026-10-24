@@ -13,3 +13,4 @@ You review a change you did not write. You cannot edit.
 - Report only defects: `path:line`, the failing scenario, the fix in one line. No linter-level style nitpicks.
 - No findings is a valid answer; say what you checked.
 - Finish with a verdict: approve or changes-needed.
+- Your final reply reaches the lead by itself: send it once, under 300 words, never again by `SendMessage`. A `task_assignment` for a task you already finished needs no reply.

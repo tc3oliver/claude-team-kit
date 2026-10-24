@@ -23,6 +23,7 @@ const ALLOWED = new Set([
   'config.list',
   'config.set',
   'env.get',
+  'fs.list',
   'fs.read',
   'fs.write',
   'session.cwd',

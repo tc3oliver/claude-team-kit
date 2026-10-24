@@ -23,6 +23,7 @@ export type Facts = {
   hudBand: boolean
   recordStats: boolean
   teamHint: boolean
+  bashFilter: boolean
   /** The guard's state and the reason for it (see guardOf); null when it was not computed. */
   guard: { state: 'active' | 'available' | 'unavailable' | 'error'; why: string } | null
   /** Named agents started as ordinary subagents this session (outside the cap). */
@@ -70,6 +71,7 @@ export const factsFrom = ({ opts, envFlag, settings, toolNames, guard = null, ou
     hudBand: opts.hudBand,
     recordStats: opts.recordStats,
     teamHint: opts.teamHint,
+    bashFilter: opts.bashFilter,
     guard,
     outsideCap,
   }
@@ -123,6 +125,9 @@ export const doctorRows = (f: Facts): Row[] => [
   f.teamHint
     ? { level: 'ok', text: 'team hint: on (a prompt that asks for several agents or a team gets one hidden hint line; plugin option teamHint)' }
     : { level: 'info', text: 'team hint: off (plugin option teamHint)' },
+  f.bashFilter
+    ? { level: 'ok', text: 'bash filter: on (long test, build and log output is cut to its failures; the full text is kept for Read; plugin option bashFilter)' }
+    : { level: 'info', text: 'bash filter: off (plugin option bashFilter)' },
 ]
 
 export const formatDoctor = (f: Facts): string => {

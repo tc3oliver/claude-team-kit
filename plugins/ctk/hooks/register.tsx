@@ -4,7 +4,8 @@ import { readOptions } from '../shared/policy.ts'
 import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import { BAND_MARGIN, BAND_SEP, bandParts, formatSummary, GUARD_QUIET } from './band.ts'
+import type { CacheUsage } from './band.ts'
+import { BAND_MARGIN, BAND_SEP, bandParts, cacheHealth, formatSummary, GUARD_QUIET } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
 import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
@@ -13,6 +14,7 @@ import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, 
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
 import { readBranch } from './branch.ts'
+import { filterBashOutput, hashOutput } from './outfilter.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -49,6 +51,10 @@ type Ctx = {
   opts: PolicyOptions
   stats: StatsRecord
   snap: Snapshot
+  /** The main loop's last turn cache counts, from turn.complete's usage; null before one. */
+  cache: CacheUsage | null
+  /** True once a response read from the cache: before that, a 0% read is the first write, not a lapse. */
+  cacheWarm: boolean
   /** Spawns that passed the cap and have not returned yet; bumped before the first await. */
   inflight: number
   /** Accepted teammates (id -> accepted-at ms) the roster has not listed yet; see effectiveLive. */
@@ -62,6 +68,8 @@ type Ctx = {
   lastDraw: number
   /** tool_use_ids already counted, so one call is never counted twice. */
   toolSeen: Set<string>
+  /** Recall files written so far this session; the next one goes to slot (this % RECALL_SLOTS). */
+  recallCount: number
   /** True while the CTK status line is configured: the band then leaves out what it shows. */
   coordinated: boolean
   /** The git branch of the session's directory, read from .git/HEAD; null when not in a repository. */
@@ -90,11 +98,64 @@ type Ctx = {
   ended: boolean
 }
 
-async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
+async function ctkDir($: EngineInterface): Promise<string | null> {
   const explicit = await $.env.get('CLAUDE_CONFIG_DIR')
   const home = explicit ? null : (await $.env.get('HOME')) || (await $.env.get('USERPROFILE'))
   const dir = explicit || (home ? `${home}/.claude` : null)
-  return dir === null ? null : `${dir.replace(/[\\/]+$/, '')}/ctk/stats/${safeSessionId(sessionId)}.json`
+  return dir === null ? null : `${dir.replace(/[\\/]+$/, '')}/ctk`
+}
+
+async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
+  const dir = await ctkDir($)
+  return dir === null ? null : `${dir}/stats/${safeSessionId(sessionId)}.json`
+}
+
+/** The engine's reminder to use the task (or todo) tools; matched by text, as its type name varies by build. */
+const TASK_NUDGE = /(task tools haven't|TodoWrite tool hasn't) been used recently/
+
+/** How many full outputs the Bash filter keeps per session; older ones are overwritten slot by slot. */
+export const RECALL_SLOTS = 32
+/** A session dir untouched this long is taken as dead: a live parallel session is never emptied. */
+const RECALL_STALE_MS = 24 * 3600 * 1000
+
+// One dir per session so a parallel session never overwrites or wipes another's recalls. The Mods API
+// has no delete: an emptied file stays on disk as a zero-byte file.
+async function recallDir($: EngineInterface, sessionId: string): Promise<string | null> {
+  const dir = await ctkDir($)
+  return dir === null ? null : `${dir}/recall/${safeSessionId(sessionId)}`
+}
+
+/** Writes the full output for Read and returns the note for the model, or null when it was not written. */
+async function keepRecall($: EngineInterface, c: Ctx, command: string, stdout: string, stderr: string, hash: string): Promise<string | null> {
+  const dir = await recallDir($, c.stats.sessionId)
+  if (dir === null) return null
+  const path = `${dir}/${c.recallCount % RECALL_SLOTS}.txt`
+  await $.fs.write(path, `ctk recall ${hash}\n$ ${command}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n`)
+  c.recallCount += 1
+  return `\n[ctk: output shortened; the full output is in ${path} until this session ends (first line: ctk recall ${hash})]`
+}
+
+/**
+ * Empties non-empty recall files: every one when `olderThanMs` is null, else only files not written
+ * for that long (any session dir, plus loose files of the earlier flat layout). Fails open.
+ */
+async function wipeRecalls($: EngineInterface, olderThanMs: number | null, now: number, onlyDir?: string) {
+  const empty = async (dir: string) => {
+    for (const f of await $.fs.list(dir).catch(() => [])) {
+      if (f.kind === 'file' && f.size > 0 && (olderThanMs === null || now - f.mtimeMs > olderThanMs)) {
+        await $.fs.write(`${dir}/${f.name}`, '').catch(() => undefined)
+      }
+    }
+  }
+  try {
+    if (onlyDir !== undefined) return await empty(onlyDir)
+    const dir = await ctkDir($)
+    if (dir === null) return
+    await empty(`${dir}/recall`)
+    for (const f of await $.fs.list(`${dir}/recall`)) if (f.kind === 'dir') await empty(`${dir}/recall/${f.name}`)
+  } catch {
+    // No directory yet, or unreadable: nothing to wipe.
+  }
 }
 
 // Throttled to one write per STATS_WRITE_GAP_MS; a change inside the gap is written by the
@@ -285,7 +346,7 @@ function armMotion($: EngineInterface, c: Ctx, mission: Mission, now: number) {
 const noop = () => {}
 
 const missionOf = (c: Ctx) =>
-  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready })
+  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready, cache: c.cache })
 
 // Reads the readiness report for the Doctor view; a failure leaves a one-line reason.
 async function loadDoctor($: EngineInterface, c: Ctx) {
@@ -446,6 +507,8 @@ export const register: Register = (on, options) => {
     opts,
     stats: emptyStats('unknown', opts.maxWorkers, 0),
     snap: emptySnapshot(),
+    cache: null,
+    cacheWarm: false,
     inflight: 0,
     pending: new Map(),
     lastNow: 0,
@@ -454,6 +517,7 @@ export const register: Register = (on, options) => {
     lastWrite: 0,
     lastDraw: 0,
     toolSeen: new Set(),
+    recallCount: 0,
     coordinated: false,
     branch: null,
     ambiguous: 1,
@@ -548,6 +612,14 @@ export const register: Register = (on, options) => {
     return next(hint === null ? e : { ...e, context: [...(e.context ?? []), hint] })
   }).catch(($, e, next) => next(e))
 
+  // The engine nudges the model to use the task tools every few turns. Once this session has created
+  // tasks the lead already keeps a task list, so the nudge is noise; before that it is left alone.
+  on('prompt.attachment', async ($, e, next) => {
+    const r = await next(e)
+    if (e.origin?.kind !== 'engine' || ((c.stats.tasks?.created ?? 0) === 0 && c.mission.tasks.size === 0)) return r
+    return TASK_NUDGE.test(r.text ?? '') ? { text: null } : r
+  }).catch(($, e, next) => next(e))
+
   on('session.start', async ($, e, next) => {
     c.ended = false
     try {
@@ -567,7 +639,7 @@ export const register: Register = (on, options) => {
           properties: {
             action: { type: 'string', enum: ['show', 'propose'] },
             option: { type: 'string', enum: [...OPTION_NAMES] },
-            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand, recordStats and teamHint: true or false' },
+            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand, recordStats, teamHint and bashFilter: true or false' },
           },
           required: ['action'],
         },
@@ -591,6 +663,10 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command the CTK band is the way in.
     }
+    c.cache = null
+    c.cacheWarm = false
+    // Off: recalls from before it was turned off would stay on disk. On: only dead sessions' files go.
+    await wipeRecalls($, c.opts.bashFilter ? RECALL_STALE_MS : null, await $.clock.now().catch(() => 0))
     const r = await next(e)
     await boot($, c)
     return r
@@ -605,6 +681,11 @@ export const register: Register = (on, options) => {
   // Teammate status changes raise no session.measure; turn ends do.
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
+    // The main loop only (a subagent's turn carries agentId): the usage is that turn's own, free, no extra call.
+    if (e.agentId === undefined && e.usage !== undefined) {
+      if (e.usage.cache_read_input_tokens > 0) c.cacheWarm = true
+      c.cache = c.cacheWarm ? e.usage : null
+    }
     await detectEnvironment($, c)
     await refresh($, c)
     noteWorkerTurnEnd(c.mission, (e as { agentId?: string }).agentId, c.lastNow)
@@ -614,6 +695,9 @@ export const register: Register = (on, options) => {
   on('session.end', async ($, e, next) => {
     stopMotion(c, true)
     await persist($, c, true)
+    // A recall can hold whatever a command printed, secrets included: it outlives no session.
+    const dir = await recallDir($, c.stats.sessionId).catch(() => null)
+    if (dir !== null) await wipeRecalls($, null, 0, dir)
     return next(e)
   })
 
@@ -652,6 +736,38 @@ export const register: Register = (on, options) => {
     }
     return r
   }).catch(($, e, next) => next(e)) // whatever fails here, the model's tool call still goes through
+
+  // Opt-in (bashFilter): a long test, build or log output reaches the model cut to its failures,
+  // with the full text written where Read can get it. Only a write that succeeded is announced;
+  // otherwise the model gets the output untouched.
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const r = await next(e)
+    // The inner try/catch (not the .catch below) so a failed recall write returns the original output.
+    try {
+      if (!c.opts.bashFilter || r.deny !== undefined) return r
+      const command = String((e as { command?: unknown }).command ?? '')
+      // A non-zero exit arrives as isError with the text as a string, which core will not take back
+      // as a result (verified on 2.1.310); a deny carries the shortened text as the same error.
+      if (r.isError === true) {
+        if (typeof r.result !== 'string') return r
+        const f = filterBashOutput(command, r.result)
+        const note = f.changed ? await keepRecall($, c, command, r.result, '', f.hash) : null
+        return note === null ? r : { deny: f.text + note }
+      }
+      const out = r.result as { stdout?: unknown; stderr?: unknown; persistedOutputPath?: unknown } | undefined
+      // stdout is only a preview of a persisted output: shortening it would hide what Read can fetch.
+      if (out?.persistedOutputPath) return r
+      if (typeof out?.stdout !== 'string' || typeof out.stderr !== 'string') return r
+      const so = filterBashOutput(command, out.stdout)
+      const se = filterBashOutput(command, out.stderr)
+      if (!so.changed && !se.changed) return r
+      const note = await keepRecall($, c, command, out.stdout, out.stderr, hashOutput(`${out.stdout}\0${out.stderr}`))
+      if (note === null) return r
+      return { result: { ...out, stdout: so.text + note, stderr: se.text }, ...(r.context ? { context: r.context } : {}) }
+    } catch {
+      return r
+    }
+  }).catch(($, e, next) => next(e)) // a failure before next() runs: the call goes through untouched
 
   // A teammate going idle is the one moment its idle time starts; nothing else reads this event.
   on('classic.TeammateIdle', async ($, e, next) => {
@@ -731,6 +847,7 @@ export const register: Register = (on, options) => {
             coordinated: c.coordinated,
             branch: c.branch,
             guard,
+            cache: cacheHealth(c.cache),
             subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
             pendingChange: waiting,
             tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,

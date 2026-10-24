@@ -49,7 +49,7 @@ scratch config directory; it is not an audit.
 | Claude Code's status line JSON on stdin | The status line script only: model, effort, context %, rate-limit % and reset times, cost, duration, directory. |
 | `.git/HEAD` and the git config files of your working directory's repository, and one `git status --porcelain -uno` | The status line script only, for the branch and a dirty marker (250 ms timeout; any failure shows nothing). The config files are read to decide whether it is safe to run `git status` at all (see Process execution). |
 | The mod's host API | Roster (`agent.list`), session id and usage, clock, its own stats file (`fs.read`, to continue counters), and the env vars `CLAUDE_CONFIG_DIR`, `HOME`, `USERPROFILE` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. `claude plugin validate` reports the exact list. |
-| Tool events (`tool.call`) | The mod, to count them: the call's `tool_use_id` and `agentId`, and the tool's name to spot a Task tool. For `TaskCreate` and `TaskUpdate` only the named fields (`subject`, `taskId`, `status`, `owner`, `addBlockedBy`, `addBlocks` and the created task's id and subject from the tool's result) are kept, in memory, for Mission Control. Descriptions, metadata, other tools' inputs and every result are not read or stored. None of it is written to the stats file. |
+| Tool events (`tool.call`) | The mod, to count them: the call's `tool_use_id` and `agentId`, and the tool's name to spot a Task tool. For `TaskCreate` and `TaskUpdate` only the named fields (`subject`, `taskId`, `status`, `owner`, `addBlockedBy`, `addBlocks` and the created task's id and subject from the tool's result) are kept, in memory, for Mission Control. Descriptions, metadata and other tools' inputs are not read or stored, and no result is, except a Bash command line and result while `bashFilter` is on (see "What the recall files contain"). None of it is written to the stats file. |
 | `$.config.list()` | Mission Control, once per Confirm: it lists the `/config` rows and looks at one (`ctk.<option>`) to see whether managed settings lock it. No other row is used. |
 | `/ctk-doctor` and the status tool: the settings the mods API exposes (`$.settings.read`), the tool names (`$.tool.list`) and the teams flag | To report whether the teams flag is set, whether a plugin option sets the cap, whether `statusLine` is configured, and whether `TaskCreate` is listed. The report is read-only: nothing is written. The call hands the mod the whole settings object, which can include `env` values you keep there; only the derived yes/no facts are kept or printed. |
 
@@ -102,6 +102,22 @@ teammates, a count per resolved model name, task created/completed counts, and t
 cost, context %, 5-hour and 7-day limit % that Claude Code reported. It contains no prompts,
 task text, file paths, agent names or per-worker cost (Claude Code reports none, and CTK does
 not estimate one). Set `stats.record` to `false` to stop writing it.
+
+## What the recall files contain
+
+Only with `output.bashFilter` on (it is off by default). When a long test, build or log output
+is shortened, the full text is written to `<config>/ctk/recall/<session>/<n>.txt` so Claude can read it:
+the command line, its whole stdout and stderr. That is whatever the command printed, so it can
+include secrets a command echoed (an env dump, a log line with a token), and the command line
+itself can contain one. Each session has 32 files, used round-robin. The Mods API cannot delete
+a file, so "emptied" means truncated to an empty file; the empty files stay. CTK empties this
+session's files when the session ends. A session that crashes, or a module reload after an
+option change, leaves its files; another session's files are emptied at a later session start
+once they are older than 24 hours, and every recall file is emptied at a session start with
+the option off. The files
+are written by Claude Code's host write, so CTK does not set their mode; restrict the
+directory (`chmod 700 <config>/ctk`) if the config directory is shared. Keep the option off on
+a machine where command output must not touch disk.
 
 ## Secrets handling
 
@@ -206,7 +222,7 @@ POSIX behaviour; on Windows CTK relies on the ACLs of your user profile.
 
 Not covered: files created by an earlier build keep their old mode; the `<config>/ctk`
 directory itself and the sync clone use default modes (the files inside are `600` or git's
-own); and the stats files are written by Claude Code on the mod's behalf, so their permissions are
+own); and the stats and recall files are written by Claude Code on the mod's behalf, so their permissions are
 set by Claude Code's host write, not by CTK (not checked). If the config directory is shared, restrict the
 directory itself (`chmod 700`).
 

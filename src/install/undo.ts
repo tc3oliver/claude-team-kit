@@ -262,9 +262,10 @@ const wipeCtkDir = (ctx: Ctx): string[] => {
 
 const NATIVE_REMOVAL = `Remove it in Claude Code with: /plugin uninstall ${PLUGIN_ID} (and /plugin marketplace remove ${MARKETPLACE_NAME})`
 
-/** Nothing in the ledger: say so, how a native install is removed, and the one leftover that removal does not clean up. */
+/** Nothing in the ledger: say so, how a native install is removed, and the leftovers that removal does not clean up. */
 const noLedgerNotes = (ctx: Ctx): string[] => {
   const stats = ctx.paths.statsDir
+  const recall = join(ctx.configDir, 'ctk', 'recall')
   const remove = process.platform === 'win32' ? `rmdir /s /q "${stats}"` : `rm -rf '${stats.replace(/'/g, `'\\''`)}'`
   return [
     'no ledger: ctk owns nothing here and changed nothing',
@@ -272,6 +273,7 @@ const noLedgerNotes = (ctx: Ctx): string[] => {
     existsSync(stats)
       ? `the mod's per-session counters in ${stats} stay behind after a native uninstall; delete them with: ${remove}`
       : `no stats directory at ${stats} (the mod writes its per-session counters there; a native uninstall would leave them behind)`,
+    `${recall} may also stay behind with full command output from bashFilter; delete it if it exists`,
   ]
 }
 

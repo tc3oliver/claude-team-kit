@@ -76,3 +76,12 @@ test('the description and the intent gate recognise a plain request to use CTK, 
   assert.match(skill, /or asking to use CTK, counts as one/)
   assert.match(skill, /named = a teammate the cap counts and Mission Control lists; unnamed = a plain subagent neither does/)
 })
+
+test('review findings on a teammate slice go back to its live owner for one fix round, and high-risk slices need user approval before spawn', () => {
+  const s = read('skills/team/SKILL.md')
+  assert.match(s, /go by `SendMessage` to its live owner, not fixed by you: one fix round, then re-review/)
+  assert.match(s, /High-risk slice \(as defined in `\.\.\/review\/references\/risk\.md`\): show the user its plan before spawning\. It stays pending and unowned until approved while other ready slices proceed; if declined it stays unstarted/)
+  assert.match(s, /Owner exited or failed: reuse an idle `ctk:implementer` or spawn one, else fix it yourself\. A re-review that still fails is the task's second failure/)
+  assert.match(read('skills/review/SKILL.md'), /the lead only routes: `SendMessage` findings on a\s+teammate's slice to its live implementer \(one fix round, then re-review\); the lead does not fix them itself/)
+  assert.match(s, /`\/ctk:review` while teammates are still live, so a finding reaches its owner\. Then shut each down/)
+})

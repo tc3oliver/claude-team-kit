@@ -55,10 +55,10 @@ things only the CLI, or you by hand, can provide.
 
 | Part | Where | What it does |
 |---|---|---|
-| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the ten options below. |
+| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the eleven options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
 | Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
-| Agents | `plugins/ctk/agents/*.md` | Four role definitions with a pinned `model` and `effort` in their frontmatter. |
+| Agents | `plugins/ctk/agents/*.md` | Five role definitions with a pinned `model` and `effort` in their frontmatter. |
 | Mod | `plugins/ctk/hooks/{register.tsx,team.ts,band.ts,doctor.ts}` | Function hooks that Claude Code runs in-process (see below). |
 | Shared types | `plugins/ctk/shared/{policy,stats}.ts` | Option defaults, role names and the stats record. Imported by both the mod and the CLI so defaults cannot drift. |
 | Status line | `plugins/ctk/statusline/ctk-statusline.mjs` | Dependency-free fallback; copied to `<config>/ctk/bin/` by `ctk install`. |
@@ -101,15 +101,17 @@ points at one module, `register.tsx`. `claude plugin validate plugins/ctk --stri
 hooks it registers and the host calls it makes; for this build that is:
 
 - Events: `agent.spawn`, `session.start`, `session.measure`, `turn.complete`, `session.end`,
-  `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (only `ctk_team_status`),
+  `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (every call counted; `ctk_team_status`,
+  `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
+  `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
   `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
-- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.read`, `fs.write`,
+- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
   `ui.resolve`.
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
   `USERPROFILE`. Environment writes: none.
 
-Only `fs.write` (stats file) mutates anything; `fs.read` reads that same stats file and, for the band's git branch, `.git/HEAD` (and a linked worktree's `.git` pointer file), found by walking up from the session's directory; no `git` process runs. There is no network call and no model call.
+Only `fs.write` (stats file, and the recall files while `bashFilter` is on) mutates anything; `fs.read` reads that same stats file and, for the band's git branch, `.git/HEAD` (and a linked worktree's `.git` pointer file), found by walking up from the session's directory; no `git` process runs. There is no network call and no model call.
 
 **Teammate cap.** On `agent.spawn`, a request with `isTeammate === true` is checked against
 the number of live teammates plus spawns already in flight. Live means status `pending`,

@@ -29,4 +29,5 @@ if refused (`TEAM_CAPACITY_REACHED`), run the checklist yourself and say so.
 ## 5. Findings
 Each finding: `path:line`, the failing scenario, one-line fix. Drop anything a linter or formatter owns.
 Verify each finding against the code before reporting it. Report: risk level, reviewer used, findings or
-"none found" with what was checked. Do not fix in this skill unless asked.
+"none found" with what was checked. Do not fix in this skill unless asked. In a team the lead only routes: `SendMessage` findings on a
+teammate's slice to its live implementer (one fix round, then re-review); the lead does not fix them itself.
