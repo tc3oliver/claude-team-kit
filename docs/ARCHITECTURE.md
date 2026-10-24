@@ -105,13 +105,13 @@ hooks it registers and the host calls it makes; for this build that is:
   `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
   `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
   `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
-- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.read`, `fs.write`,
+- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, at session start), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
   `ui.resolve`.
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
   `USERPROFILE`. Environment writes: none.
 
-Only `fs.write` (stats file) mutates anything; `fs.read` reads that same stats file and, for the band's git branch, `.git/HEAD` (and a linked worktree's `.git` pointer file), found by walking up from the session's directory; no `git` process runs. There is no network call and no model call.
+Only `fs.write` (stats file, and the recall files while `bashFilter` is on) mutates anything; `fs.read` reads that same stats file and, for the band's git branch, `.git/HEAD` (and a linked worktree's `.git` pointer file), found by walking up from the session's directory; no `git` process runs. There is no network call and no model call.
 
 **Teammate cap.** On `agent.spawn`, a request with `isTeammate === true` is checked against
 the number of live teammates plus spawns already in flight. Live means status `pending`,

@@ -11,6 +11,8 @@
 const NOISY_STEP =
   /^(?:\w+=\S*\s+)*(?:(?:npx|bunx|pnpm exec|uv run|poetry run)\s+)?(?:jest|vitest|pytest|mocha|tsc|make|cargo|gradle|\.\/gradlew|mvn|eslint|ruff|mypy|journalctl|(?:npm|pnpm|yarn|bun)\s+(?:test|t|run|build|ci|install|lint)|go\s+(?:test|build|vet)|(?:docker|kubectl)\s+(?:compose\s+)?logs|node\s+--test|python3?\s+-m\s+(?:pytest|unittest))\b/
 const FAILURE_LINE = /\b(fail(ed|ure|s)?|error|panic|exception|traceback|assert(ion)?|fatal|not ok|expected|received)\b|[✗✖×●]|\bat \S+:\d+/i
+/** A passing test line: it can say `error` or `fail` in its name without being a failure. */
+const PASS_LINE = /^\s*(?:[✓✔√]|ok\s|PASS\b)/
 /** Lines kept after a failure line: the expected/received diff and the first stack frames. */
 const CONTEXT_AFTER = 5
 
@@ -68,8 +70,9 @@ const cap = (lines: string[]): string[] => {
   for (let i = 0; i < HEAD_LINES; i++) keep.add(i)
   for (let i = lines.length - TAIL_LINES; i < lines.length; i++) keep.add(i)
   let kept = 0
-  for (let i = HEAD_LINES; i < lines.length - TAIL_LINES && kept < MAX_FAILURE_LINES; i++) {
-    if (!FAILURE_LINE.test(lines[i]!)) continue
+  // From the end: the final FAIL or assertion block is the one the reader needs, so it gets the budget first.
+  for (let i = lines.length - TAIL_LINES - 1; i >= HEAD_LINES && kept < MAX_FAILURE_LINES; i--) {
+    if (PASS_LINE.test(lines[i]!) || !FAILURE_LINE.test(lines[i]!)) continue
     for (let k = i; k <= i + CONTEXT_AFTER && k < lines.length && kept < MAX_FAILURE_LINES; k++) {
       if (!keep.has(k)) kept++
       keep.add(k)

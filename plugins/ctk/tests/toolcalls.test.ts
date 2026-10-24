@@ -221,4 +221,44 @@ describe('bash filter', () => {
     await $.session.end(END)
     expect(recalls(w).every(k => w.files.get(k) === '')).toBe(true)
   })
+
+  test('a persisted output is only a preview and passes through untouched', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: e => (e.tool === 'Bash' ? { stdout: noisy, stderr: '', persistedOutputPath: '/p/out.txt' } : undefined) })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(r.result.stdout).toBe(noisy)
+    expect(recalls(w)).toEqual([])
+  })
+
+  test('off at session start: a slot left by an earlier session is emptied', async ($, on) => {
+    const w = fresh()
+    w.files.set('/cfg/ctk/recall/3.txt', 'ctk recall old\nsecret')
+    engine(on, w)
+    await $.session.start(START)
+    expect(w.files.get('/cfg/ctk/recall/3.txt')).toBe('')
+  })
+})
+
+describe('cache warm-up', () => {
+  const usage = (w: ReturnType<typeof fresh>, apiUsage: Record<string, number>) => {
+    w.usage = { startedAt: 0, context: { window: 200000, breakdown: { apiUsage } }, rateLimits: [] }
+  }
+  const bandText = async (band: any) => JSON.stringify(await band.drawn())
+
+  test('a creation-only response shows no cache cell; a cold read counts only after a warm one', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    await $.session.start(START)
+    const band = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'AbovePrompt', requestId: 'band', props: { hasSurvey: false, bodyColumns: 200 } })
+    usage(w, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
+    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    expect(await bandText(band)).not.toContain('Cache')
+    usage(w, { input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 })
+    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    expect(await bandText(band)).toContain('Cache 90%')
+    usage(w, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
+    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    expect(await bandText(band)).toContain('Cache cold')
+  })
 })

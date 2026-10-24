@@ -54,4 +54,14 @@ describe('filterBashOutput', () => {
     const r = filterBashOutput('npx jest', out.join('\n'))
     for (const l of ['● sum > adds', 'Expected: 3', 'Received: 4', 'at sum.test.ts:7:5']) expect(r.text).toContain(l)
   })
+
+  test('passing lines that mention error or fail are not kept; the last failure block wins the budget', () => {
+    const out = noisy(400).split('\n')
+    for (let i = 30; i < 120; i++) out[i] = `✓ handles error case ${i}`
+    for (let i = 130; i < 200; i++) out[i] = `FAIL early ${i}`
+    out.splice(300, 0, 'FAIL last.test.ts', '  Expected: 1', '  Received: 2')
+    const r = filterBashOutput('npm test', out.join('\n'))
+    expect(r.text).not.toContain('handles error case')
+    for (const l of ['FAIL last.test.ts', 'Expected: 1', 'Received: 2']) expect(r.text).toContain(l)
+  })
 })

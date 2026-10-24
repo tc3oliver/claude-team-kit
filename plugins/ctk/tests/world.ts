@@ -236,6 +236,11 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     if (text === undefined) throw new Error('ENOENT')
     return { value: text } as never
   })
+  on('fs.list', (_$, e) => {
+    const dir = `${norm(e.path ?? '')}/`
+    const value = [...w.files].filter(([k]) => k.startsWith(dir) && !k.slice(dir.length).includes('/')).map(([k, v]) => ({ name: k.slice(dir.length), kind: 'file', size: v.length, mtimeMs: 0, isLink: false }))
+    return { value } as never
+  })
   on('fs.write', (_$, e) => {
     if (opts.writeFails || w.failWrites) throw new Error('disk full')
     w.rawPaths.push(e.path)

@@ -110,7 +110,8 @@ is shortened, the full text is written to `<config>/ctk/recall/<n>.txt` so Claud
 the command line, its whole stdout and stderr. That is whatever the command printed, so it can
 include secrets a command echoed (an env dump, a log line with a token). There are 32 slots,
 reused in turn, and CTK empties the ones it wrote when the session ends; a session that crashes,
-or a module reload after an option change, leaves its slots until they are reused. The files
+or a module reload after an option change, leaves its slots until they are reused or until the
+next session start with the option off, which empties them too. The files
 are written by Claude Code's host write, so CTK does not set their mode; restrict the
 directory (`chmod 700 <config>/ctk`) if the config directory is shared. Keep the option off on
 a machine where command output must not touch disk.

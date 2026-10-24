@@ -53,6 +53,8 @@ type Ctx = {
   snap: Snapshot
   /** The last response's cache counts, from local session usage; null before one. */
   cache: CacheUsage | null
+  /** True once a response read from the cache: before that, a 0% read is the first write, not a lapse. */
+  cacheWarm: boolean
   /** Spawns that passed the cap and have not returned yet; bumped before the first await. */
   inflight: number
   /** Accepted teammates (id -> accepted-at ms) the roster has not listed yet; see effectiveLive. */
@@ -130,6 +132,19 @@ async function keepRecall($: EngineInterface, c: Ctx, command: string, stdout: s
   return `\n[ctk: output shortened; the full output is in ${path} until this session ends (first line: ctk recall ${hash})]`
 }
 
+/** Empties every non-empty recall slot on disk. Fails open. */
+async function wipeRecalls($: EngineInterface) {
+  try {
+    const dir = await ctkDir($)
+    if (dir === null) return
+    for (const f of await $.fs.list(`${dir}/recall`)) {
+      if (f.kind === 'file' && f.size > 0) await $.fs.write(`${dir}/recall/${f.name}`, '').catch(() => undefined)
+    }
+  } catch {
+    // No directory yet, or unreadable: nothing to wipe.
+  }
+}
+
 // Throttled to one write per STATS_WRITE_GAP_MS; a change inside the gap is written by the
 // next state change, turn end or (forced) session end. `dirty` is cleared before the write
 // so a change made during it is kept, and set again if the write fails, so the forced write
@@ -179,7 +194,9 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
     ])
     if (now > 0) c.lastNow = now
     c.snap = snapshotOf(agents, usage, now)
-    c.cache = usage?.context.breakdown?.apiUsage ?? null
+    const api = usage?.context.breakdown?.apiUsage ?? null
+    if ((api?.cache_read_input_tokens ?? 0) > 0) c.cacheWarm = true
+    c.cache = c.cacheWarm ? api : null
     if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
@@ -481,6 +498,7 @@ export const register: Register = (on, options) => {
     stats: emptyStats('unknown', opts.maxWorkers, 0),
     snap: emptySnapshot(),
     cache: null,
+    cacheWarm: false,
     inflight: 0,
     pending: new Map(),
     lastNow: 0,
@@ -635,6 +653,8 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command the CTK band is the way in.
     }
+    // Recalls written before bashFilter was turned off would otherwise stay on disk.
+    if (!c.opts.bashFilter) await wipeRecalls($)
     const r = await next(e)
     await boot($, c)
     return r
@@ -706,7 +726,7 @@ export const register: Register = (on, options) => {
   // otherwise the model gets the output untouched.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const r = await next(e)
-    // Everything after next() is caught here, not by .catch: that would run the command again.
+    // The inner try/catch (not the .catch below) so a failed recall write returns the original output.
     try {
       if (!c.opts.bashFilter || r.deny !== undefined) return r
       const command = String((e as { command?: unknown }).command ?? '')
@@ -718,7 +738,9 @@ export const register: Register = (on, options) => {
         const note = f.changed ? await keepRecall($, c, command, r.result, '', f.hash) : null
         return note === null ? r : { deny: f.text + note }
       }
-      const out = r.result as { stdout?: unknown; stderr?: unknown } | undefined
+      const out = r.result as { stdout?: unknown; stderr?: unknown; persistedOutputPath?: unknown } | undefined
+      // stdout is only a preview of a persisted output: shortening it would hide what Read can fetch.
+      if (out?.persistedOutputPath) return r
       if (typeof out?.stdout !== 'string' || typeof out.stderr !== 'string') return r
       const so = filterBashOutput(command, out.stdout)
       const se = filterBashOutput(command, out.stderr)
