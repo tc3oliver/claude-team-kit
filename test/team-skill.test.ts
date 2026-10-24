@@ -82,5 +82,6 @@ test('review findings on a teammate slice go back to its live owner for one fix 
   assert.match(s, /go by `SendMessage` to its live owner, not fixed by you: one fix round, then re-review/)
   assert.match(s, /High-risk slice \(as defined in `\.\.\/review\/references\/risk\.md`\): show the user its plan before spawning\. It stays pending and unowned until approved while other ready slices proceed; if declined it stays unstarted/)
   assert.match(s, /Owner exited or failed: reuse an idle `ctk:implementer` or spawn one, else fix it yourself\. A re-review that still fails is the task's second failure/)
-  assert.match(read('skills/review/SKILL.md'), /the lead, not the reviewer agent, does it: `SendMessage` findings on a teammate's slice to its live\s+implementer \(one fix round, then re-review\)/)
+  assert.match(read('skills/review/SKILL.md'), /the lead only routes: `SendMessage` findings on a\s+teammate's slice to its live implementer \(one fix round, then re-review\); the lead does not fix them itself/)
+  assert.match(s, /`\/ctk:review` while teammates are still live, so a finding reaches its owner\. Then shut each down/)
 })

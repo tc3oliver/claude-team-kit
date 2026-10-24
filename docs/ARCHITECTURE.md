@@ -58,7 +58,7 @@ things only the CLI, or you by hand, can provide.
 | Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the eleven options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
 | Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
-| Agents | `plugins/ctk/agents/*.md` | Four role definitions with a pinned `model` and `effort` in their frontmatter. |
+| Agents | `plugins/ctk/agents/*.md` | Five role definitions with a pinned `model` and `effort` in their frontmatter. |
 | Mod | `plugins/ctk/hooks/{register.tsx,team.ts,band.ts,doctor.ts}` | Function hooks that Claude Code runs in-process (see below). |
 | Shared types | `plugins/ctk/shared/{policy,stats}.ts` | Option defaults, role names and the stats record. Imported by both the mod and the CLI so defaults cannot drift. |
 | Status line | `plugins/ctk/statusline/ctk-statusline.mjs` | Dependency-free fallback; copied to `<config>/ctk/bin/` by `ctk install`. |
@@ -105,7 +105,7 @@ hooks it registers and the host calls it makes; for this build that is:
   `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
   `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
   `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
-- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, at session start), `fs.read`, `fs.write`,
+- Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
   `ui.resolve`.
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,

@@ -155,7 +155,7 @@ describe('bash filter', () => {
     runs.n++
     return { stdout, stderr: '' }
   }
-  const recalls = (w: ReturnType<typeof fresh>) => [...w.files.keys()].filter(k => k.startsWith('/cfg/ctk/recall/'))
+  const recalls = (w: ReturnType<typeof fresh>) => [...w.files.keys()].filter(k => k.startsWith('/cfg/ctk/recall/sess_1/'))
 
   test('on: a long test output is cut to its failures and the full text is written for Read', { options: { bashFilter: true } }, async ($, on) => {
     const w = fresh()
@@ -166,7 +166,7 @@ describe('bash filter', () => {
     expect(runs.n).toBe(1)
     expect(r.result.stdout.length).toBeLessThan(noisy.length)
     expect(r.result.stdout).toContain('not ok 301 - breaks')
-    expect(r.result.stdout).toContain('[ctk: output shortened; the full output is in /cfg/ctk/recall/')
+    expect(r.result.stdout).toContain('[ctk: output shortened; the full output is in /cfg/ctk/recall/sess_1/')
     const [path] = recalls(w)
     expect(w.files.get(path!)).toContain(noisy)
     expect(w.files.get(path!)!.startsWith('ctk recall ')).toBe(true)
@@ -231,6 +231,39 @@ describe('bash filter', () => {
     expect(recalls(w)).toEqual([])
   })
 
+  test('outputs get distinct slots in the session dir, however their hashes fall', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: e => (e.tool === 'Bash' ? { stdout: `${String(e.command)}\n${noisy}`, stderr: '' } : undefined) })
+    await $.session.start(START)
+    for (let i = 0; i < 5; i++) await call($, 'Bash', `toolu_${i}`, { command: `npm test -- ${i}` })
+    expect(recalls(w).sort()).toEqual([0, 1, 2, 3, 4].map(i => `/cfg/ctk/recall/sess_1/${i}.txt`))
+  })
+
+  test('bashFilter on: session start empties only stale files of other sessions; session end only its own', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    w.files.set('/cfg/ctk/recall/old/0.txt', 'dead session')
+    w.mtimes.set('/cfg/ctk/recall/old/0.txt', 1_000_000 - 25 * 3600 * 1000)
+    w.files.set('/cfg/ctk/recall/live/0.txt', 'parallel session')
+    w.mtimes.set('/cfg/ctk/recall/live/0.txt', 1_000_000)
+    engine(on, w, undefined, { toolResult: e => (e.tool === 'Bash' ? { stdout: noisy, stderr: '' } : undefined) })
+    await $.session.start(START)
+    expect(w.files.get('/cfg/ctk/recall/old/0.txt')).toBe('')
+    expect(w.files.get('/cfg/ctk/recall/live/0.txt')).toBe('parallel session')
+    await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    await $.session.end(END)
+    expect(w.files.get('/cfg/ctk/recall/sess_1/0.txt')).toBe('')
+    expect(w.files.get('/cfg/ctk/recall/live/0.txt')).toBe('parallel session')
+  })
+
+  test('the rewrite keeps the context the call carried', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: e => (e.tool === 'Bash' ? { stdout: noisy, stderr: '' } : undefined), toolContext: ['hint'] })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(r.result.stdout).toContain('[ctk: output shortened')
+    expect(r.context).toEqual(['hint'])
+  })
+
   test('off at session start: a slot left by an earlier session is emptied', async ($, on) => {
     const w = fresh()
     w.files.set('/cfg/ctk/recall/3.txt', 'ctk recall old\nsecret')
@@ -241,24 +274,35 @@ describe('bash filter', () => {
 })
 
 describe('cache warm-up', () => {
-  const usage = (w: ReturnType<typeof fresh>, apiUsage: Record<string, number>) => {
-    w.usage = { startedAt: 0, context: { window: 200000, breakdown: { apiUsage } }, rateLimits: [] }
-  }
+  const turn = ($: any, usage: Record<string, number> | undefined, agentId?: string) =>
+    $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', ...(agentId ? { agentId } : {}), ...(usage ? { usage: { model: 'm', output_tokens: 1, ...usage } } : {}) })
   const bandText = async (band: any) => JSON.stringify(await band.drawn())
+  const mount = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'AbovePrompt', requestId: 'band', props: { hasSurvey: false, bodyColumns: 200 } })
 
   test('a creation-only response shows no cache cell; a cold read counts only after a warm one', async ($, on) => {
     const w = fresh()
     engine(on, w)
     await $.session.start(START)
-    const band = await $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'AbovePrompt', requestId: 'band', props: { hasSurvey: false, bodyColumns: 200 } })
-    usage(w, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
-    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    const band = await mount($)
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
     expect(await bandText(band)).not.toContain('Cache')
-    usage(w, { input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 })
-    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 })
     expect(await bandText(band)).toContain('Cache 90%')
-    usage(w, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
-    await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1' })
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
     expect(await bandText(band)).toContain('Cache cold')
+  })
+
+  test('a subagent turn is ignored, and a new session starts cold again', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    await $.session.start(START)
+    const band = await mount($)
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 }, 'a1')
+    expect(await bandText(band)).not.toContain('Cache')
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 })
+    expect(await bandText(band)).toContain('Cache 90%')
+    await $.session.start(START)
+    await turn($, { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
+    expect(await bandText(band)).not.toContain('Cache')
   })
 })

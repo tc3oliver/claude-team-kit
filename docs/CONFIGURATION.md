@@ -101,7 +101,7 @@ rejected. To use a different effort, edit or fork the agent files.
 | `hud.statusLine` | `auto` or `off` | `auto` | `auto`: install the status line fallback and set `statusLine` if you have none. `off`: do not manage `statusLine`. | none |
 | `stats.record` | boolean | `true` | Write per-session counters to `<config>/ctk/stats/` for `ctk stats`. | `recordStats` |
 | `team.hint` | boolean | `true` | When your own prompt asks for several agents or a team, add one hidden hint line so Claude loads the team skill (no model call). | `teamHint` |
-| `output.bashFilter` | boolean | `false` | Shrink long test, build and log output from Bash to its head, tail and failure lines, with repeated lines collapsed. The full output is written to `<config dir>/ctk/recall/<n>.txt` (32 slots, reused, emptied at session end), and the shortened output names that path so Claude can Read it. Off by default. | `bashFilter` |
+| `output.bashFilter` | boolean | `false` | Shrink long test, build and log output from Bash to its head, tail and failure lines, with repeated lines collapsed. The full output is written to `<config dir>/ctk/recall/<session>/<n>.txt` (32 files per session, used round-robin, emptied at session end and, for other sessions, at a later session start once older than 24 hours), and the shortened output names that path so Claude can Read it. Off by default. | `bashFilter` |
 
 ### Claude Code
 

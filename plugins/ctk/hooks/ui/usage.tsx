@@ -32,7 +32,7 @@ export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras,
     ...(m.usage.agentModels === null ? [] : [line('u-agents', `Agents  ${m.usage.agentModels}`)]),
     // Only once a response reported its counts, so a fresh session keeps the row for the note.
     ...(m.usage.cacheState === null ? [] : [line('u-cache', `Cache   ${m.usage.cache}`, m.usage.cacheState === 'cold' ? { color: COLOR.error } : m.usage.cacheState === 'low' ? { color: COLOR.ready } : {})]),
-    ...(m.usage.roles === null ? [] : [line('u-roles', `Roles   ${m.usage.roles} (calls; cost per role is not reported)`)]),
+    ...(m.usage.roles === null ? [] : [line('u-roles', `Roles   ${m.usage.roles} (agents now listed; cost per role is not reported)`)]),
     ...para('u-note', 'Reported by Claude Code; a plan without rate limits shows them as unavailable. Tool calls cover the lead, subagents and teammates. Per-worker cost is not reported.'),
   ]
   // The metrics node is two lines per band; the rest are one each. The note, last, is what a short pane drops.

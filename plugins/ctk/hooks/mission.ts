@@ -375,7 +375,7 @@ export type Mission = {
     /** Prompt-cache line for the last response (`92% read`); UNAVAILABLE before one. */
     cache: string
     cacheState: CacheHealth['state'] | null
-    /** Subagents started this session per CTK role (`explorer`...), by call count. Cost per role is not reported by Claude Code. */
+    /** Agents now listed per CTK role (`explorer`...), a count of the current roster, not of calls. Cost per role is not reported by Claude Code. */
     roles: string | null
   }
 }
@@ -481,7 +481,7 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, c
   }
 }
 
-// Subagent calls per CTK role (`ctk:explorer` -> `explorer`); other types keep their own name.
+// Subagents now on the roster per CTK role (`ctk:explorer` -> `explorer`); other types keep their own name.
 // Teammates carry no type in the roster, so they count together as `teammate`.
 const rolesText = (snap: Snapshot): string | null => {
   const counts: Record<string, number> = {}

@@ -51,7 +51,7 @@ type Ctx = {
   opts: PolicyOptions
   stats: StatsRecord
   snap: Snapshot
-  /** The last response's cache counts, from local session usage; null before one. */
+  /** The main loop's last turn cache counts, from turn.complete's usage; null before one. */
   cache: CacheUsage | null
   /** True once a response read from the cache: before that, a 0% read is the first write, not a lapse. */
   cacheWarm: boolean
@@ -68,8 +68,8 @@ type Ctx = {
   lastDraw: number
   /** tool_use_ids already counted, so one call is never counted twice. */
   toolSeen: Set<string>
-  /** Recall files the Bash filter wrote this session; emptied at session end. */
-  recalls: Set<string>
+  /** Recall files written so far this session; the next one goes to slot (this % RECALL_SLOTS). */
+  recallCount: number
   /** True while the CTK status line is configured: the band then leaves out what it shows. */
   coordinated: boolean
   /** The git branch of the session's directory, read from .git/HEAD; null when not in a repository. */
@@ -113,33 +113,46 @@ async function statsPath($: EngineInterface, sessionId: string): Promise<string 
 /** The engine's reminder to use the task (or todo) tools; matched by text, as its type name varies by build. */
 const TASK_NUDGE = /(task tools haven't|TodoWrite tool hasn't) been used recently/
 
-/** How many full outputs the Bash filter keeps; older ones are overwritten slot by slot. */
+/** How many full outputs the Bash filter keeps per session; older ones are overwritten slot by slot. */
 export const RECALL_SLOTS = 32
+/** A session dir untouched this long is taken as dead: a live parallel session is never emptied. */
+const RECALL_STALE_MS = 24 * 3600 * 1000
 
-// shortcut: a slot is picked by hash, so two outputs can share one and the older is lost; the
-// first line of the file names its hash so a stale read is visible. Upgrade if recalls go missing.
-async function recallPath($: EngineInterface, hash: string): Promise<string | null> {
+// One dir per session so a parallel session never overwrites or wipes another's recalls. The Mods API
+// has no delete: an emptied file stays on disk as a zero-byte file.
+async function recallDir($: EngineInterface, sessionId: string): Promise<string | null> {
   const dir = await ctkDir($)
-  return dir === null ? null : `${dir}/recall/${parseInt(hash.slice(0, 8), 16) % RECALL_SLOTS}.txt`
+  return dir === null ? null : `${dir}/recall/${safeSessionId(sessionId)}`
 }
 
 /** Writes the full output for Read and returns the note for the model, or null when it was not written. */
 async function keepRecall($: EngineInterface, c: Ctx, command: string, stdout: string, stderr: string, hash: string): Promise<string | null> {
-  const path = await recallPath($, hash)
-  if (path === null) return null
+  const dir = await recallDir($, c.stats.sessionId)
+  if (dir === null) return null
+  const path = `${dir}/${c.recallCount % RECALL_SLOTS}.txt`
   await $.fs.write(path, `ctk recall ${hash}\n$ ${command}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n`)
-  c.recalls.add(path)
+  c.recallCount += 1
   return `\n[ctk: output shortened; the full output is in ${path} until this session ends (first line: ctk recall ${hash})]`
 }
 
-/** Empties every non-empty recall slot on disk. Fails open. */
-async function wipeRecalls($: EngineInterface) {
+/**
+ * Empties non-empty recall files: every one when `olderThanMs` is null, else only files not written
+ * for that long (any session dir, plus loose files of the earlier flat layout). Fails open.
+ */
+async function wipeRecalls($: EngineInterface, olderThanMs: number | null, now: number, onlyDir?: string) {
+  const empty = async (dir: string) => {
+    for (const f of await $.fs.list(dir).catch(() => [])) {
+      if (f.kind === 'file' && f.size > 0 && (olderThanMs === null || now - f.mtimeMs > olderThanMs)) {
+        await $.fs.write(`${dir}/${f.name}`, '').catch(() => undefined)
+      }
+    }
+  }
   try {
+    if (onlyDir !== undefined) return await empty(onlyDir)
     const dir = await ctkDir($)
     if (dir === null) return
-    for (const f of await $.fs.list(`${dir}/recall`)) {
-      if (f.kind === 'file' && f.size > 0) await $.fs.write(`${dir}/recall/${f.name}`, '').catch(() => undefined)
-    }
+    await empty(`${dir}/recall`)
+    for (const f of await $.fs.list(`${dir}/recall`)) if (f.kind === 'dir') await empty(`${dir}/recall/${f.name}`)
   } catch {
     // No directory yet, or unreadable: nothing to wipe.
   }
@@ -188,15 +201,12 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
   try {
     const [agents, usage, now, model] = await Promise.all([
       $.agent.list().catch(() => null),
-      $.session.usage({ breakdown: 'summary' }).catch(() => null),
+      $.session.usage().catch(() => null),
       $.clock.now().catch(() => 0),
       $.session.model().catch(() => null),
     ])
     if (now > 0) c.lastNow = now
     c.snap = snapshotOf(agents, usage, now)
-    const api = usage?.context.breakdown?.apiUsage ?? null
-    if ((api?.cache_read_input_tokens ?? 0) > 0) c.cacheWarm = true
-    c.cache = c.cacheWarm ? api : null
     if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
@@ -507,7 +517,7 @@ export const register: Register = (on, options) => {
     lastWrite: 0,
     lastDraw: 0,
     toolSeen: new Set(),
-    recalls: new Set(),
+    recallCount: 0,
     coordinated: false,
     branch: null,
     ambiguous: 1,
@@ -653,8 +663,10 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command the CTK band is the way in.
     }
-    // Recalls written before bashFilter was turned off would otherwise stay on disk.
-    if (!c.opts.bashFilter) await wipeRecalls($)
+    c.cache = null
+    c.cacheWarm = false
+    // Off: recalls from before it was turned off would stay on disk. On: only dead sessions' files go.
+    await wipeRecalls($, c.opts.bashFilter ? RECALL_STALE_MS : null, await $.clock.now().catch(() => 0))
     const r = await next(e)
     await boot($, c)
     return r
@@ -669,6 +681,11 @@ export const register: Register = (on, options) => {
   // Teammate status changes raise no session.measure; turn ends do.
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
+    // The main loop only (a subagent's turn carries agentId): the usage is that turn's own, free, no extra call.
+    if (e.agentId === undefined && e.usage !== undefined) {
+      if (e.usage.cache_read_input_tokens > 0) c.cacheWarm = true
+      c.cache = c.cacheWarm ? e.usage : null
+    }
     await detectEnvironment($, c)
     await refresh($, c)
     noteWorkerTurnEnd(c.mission, (e as { agentId?: string }).agentId, c.lastNow)
@@ -679,9 +696,8 @@ export const register: Register = (on, options) => {
     stopMotion(c, true)
     await persist($, c, true)
     // A recall can hold whatever a command printed, secrets included: it outlives no session.
-    // shortcut: a module reload (a confirmed option change) forgets the set, so those slots stay until reused; track them in $.state if that matters.
-    for (const path of c.recalls) await $.fs.write(path, '').catch(() => undefined)
-    c.recalls.clear()
+    const dir = await recallDir($, c.stats.sessionId).catch(() => null)
+    if (dir !== null) await wipeRecalls($, null, 0, dir)
     return next(e)
   })
 
@@ -747,7 +763,7 @@ export const register: Register = (on, options) => {
       if (!so.changed && !se.changed) return r
       const note = await keepRecall($, c, command, out.stdout, out.stderr, hashOutput(`${out.stdout}\0${out.stderr}`))
       if (note === null) return r
-      return { result: { ...out, stdout: so.text + note, stderr: se.text } }
+      return { result: { ...out, stdout: so.text + note, stderr: se.text }, ...(r.context ? { context: r.context } : {}) }
     } catch {
       return r
     }

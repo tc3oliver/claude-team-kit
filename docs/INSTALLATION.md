@@ -46,7 +46,7 @@ Installing plugin "ctk@ctk-kit"...✔ Successfully installed plugin: ctk@ctk-kit
 10 userConfig options not yet set — run /plugin configure ctk@ctk-kit in Claude Code, or pass --config KEY=VALUE.
 ```
 
-The "10 userConfig options not yet set" line is harmless: every option has a default (cap 5,
+The "10 userConfig options not yet set" line (captured on an older build; the current plugin declares 11 options, so it reads 11) is harmless: every option has a default (cap 5,
 models `haiku`, `sonnet`, `sonnet`, `opus`, band on, stats on). Change them later, see
 [Options](#options). The install writes only what Claude Code writes for any plugin:
 
