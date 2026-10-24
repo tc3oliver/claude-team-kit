@@ -51,9 +51,13 @@ export type MissionState = {
   teamStartedAt: number | null
   /** True once a TaskCreate or TaskUpdate call has been seen: the board is then a record of those calls. */
   taskCallsSeen: boolean
+  /** Paths Edit, Write, MultiEdit and NotebookEdit changed this session, in first-change order (paths only; the report lists them). */
+  files: Set<string>
+  /** How many older paths were dropped to keep `files` bounded. */
+  filesDropped: number
 }
 
-export const newMissionState = (): MissionState => ({ workers: new Map(), tasks: new Map(), teamStartedAt: null, taskCallsSeen: false })
+export const newMissionState = (): MissionState => ({ workers: new Map(), tasks: new Map(), teamStartedAt: null, taskCallsSeen: false, files: new Set(), filesDropped: 0 })
 
 /** Most workers and tasks remembered; the oldest are forgotten past this. */
 export const MEMORY_LIMIT = 500
@@ -111,6 +115,22 @@ export const toolLabel = (tool: string, input: unknown): string => {
   const path = FILE_TOOLS.has(tool) && typeof input === 'object' && input !== null ? (input as Record<string, unknown>).file_path ?? (input as Record<string, unknown>).notebook_path : undefined
   const base = typeof path === 'string' ? path.split(/[\\/]/).filter(Boolean).pop() : undefined
   return base === undefined ? tool : `${tool} ${base}`.slice(0, 40)
+}
+
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
+
+/** Remembers the path a write tool was given, bounded to MEMORY_LIMIT (the oldest is forgotten). Nothing else of the input is read. */
+export const noteFileChange = (m: MissionState, tool: string, input: unknown): void => {
+  if (!WRITE_TOOLS.has(tool) || typeof input !== 'object' || input === null) return
+  const i = input as Record<string, unknown>
+  const path = i.file_path ?? i.notebook_path
+  if (typeof path !== 'string' || path === '') return
+  m.files.add(path)
+  for (const old of m.files) {
+    if (m.files.size <= MEMORY_LIMIT) break
+    m.files.delete(old)
+    m.filesDropped++
+  }
 }
 
 /** A tool call made inside a subagent or teammate loop. The lead's own calls are not per-worker. */

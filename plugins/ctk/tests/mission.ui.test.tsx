@@ -189,6 +189,23 @@ describe('Mission Control views', () => {
     expect(t).toContain('w-roman')
   })
 
+  test('Open transcript shows that worker in the host view; a refused view breaks nothing', async ($, on) => {
+    const viewed: unknown[] = []
+    on('ui.view' as never, ((_$: unknown, e: { agentId?: string }) => {
+      viewed.push(e.agentId)
+      return viewed.length > 1 ? { deny: 'that agent has ended' } : { value: {} }
+    }) as never)
+    await team($, on)
+    const p = await pane($)
+    await p.press({ key: 'mc:view:workers' })
+    await p.press({ key: 'mc:worker:a1' })
+    await p.press({ key: 'mc:transcript:a1' })
+    expect(viewed).toEqual(['a1'])
+    await p.press({ key: 'mc:transcript:a1' })
+    expect(viewed).toEqual(['a1', 'a1'])
+    expect(await texts(p)).toContain('w-rle')
+  })
+
   test('worker detail: model, status, current task, tool calls, last activity, idle', async ($, on) => {
     await team($, on)
     const p = await pane($)

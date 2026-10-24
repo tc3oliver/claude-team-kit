@@ -243,7 +243,7 @@ describe('status tool and command', () => {
     engine(on, w)
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
     expect(w.registeredTools).toEqual(['ctk_team_status', 'ctk_config'])
-    expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor', 'ctk-mission'])
+    expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor', 'ctk-mission', 'ctk-report'])
   })
 
   test('ctk_team_status reports the real roster and counters', { options: { maxWorkers: 3 } }, async ($, on) => {

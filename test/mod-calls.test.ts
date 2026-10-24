@@ -35,8 +35,12 @@ const ALLOWED = new Set([
   'tool.register',
   'ui.close',
   'ui.invalidate',
+  // A desktop notice when the team finishes, a teammate fails or the cap refuses a spawn; once per event.
+  'ui.notify',
   'ui.open',
   'ui.resolve',
+  // The Workers detail page's "Open transcript" button: shows that agent's transcript, nothing else.
+  'ui.view',
 ])
 
 const calls = (text: string): string[] => [...text.matchAll(/\$\.([a-z]+)\.([A-Za-z]+)\b/g)].map(m => `${m[1]}.${m[2]}`)

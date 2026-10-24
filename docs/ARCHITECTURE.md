@@ -104,10 +104,10 @@ hooks it registers and the host calls it makes; for this build that is:
   `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (every call counted; `ctk_team_status`,
   `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
   `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
-  `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
+  `session.compact` (adds the team state to the summarizer's instructions), `command.run` (only `ctk-stats`, `ctk-doctor`, `ctk-mission` and `ctk-report`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
-  `ui.resolve`.
+  `ui.notify` (desktop notifications), `ui.resolve`, `ui.view` (the Workers detail page's "Open transcript" button; Claude Code 2.1.300 or newer, a failure is ignored).
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
   `USERPROFILE`. Environment writes: none.
 
@@ -185,6 +185,26 @@ applies to teammate and non-teammate spawns of CTK agents alike. Effort is **not
 Claude Code's spawn hook can set a model but not an effort, so effort comes only from each
 agent's `effort:` frontmatter and cannot be changed by a profile (see
 [CONFIGURATION](CONFIGURATION.md#routing)).
+
+**Notifications.** The mod raises a desktop notification (`$.ui.notify`, title `CTK`) when a
+teammate fails or is killed (once per teammate), when the last live teammate finishes, and when a
+spawn is refused at the cap (at most one such notice per minute). A teammate that was already dead
+when CTK loaded is not announced. Where the terminal has no notification channel nothing is shown
+and nothing fails. Mod-enforced: the decision is code in `hooks/notify.ts`; whether a notice is
+displayed is up to the terminal.
+
+**Compaction.** The `session.compact` hook appends one short paragraph to the summarizer's
+instructions (at most 600 characters): the cap, the live teammates with their status, and the open
+tasks by id, status and owner. With no live teammate and no open task the instructions are left
+alone, and the precompute trigger is never touched. This asks the summarizer to keep that state; it
+does not guarantee that the summary does. A subagent's or teammate's own compaction is left alone.
+
+**Report.** `/ctk-report` prints a Markdown block for a PR body: team duration, spawns accepted and
+refused, session cost and tool calls, the models of the lead, teammates and subagents, the task list
+and the files changed. The file list is the `file_path` or `notebook_path` of `Edit`, `Write`,
+`MultiEdit` and `NotebookEdit` calls that ran, kept in memory (at most 500, the first 50 printed);
+no other part of those inputs is read. Nothing is written to disk. The report shows paths relative to the
+session's working directory; paths outside it are only counted, as are older paths dropped past 500.
 
 **Counters.** `classic.TaskCreated` and `classic.TaskCompleted` only increment counters and pass
 the event on; they never block a task. A `tool.call` hook counts every tool call the model makes
