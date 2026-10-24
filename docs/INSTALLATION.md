@@ -139,7 +139,7 @@ measured (reported by Claude Code):
 
 ## Options
 
-The mod reads ten options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
+The mod reads eleven options. Set them with `/plugin configure ctk@ctk-kit` (interactive; not
 run for this page) or at install time with `--config KEY=VALUE`:
 
 ```sh

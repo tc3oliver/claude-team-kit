@@ -133,6 +133,8 @@ export type EngineOptions = {
   rosterLag?: number
   /** What the engine answers a model's tool call with (`result`); defaults to 'ok'. */
   toolResult?: (e: Record<string, unknown>) => unknown
+  /** Answers a call as core would after an error: `{ isError: true, result: text }`. */
+  toolError?: (e: Record<string, unknown>) => string | undefined
   /** Microtasks agent.list takes to answer; the roster is read when asked, then held back. */
   listDelay?: number
 }
@@ -196,7 +198,11 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     return { value: w.model } as never
   })
   // Any tool other than the plugin's own: the engine runs it and answers.
-  on('tool.call', (_$, e) => ({ result: opts.toolResult?.(e as unknown as Record<string, unknown>) ?? 'ok' }) as never)
+  on('tool.call', (_$, e) => {
+    const error = opts.toolError?.(e as unknown as Record<string, unknown>)
+    if (error !== undefined) return { isError: true, result: error } as never
+    return { result: opts.toolResult?.(e as unknown as Record<string, unknown>) ?? 'ok' } as never
+  })
   on('ui.open', (_$, e) => {
     w.opened.push({ ...e })
     return { value: w.placePanes ? { isPlaced: true } : { isPlaced: false, reason: 'no room' } } as never

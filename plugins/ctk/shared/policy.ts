@@ -28,6 +28,8 @@ export type PolicyOptions = {
   recordStats: boolean
   /** Add one hidden hint line to a prompt that asks for several agents or a team, so the model loads the team skill. */
   teamHint: boolean
+  /** Shrink long test, build and log output from Bash to its failures; the full text stays recallable. Off by default. */
+  bashFilter: boolean
 }
 
 export const DEFAULT_OPTIONS: PolicyOptions = {
@@ -41,6 +43,7 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   hudIdle: 'full',
   recordStats: true,
   teamHint: true,
+  bashFilter: false,
 }
 
 /** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugins/ctk/agents/. */
@@ -86,6 +89,7 @@ export const readOptions = (raw: unknown): PolicyOptions => {
     hudIdle: (HUD_IDLE as readonly unknown[]).includes(o.hudIdle) ? (o.hudIdle as HudIdle) : DEFAULT_OPTIONS.hudIdle,
     recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
     teamHint: bool(o.teamHint, DEFAULT_OPTIONS.teamHint),
+    bashFilter: bool(o.bashFilter, DEFAULT_OPTIONS.bashFilter),
   }
 }
 

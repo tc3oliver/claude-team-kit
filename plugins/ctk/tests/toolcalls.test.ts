@@ -147,3 +147,78 @@ describe('tool call counter', () => {
     expect(await toolCalls($)).toBe(1)
   })
 })
+
+describe('bash filter', () => {
+  const noisy = `${Array.from({ length: 300 }, (_, i) => `ok ${i} - passes`).join('\n')}\nnot ok 301 - breaks\n`
+  const bash = (stdout: string, runs: { n: number }) => (e: Record<string, unknown>) => {
+    if (e.tool !== 'Bash') return undefined
+    runs.n++
+    return { stdout, stderr: '' }
+  }
+  const recalls = (w: ReturnType<typeof fresh>) => [...w.files.keys()].filter(k => k.startsWith('/cfg/ctk/recall/'))
+
+  test('on: a long test output is cut to its failures and the full text is written for Read', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    const runs = { n: 0 }
+    engine(on, w, undefined, { toolResult: bash(noisy, runs) })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(runs.n).toBe(1)
+    expect(r.result.stdout.length).toBeLessThan(noisy.length)
+    expect(r.result.stdout).toContain('not ok 301 - breaks')
+    expect(r.result.stdout).toContain('[ctk: output shortened; the full output is in /cfg/ctk/recall/')
+    const [path] = recalls(w)
+    expect(w.files.get(path!)).toContain(noisy)
+    expect(w.files.get(path!)!.startsWith('ctk recall ')).toBe(true)
+  })
+
+  test('off by default: the output is untouched and nothing is written', async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: bash(noisy, { n: 0 }) })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(r.result.stdout).toBe(noisy)
+    expect(recalls(w)).toEqual([])
+  })
+
+  test('a failed recall write leaves the output untouched and runs the command once', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    const runs = { n: 0 }
+    engine(on, w, undefined, { toolResult: bash(noisy, runs), writeFails: true })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(r.result.stdout).toBe(noisy)
+    expect(runs.n).toBe(1)
+  })
+
+  test('a short or non-test output passes through', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: bash(noisy, { n: 0 }) })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'cat notes.txt' })
+    expect(r.result.stdout).toBe(noisy)
+  })
+
+  test('a failing command (isError) is shortened through a deny, the same error to the model', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolError: e => (e.tool === 'Bash' ? `Error: Exit code 1\n${noisy}` : undefined) })
+    await $.session.start(START)
+    const r: any = await call($, 'Bash', 'toolu_1', { command: 'npm test' })
+    expect(r.deny).toContain('Error: Exit code 1')
+    expect(r.deny).toContain('not ok 301 - breaks')
+    expect(r.deny.length).toBeLessThan(noisy.length)
+    expect(recalls(w).length).toBe(1)
+  })
+
+  test('stderr-only output is keyed by both streams, and session end empties every recall', { options: { bashFilter: true } }, async ($, on) => {
+    const w = fresh()
+    engine(on, w, undefined, { toolResult: e => (e.tool === 'Bash' ? { stdout: '', stderr: `${String(e.command)}\n${noisy}` } : undefined) })
+    await $.session.start(START)
+    await call($, 'Bash', 'toolu_1', { command: 'npm test -- a' })
+    await call($, 'Bash', 'toolu_2', { command: 'npm test -- b' })
+    const heads = recalls(w).map(k => w.files.get(k)!.split('\n')[0])
+    expect(new Set(heads).size).toBe(2)
+    await $.session.end(END)
+    expect(recalls(w).every(k => w.files.get(k) === '')).toBe(true)
+  })
+})

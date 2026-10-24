@@ -78,6 +78,12 @@
       "title": "Team hint",
       "description": "When your own prompt asks for several agents or a team, add one hidden hint line so Claude loads the CTK team skill. No model call. Turn off to disable.",
       "default": true
+    },
+    "bashFilter": {
+      "type": "boolean",
+      "title": "Bash output filter",
+      "description": "Shrink long test, build and log output from Bash to its failures; the full output stays recallable. Off by default.",
+      "default": false
     }
   }
 }

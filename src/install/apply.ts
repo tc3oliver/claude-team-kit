@@ -51,6 +51,7 @@ const OPTION_PROFILE_PATHS: Record<string, string> = {
   hudIdle: 'hud.idle',
   recordStats: 'stats.record',
   teamHint: 'team.hint',
+  bashFilter: 'output.bashFilter',
 }
 
 /** The dotted profile path that produces a settings.json pointer, or null when the pointer is not profile-driven. */

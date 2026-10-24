@@ -103,6 +103,18 @@ cost, context %, 5-hour and 7-day limit % that Claude Code reported. It contains
 task text, file paths, agent names or per-worker cost (Claude Code reports none, and CTK does
 not estimate one). Set `stats.record` to `false` to stop writing it.
 
+## What the recall files contain
+
+Only with `output.bashFilter` on (it is off by default). When a long test, build or log output
+is shortened, the full text is written to `<config>/ctk/recall/<n>.txt` so Claude can read it:
+the command line, its whole stdout and stderr. That is whatever the command printed, so it can
+include secrets a command echoed (an env dump, a log line with a token). There are 32 slots,
+reused in turn, and CTK empties the ones it wrote when the session ends; a session that crashes,
+or a module reload after an option change, leaves its slots until they are reused. The files
+are written by Claude Code's host write, so CTK does not set their mode; restrict the
+directory (`chmod 700 <config>/ctk`) if the config directory is shared. Keep the option off on
+a machine where command output must not touch disk.
+
 ## Secrets handling
 
 CTK never asks for a secret and has no field that stores one.
@@ -206,7 +218,7 @@ POSIX behaviour; on Windows CTK relies on the ACLs of your user profile.
 
 Not covered: files created by an earlier build keep their old mode; the `<config>/ctk`
 directory itself and the sync clone use default modes (the files inside are `600` or git's
-own); and the stats files are written by Claude Code on the mod's behalf, so their permissions are
+own); and the stats and recall files are written by Claude Code on the mod's behalf, so their permissions are
 set by Claude Code's host write, not by CTK (not checked). If the config directory is shared, restrict the
 directory itself (`chmod 700`).
 

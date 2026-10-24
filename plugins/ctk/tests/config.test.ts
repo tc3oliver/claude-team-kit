@@ -42,7 +42,7 @@ const changeOf = (name = 'maxWorkers', raw: unknown = 2): Change => {
 }
 
 describe('option names', () => {
-  test('exactly the ten userConfig fields', () => {
+  test('exactly the eleven userConfig fields', () => {
     expect([...OPTION_NAMES]).toEqual([
       'maxWorkers',
       'explorerModel',
@@ -54,6 +54,7 @@ describe('option names', () => {
       'hudIdle',
       'recordStats',
       'teamHint',
+      'bashFilter',
     ])
     expect(Object.keys(DEFAULT_OPTIONS).sort()).toEqual([...OPTION_NAMES].sort())
   })
@@ -195,6 +196,13 @@ describe('switches', () => {
     for (const v of [1, 0, 'yes', 'no', '1', '', null, undefined, [], {}]) {
       expect(validateChange('hudBand', v, OPTS).ok).toBe(false)
     }
+  })
+
+  test('bashFilter is a switch that ships off', () => {
+    expect(DEFAULT_OPTIONS.bashFilter).toBe(false)
+    expect(readOptions({}).bashFilter).toBe(false)
+    expect(readOptions({ bashFilter: 'yes' }).bashFilter).toBe(false)
+    expect(good('bashFilter', 'on').value).toBe(true)
   })
 
   test('the text shows on and off', () => {
@@ -375,7 +383,7 @@ describe('purity', () => {
     for (const ev of ['config.set', 'fs.write', 'fs.read', 'settings.write', 'tool.call', 'ui.open', 'agent.spawn']) watch(ev)
     let st = emptyPending()
     for (const n of OPTION_NAMES) {
-      const r = validateChange(n, n === 'maxWorkers' ? 2 : n.endsWith('Model') ? 'inherit' : n === 'hudIdle' ? 'minimal' : false, OPTS)
+      const r = validateChange(n, n === 'maxWorkers' ? 2 : n.endsWith('Model') ? 'inherit' : n === 'hudIdle' ? 'minimal' : n === 'bashFilter', OPTS)
       if (!r.ok) throw new Error(r.reason)
       const { ok: _ok, ...change } = r
       st = propose(st, change, T0).state

@@ -41,7 +41,7 @@ and the line is not shown.
 | "sync my CTK profile to the other computer" | Needs the optional `ctk` CLI. Claude checks it exists, runs `ctk sync pull --dry-run` or `ctk sync publish --dry-run`, shows the output, and asks you in plain words before running the real command. Exit code 2 (conflicts) and the secrets scan are never bypassed. | run `ctk sync ...` yourself |
 
 Option names for `ctk_config`: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`,
-`highRiskModel`, `designerModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`.
+`highRiskModel`, `designerModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`, `bashFilter`.
 
 A plain task ("fix this bug in src/rle.js", "explain what slugify does") does not start a team. When both CTK and the independent `diagnosing-bugs` skill are installed, generic debugging should use one appropriate diagnosis protocol rather than run both. Explicit `/ctk:debug` remains available.
 A vague big task ("refactor the whole system") does not either; if the team skill were ever

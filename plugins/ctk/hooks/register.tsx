@@ -14,6 +14,7 @@ import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, 
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
 import { readBranch } from './branch.ts'
+import { filterBashOutput, hashOutput } from './outfilter.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -65,6 +66,8 @@ type Ctx = {
   lastDraw: number
   /** tool_use_ids already counted, so one call is never counted twice. */
   toolSeen: Set<string>
+  /** Recall files the Bash filter wrote this session; emptied at session end. */
+  recalls: Set<string>
   /** True while the CTK status line is configured: the band then leaves out what it shows. */
   coordinated: boolean
   /** The git branch of the session's directory, read from .git/HEAD; null when not in a repository. */
@@ -93,11 +96,35 @@ type Ctx = {
   ended: boolean
 }
 
-async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
+async function ctkDir($: EngineInterface): Promise<string | null> {
   const explicit = await $.env.get('CLAUDE_CONFIG_DIR')
   const home = explicit ? null : (await $.env.get('HOME')) || (await $.env.get('USERPROFILE'))
   const dir = explicit || (home ? `${home}/.claude` : null)
-  return dir === null ? null : `${dir.replace(/[\\/]+$/, '')}/ctk/stats/${safeSessionId(sessionId)}.json`
+  return dir === null ? null : `${dir.replace(/[\\/]+$/, '')}/ctk`
+}
+
+async function statsPath($: EngineInterface, sessionId: string): Promise<string | null> {
+  const dir = await ctkDir($)
+  return dir === null ? null : `${dir}/stats/${safeSessionId(sessionId)}.json`
+}
+
+/** How many full outputs the Bash filter keeps; older ones are overwritten slot by slot. */
+export const RECALL_SLOTS = 32
+
+// shortcut: a slot is picked by hash, so two outputs can share one and the older is lost; the
+// first line of the file names its hash so a stale read is visible. Upgrade if recalls go missing.
+async function recallPath($: EngineInterface, hash: string): Promise<string | null> {
+  const dir = await ctkDir($)
+  return dir === null ? null : `${dir}/recall/${parseInt(hash.slice(0, 8), 16) % RECALL_SLOTS}.txt`
+}
+
+/** Writes the full output for Read and returns the note for the model, or null when it was not written. */
+async function keepRecall($: EngineInterface, c: Ctx, command: string, stdout: string, stderr: string, hash: string): Promise<string | null> {
+  const path = await recallPath($, hash)
+  if (path === null) return null
+  await $.fs.write(path, `ctk recall ${hash}\n$ ${command}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n`)
+  c.recalls.add(path)
+  return `\n[ctk: output shortened; the full output is in ${path} until this session ends (first line: ctk recall ${hash})]`
 }
 
 // Throttled to one write per STATS_WRITE_GAP_MS; a change inside the gap is written by the
@@ -459,6 +486,7 @@ export const register: Register = (on, options) => {
     lastWrite: 0,
     lastDraw: 0,
     toolSeen: new Set(),
+    recalls: new Set(),
     coordinated: false,
     branch: null,
     ambiguous: 1,
@@ -572,7 +600,7 @@ export const register: Register = (on, options) => {
           properties: {
             action: { type: 'string', enum: ['show', 'propose'] },
             option: { type: 'string', enum: [...OPTION_NAMES] },
-            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand, recordStats and teamHint: true or false' },
+            value: { description: 'maxWorkers: whole number 1-12; models: alias or id; hudBand, recordStats, teamHint and bashFilter: true or false' },
           },
           required: ['action'],
         },
@@ -619,6 +647,10 @@ export const register: Register = (on, options) => {
   on('session.end', async ($, e, next) => {
     stopMotion(c, true)
     await persist($, c, true)
+    // A recall can hold whatever a command printed, secrets included: it outlives no session.
+    // shortcut: a module reload (a confirmed option change) forgets the set, so those slots stay until reused; track them in $.state if that matters.
+    for (const path of c.recalls) await $.fs.write(path, '').catch(() => undefined)
+    c.recalls.clear()
     return next(e)
   })
 
@@ -657,6 +689,36 @@ export const register: Register = (on, options) => {
     }
     return r
   }).catch(($, e, next) => next(e)) // whatever fails here, the model's tool call still goes through
+
+  // Opt-in (bashFilter): a long test, build or log output reaches the model cut to its failures,
+  // with the full text written where Read can get it. Only a write that succeeded is announced;
+  // otherwise the model gets the output untouched.
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const r = await next(e)
+    // Everything after next() is caught here, not by .catch: that would run the command again.
+    try {
+      if (!c.opts.bashFilter || r.deny !== undefined) return r
+      const command = String((e as { command?: unknown }).command ?? '')
+      // A non-zero exit arrives as isError with the text as a string, which core will not take back
+      // as a result (verified on 2.1.310); a deny carries the shortened text as the same error.
+      if (r.isError === true) {
+        if (typeof r.result !== 'string') return r
+        const f = filterBashOutput(command, r.result)
+        const note = f.changed ? await keepRecall($, c, command, r.result, '', f.hash) : null
+        return note === null ? r : { deny: f.text + note }
+      }
+      const out = r.result as { stdout?: unknown; stderr?: unknown } | undefined
+      if (typeof out?.stdout !== 'string' || typeof out.stderr !== 'string') return r
+      const so = filterBashOutput(command, out.stdout)
+      const se = filterBashOutput(command, out.stderr)
+      if (!so.changed && !se.changed) return r
+      const note = await keepRecall($, c, command, out.stdout, out.stderr, hashOutput(`${out.stdout}\0${out.stderr}`))
+      if (note === null) return r
+      return { result: { ...out, stdout: so.text + note, stderr: se.text } }
+    } catch {
+      return r
+    }
+  }).catch(($, e, next) => next(e)) // a failure before next() runs: the call goes through untouched
 
   // A teammate going idle is the one moment its idle time starts; nothing else reads this event.
   on('classic.TeammateIdle', async ($, e, next) => {
