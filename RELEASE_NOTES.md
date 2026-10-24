@@ -1,40 +1,43 @@
-# Claude Team Kit 0.1.6 (prerelease)
+# Claude Team Kit 0.1.7 (prerelease)
 
-A fix and polish release for Mission Control, the band and the status line. No new runtime
-dependencies (still only `zod`), and the worker cap, model routing and sync behaviour are unchanged.
+Team runs cost fewer tokens and say more about themselves. No new runtime dependencies (still only
+`zod`), and the worker cap, model routing and sync behaviour are unchanged.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## The band really is coloured now
+## Fewer tokens in a team run
 
-0.1.5 said the band's `Ctx` turned yellow and red. It did not: the colour was computed but the band
-was drawn as one dim text. The band is now drawn piece by piece, so a figure under pressure stands
-out and the rest stays dim. Checked on the drawn band: `Ctx 42%` dim, `Ctx 85%` in the error colour.
+- Workers report **once**, within a word limit. A worker used to send its final reply, a
+  `SendMessage` copy, and another report when a `task_assignment` echo woke it.
+- The engine's "task tools haven't been used recently" reminder is dropped once tasks exist.
+- **`output.bashFilter`** (off by default) shortens long test, build, lint and log output to its
+  head, tail and failure lines. The full output is saved under `<config>/ctk/recall/<session>/` and
+  the shortened result names the file. Turn it on in Mission Control's Config page or with
+  `ctk config set output.bashFilter true`.
+- A **`Cache`** cell in the band warns when the prompt cache is cold or mostly missed, which makes
+  every following request pay for the whole prefix again.
 
-## One rule for "getting full"
+## Knowing what the team did
 
-- Context, the 5h window and the weekly window are **quiet below 60%, yellow from 60%, red from
-  80%**, in the band, the status line, Mission Control's header and its bars. The pane's bars used
-  70/90 and drew a healthy bar green; they now follow the same rule. Task progress bars are unchanged.
-- Every Mission Control page header shows a badge for a figure under pressure (`Ctx 82%`, `5h 61%`,
-  `Wk 70%`). The header stays one line: `read-only`, then weekly and 5h, then the long title give way,
-  context last.
-- Usage lists `CTX` first.
+- **Desktop notices** when every teammate has finished, when one fails, and when the cap refuses a
+  spawn. They go through your Notification hooks like any other notice.
+- **`/ctk-report`** lists the session's tasks, spawns, cost, models and changed files.
+- Mission Control's worker detail page has an **Open transcript** button (Claude Code 2.1.300+).
+- After the main session compacts, a short team summary is kept, so the lead still knows who is
+  live and which tasks are open.
 
-## Overview, Workers, Doctor
+## Safer team flow
 
-- **Overview** lists the workers (up to four, each a button that opens its detail, then
-  `+N · 2: Workers`) instead of two cards that repeated the same count. The context line stays
-  visible down to 50 columns. The session line moved out; Usage has the tool calls.
-- **Workers** shows how long an idle teammate has been idle (`idle 4m`, a dash when not observed).
-- **Doctor** keeps to the page's row budget and ends with `+N more` when there are many fixes.
+- A slice touching auth, money, migrations, data deletion or security waits for your approval
+  before its worker starts; the other slices go ahead.
+- Review findings go back to the teammate that wrote the slice, for one fix round and a re-review.
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.5 to 0.1.6 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.6 to 0.1.7 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
 If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
@@ -58,7 +61,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.5`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.6`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -97,8 +100,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.6` with the npm tarball attached. The earlier prereleases
-`v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.7` with the npm tarball attached. The earlier prereleases
+`v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.6` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.7` does. `npm publish` stays a
 manual step after review.

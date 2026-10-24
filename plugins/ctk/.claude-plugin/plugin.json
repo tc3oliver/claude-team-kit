@@ -1,6 +1,6 @@
 {
   "name": "ctk",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Token-light team companion: capped agent teams, risk-based review, disciplined debugging.",
   "author": {
     "name": "tc3oliver",

@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.7] - 2026-10-25 (prerelease)
+
+### Added
+
+- `output.bashFilter` (off by default): a Bash call whose step runs a test, build, lint or log program and prints 2000+ characters reaches the model as its head, tail and failure lines with five lines of context, repeats folded into one line. The full output goes to `<config>/ctk/recall/<session>/`, which the note names; a session empties its own directory at the end.
+- A `Cache` cell in the band (warns under 70%, `Cache cold` under 30%) and a cache line in Usage, from the main loop's own usage; no API is polled. Usage also lists calls per role.
+- Desktop notices: every teammate finished, a teammate failed or was killed (once each), and the cap refusing a spawn (at most one a minute).
+- `/ctk-report`: tasks, spawns, cost, models and files changed this session. Paths are relative to the working directory; paths outside it are only counted.
+- An `Open transcript` button on a worker's detail page in Mission Control (Claude Code 2.1.300 or newer).
+- The main session's compaction keeps a short team summary (live teammates, open tasks), so the lead still knows the team afterwards. A subagent's compaction is left alone.
+
+### Changed
+
+- Team skill: a high-risk slice (as `review/references/risk.md` defines it) waits for the user's approval before its worker starts. Review findings go to the slice's live owner for one fix round and a re-review, and `/ctk:review` runs before teammates are shut down.
+- Agent definitions: a worker reports once, within a word limit, and leaves a `task_assignment` for a finished task unanswered. A four-worker team used to report two or three times per worker.
+- The engine's reminder to use the task tools is dropped once the session has created a task.
+
 ## [0.1.6] - 2026-10-15 (prerelease)
 
 ### Fixed
