@@ -101,7 +101,9 @@ points at one module, `register.tsx`. `claude plugin validate plugins/ctk --stri
 hooks it registers and the host calls it makes; for this build that is:
 
 - Events: `agent.spawn`, `session.start`, `session.measure`, `turn.complete`, `session.end`,
-  `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (only `ctk_team_status`),
+  `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (every call counted; `ctk_team_status`,
+  `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
+  `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
   `command.run` (only `ctk-stats` and `ctk-doctor`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,

@@ -76,6 +76,14 @@ for (const role of ROLES) {
   })
 }
 
+test('every agent reports once: the final reply reaches the lead, no SendMessage echo', () => {
+  for (const f of Object.values(fileOf)) {
+    const text = read('agents', `${f}.md`)
+    assert.match(text, /send it once.*never again by `SendMessage`/, f)
+    assert.match(text, /`task_assignment` for a task you already finished needs no reply/, f)
+  }
+})
+
 test('agent files are exactly the five roles', () => {
   assert.deepEqual(readdirSync(join(plugin, 'agents')).sort(), Object.values(fileOf).map((f) => `${f}.md`).sort())
 })

@@ -125,3 +125,27 @@ describe('the teamHint option is the off switch', () => {
     expect(validateChange('teamHint', 'maybe', DEFAULT_OPTIONS)).toMatchObject({ ok: false })
   })
 })
+
+describe('the task-tools reminder', () => {
+  const NUDGE = "The task tools haven't been used recently. If you're working on tasks that would benefit from tracking progress, consider using TaskCreate."
+  const nudge = { type: 'task_reminder', text: NUDGE, origin: { kind: 'engine' } } as never
+
+  test('passes through until the session has created a task', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    on('prompt.attachment', (_$, e) => ({ text: e.text }))
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    expect((await $.prompt.attachment(nudge)).text).toBe(NUDGE)
+  })
+
+  test('is dropped once a task exists; other reminders and non-engine text stay', async ($, on) => {
+    const w = fresh()
+    engine(on, w)
+    on('prompt.attachment', (_$, e) => ({ text: e.text }))
+    await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
+    await $.classic.TaskCreated({ task_id: '1', task_subject: 'a' } as never)
+    expect((await $.prompt.attachment(nudge)).text).toBeNull()
+    expect((await $.prompt.attachment({ type: 'file', text: 'other', origin: { kind: 'engine' } } as never)).text).toBe('other')
+    expect((await $.prompt.attachment({ type: 'hook_additional_context', text: NUDGE, origin: { kind: 'hook', event: 'SessionStart' } } as never)).text).toBe(NUDGE)
+  })
+})

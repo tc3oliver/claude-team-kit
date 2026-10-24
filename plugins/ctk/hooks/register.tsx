@@ -108,6 +108,9 @@ async function statsPath($: EngineInterface, sessionId: string): Promise<string 
   return dir === null ? null : `${dir}/stats/${safeSessionId(sessionId)}.json`
 }
 
+/** The engine's reminder to use the task (or todo) tools; matched by text, as its type name varies by build. */
+const TASK_NUDGE = /(task tools haven't|TodoWrite tool hasn't) been used recently/
+
 /** How many full outputs the Bash filter keeps; older ones are overwritten slot by slot. */
 export const RECALL_SLOTS = 32
 
@@ -579,6 +582,14 @@ export const register: Register = (on, options) => {
     await refreshBranch($, c) // a `git checkout` the person ran themselves shows up with their next prompt
     const hint = c.opts.teamHint ? teamHintFor(e) : null
     return next(hint === null ? e : { ...e, context: [...(e.context ?? []), hint] })
+  }).catch(($, e, next) => next(e))
+
+  // The engine nudges the model to use the task tools every few turns. Once this session has created
+  // tasks the lead already keeps a task list, so the nudge is noise; before that it is left alone.
+  on('prompt.attachment', async ($, e, next) => {
+    const r = await next(e)
+    if (e.origin?.kind !== 'engine' || ((c.stats.tasks?.created ?? 0) === 0 && c.mission.tasks.size === 0)) return r
+    return TASK_NUDGE.test(r.text ?? '') ? { text: null } : r
   }).catch(($, e, next) => next(e))
 
   on('session.start', async ($, e, next) => {
