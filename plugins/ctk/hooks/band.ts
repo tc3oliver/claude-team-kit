@@ -4,6 +4,23 @@ import type { Segment } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import type { Snapshot } from './team.ts'
 
+/** The last API response's prompt-cache figures (a ModelUsage subset), read from local session data only. */
+export type CacheUsage = { input_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }
+
+export type CacheHealth = { ratio: number; state: 'ok' | 'low' | 'cold' }
+
+/** Share of the last response's input served from the cache; null before a response or with no input. */
+export const cacheHealth = (u: CacheUsage | null | undefined): CacheHealth | null => {
+  if (!u) return null
+  const total = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
+  if (total <= 0) return null
+  const ratio = u.cache_read_input_tokens / total
+  return { ratio, state: ratio >= 0.7 ? 'ok' : ratio >= 0.3 ? 'low' : 'cold' }
+}
+
+export const cacheText = (h: CacheHealth | null): string =>
+  h === null ? DASH : `${Math.round(h.ratio * 100)}% read${h.state === 'cold' ? ' (cold: the cache lapsed or was rewritten)' : h.state === 'low' ? ' (low)' : ''}`
+
 // Pure text for the AbovePrompt band and the /ctk-stats summary (figure formatting is in
 // shared/format.ts, which `ctk stats` uses too; the width-aware layout is in shared/hudline.ts).
 
@@ -64,6 +81,8 @@ export type BandOptions = {
   pendingChange?: boolean
   /** The git branch of the session's directory (a short commit id when detached); left out when null or the status line shows it. */
   branch?: string | null
+  /** Prompt-cache health of the last response; drawn only when it is not null. */
+  cache?: CacheHealth | null
 }
 
 /** Guard states that need no words: it is working, or has nothing to do yet. */
@@ -74,7 +93,7 @@ const MORE_TASKS = 6
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
-const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 110, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, workerModels: 10 }
+const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 110, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, cache: 25, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -104,6 +123,11 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
   if (opts.subagentsLive !== undefined && opts.subagentsLive > 0) {
     const n = opts.subagentsLive
     out.push({ id: 'subagents', prio: RANK.subagents, forms: [`Sub ${n}`, `S${n}`, ''] })
+  }
+  if (opts.cache) {
+    const { ratio, state } = opts.cache
+    const text = state === 'cold' ? 'Cache cold' : `Cache ${Math.round(ratio * 100)}%`
+    out.push({ id: 'cache', prio: RANK.cache, ...(state === 'ok' ? {} : { tone: state === 'cold' ? ('bad' as const) : ('warn' as const) }), forms: [text, text, ''] })
   }
   if (opts.pendingChange === true) out.push({ id: 'pending', prio: RANK.pending, bold: true, forms: ['Confirm setting: click here', 'Confirm: click', '!'] })
   if (s.tasks !== null) {

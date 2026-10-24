@@ -4,7 +4,8 @@ import { readOptions } from '../shared/policy.ts'
 import type { PolicyOptions } from '../shared/policy.ts'
 import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
 import type { StatsRecord } from '../shared/stats.ts'
-import { BAND_MARGIN, BAND_SEP, bandParts, formatSummary, GUARD_QUIET } from './band.ts'
+import type { CacheUsage } from './band.ts'
+import { BAND_MARGIN, BAND_SEP, bandParts, cacheHealth, formatSummary, GUARD_QUIET } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
 import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
@@ -49,6 +50,8 @@ type Ctx = {
   opts: PolicyOptions
   stats: StatsRecord
   snap: Snapshot
+  /** The last response's cache counts, from local session usage; null before one. */
+  cache: CacheUsage | null
   /** Spawns that passed the cap and have not returned yet; bumped before the first await. */
   inflight: number
   /** Accepted teammates (id -> accepted-at ms) the roster has not listed yet; see effectiveLive. */
@@ -140,12 +143,13 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
   try {
     const [agents, usage, now, model] = await Promise.all([
       $.agent.list().catch(() => null),
-      $.session.usage().catch(() => null),
+      $.session.usage({ breakdown: 'summary' }).catch(() => null),
       $.clock.now().catch(() => 0),
       $.session.model().catch(() => null),
     ])
     if (now > 0) c.lastNow = now
     c.snap = snapshotOf(agents, usage, now)
+    c.cache = usage?.context.breakdown?.apiUsage ?? null
     if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
@@ -285,7 +289,7 @@ function armMotion($: EngineInterface, c: Ctx, mission: Mission, now: number) {
 const noop = () => {}
 
 const missionOf = (c: Ctx) =>
-  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready })
+  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready, cache: c.cache })
 
 // Reads the readiness report for the Doctor view; a failure leaves a one-line reason.
 async function loadDoctor($: EngineInterface, c: Ctx) {
@@ -446,6 +450,7 @@ export const register: Register = (on, options) => {
     opts,
     stats: emptyStats('unknown', opts.maxWorkers, 0),
     snap: emptySnapshot(),
+    cache: null,
     inflight: 0,
     pending: new Map(),
     lastNow: 0,
@@ -731,6 +736,7 @@ export const register: Register = (on, options) => {
             coordinated: c.coordinated,
             branch: c.branch,
             guard,
+            cache: cacheHealth(c.cache),
             subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
             pendingChange: waiting,
             tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,

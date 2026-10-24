@@ -1,7 +1,8 @@
 import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 import { fmtModels } from '../shared/format.ts'
-import { modelLabel, spanText } from './band.ts'
+import { cacheHealth, cacheText, modelLabel, spanText } from './band.ts'
+import type { CacheHealth, CacheUsage } from './band.ts'
 import { isLiveStatus } from './team.ts'
 import type { Snapshot, Subagent } from './team.ts'
 
@@ -371,6 +372,11 @@ export type Mission = {
     model: string | null
     /** `Sonnet 5.5×3 Haiku 5.5×1`: what the subagents and teammates started this session ran on; null before any. */
     agentModels: string | null
+    /** Prompt-cache line for the last response (`92% read`); UNAVAILABLE before one. */
+    cache: string
+    cacheState: CacheHealth['state'] | null
+    /** Subagents started this session per CTK role (`explorer`...), by call count. Cost per role is not reported by Claude Code. */
+    roles: string | null
   }
 }
 
@@ -396,6 +402,8 @@ export type MissionInput = {
   nowMs: number
   teamsEnabled: boolean | null
   ready: boolean
+  /** The last response's cache counts from local session usage; absent when not read. */
+  cache?: CacheUsage | null
 }
 
 const EMPTY_TASKS =
@@ -417,7 +425,7 @@ const emptyWorkers = (snap: Snapshot, teamsEnabled: boolean | null): string | nu
  */
 export let missionBuilds = 0
 
-export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }: MissionInput): Mission => {
+export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, cache }: MissionInput): Mission => {
   missionBuilds += 1
   const rows = taskRows(state)
   const detailed = state.taskCallsSeen
@@ -466,8 +474,24 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready }:
       toolCalls: stats.toolCalls,
       model: stats.measured.model,
       agentModels: agentModelsText(stats),
+      cache: cacheText(cacheHealth(cache)),
+      cacheState: cacheHealth(cache)?.state ?? null,
+      roles: rolesText(snap),
     },
   }
+}
+
+// Subagent calls per CTK role (`ctk:explorer` -> `explorer`); other types keep their own name.
+// Teammates carry no type in the roster, so they count together as `teammate`.
+const rolesText = (snap: Snapshot): string | null => {
+  const counts: Record<string, number> = {}
+  if (snap.workers.length > 0) counts.teammate = snap.workers.length
+  for (const a of snap.subagents) {
+    const role = a.type.replace(/^ctk:/, '')
+    counts[role] = (counts[role] ?? 0) + 1
+  }
+  const parts = Object.entries(counts).map(([r, n]) => `${r}×${n}`)
+  return parts.length === 0 ? null : parts.join(' ')
 }
 
 // Teammates and subagents together, merged by display name so `sonnet` and `claude-sonnet-5-5` do not split.
