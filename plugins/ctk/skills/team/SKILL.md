@@ -33,8 +33,8 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
   and coordinate with `SendMessage`. `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` gives the shared task list.
 
 ## 3. Spawn
-- Idle teammate first (`ctk_team_status`): give it the next ready task with `SendMessage`. Spawn only when none
-  is idle and live teammates are below the cap (`maxWorkers`, default 5).
+- High-risk slice (auth, money, migrations, data deletion, security): before spawning its worker, show the slice plan and wait for the user to approve. Others proceed.
+- Idle teammate first (`ctk_team_status`): give it the next ready task with `SendMessage`. Spawn only when none is idle and live teammates are below the cap (`maxWorkers`, default 5).
 - `Agent` with a `name` on every worker (named = a teammate the cap counts and Mission Control lists; unnamed = a plain subagent neither does); `subagent_type`:
   `ctk:implementer` to build, `ctk:explorer` to scout. Never set `isolation` on a worker: it then starts as an
   ordinary subagent, outside the team and the cap.
@@ -48,8 +48,8 @@ available) lists the worker. `TEAM_CAPACITY_REACHED`, `TEAM_GUARD_FAILED` or a r
 not started: no owner, slice stays pending, re-offer it when a slot frees. Details: `references/protocol.md`.
 
 ## 5. Run
-- Wait for teammate messages; reassign idle teammates with `SendMessage` to the next ready task. Do not do a
-  worker's slice yourself while it is assigned.
+- Wait for teammate messages; reassign idle teammates with `SendMessage` to the next ready task. Do not do a worker's slice yourself while it is assigned.
+- Reviewer `path:line` findings on a slice go by `SendMessage` to its live owner, not fixed by you: one fix round, then re-review.
 - A worker that reports done is unverified until you run its verify command and read the result. Failure, an
   error or silence: read the report, retry that task once; a second failure: stop, mark it blocked, do it
   yourself or ask the user. Never loop on a refused spawn or a failing task.
