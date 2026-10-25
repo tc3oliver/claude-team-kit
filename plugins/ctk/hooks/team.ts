@@ -1,6 +1,6 @@
 import type { AgentInfo, AgentSpawnInput, SessionUsage } from 'claude-code'
 
-import { AGENT_TYPES, CAPACITY_CODE, modelFor, ROLES } from '../shared/policy.ts'
+import { AGENT_TYPES, BUDGET_CODE, CAPACITY_CODE, modelFor, ROLES } from '../shared/policy.ts'
 import type { PolicyOptions, Role } from '../shared/policy.ts'
 import type { StatsRecord } from '../shared/stats.ts'
 
@@ -108,6 +108,46 @@ export const settingChangeDeny = (): string =>
 
 export const capacityDeny = (live: number, starting: number, max: number): string =>
   `${CAPACITY_CODE}: live=${live} starting=${starting} max=${max}. Do not treat this worker as started; leave its task pending; reuse an idle teammate via SendMessage or wait for one to finish.`
+
+/** The usage limit a teammate spawn would cross, as words; null when no limit is set or reached. A figure not reported never trips a limit. */
+export const budgetReached = (opts: PolicyOptions, m: Pick<StatsRecord['measured'], 'fiveHourPct' | 'costUsd'>): string | null => {
+  if (opts.stopAtFiveHourPct > 0 && m.fiveHourPct !== null && m.fiveHourPct >= opts.stopAtFiveHourPct) {
+    return `the 5-hour limit is at ${Math.round(m.fiveHourPct)}% (stopAtFiveHourPct=${opts.stopAtFiveHourPct})`
+  }
+  if (opts.stopAtCostUsd > 0 && m.costUsd !== null && m.costUsd >= opts.stopAtCostUsd) {
+    return `the session cost is $${m.costUsd.toFixed(2)} (stopAtCostUsd=${opts.stopAtCostUsd})`
+  }
+  return null
+}
+
+export const budgetDeny = (why: string): string =>
+  `${BUDGET_CODE}: ${why}. Do not treat this worker as started; leave its task pending and do not retry; tell the person, who can raise the limit (/ctk-config) or continue without more teammates.`
+
+export type PctSample = { t: number; pct: number }
+
+/** Samples kept for the forecast, at least this far apart. */
+const SAMPLE_GAP_MS = 30_000
+const SAMPLE_MAX = 60
+const FORECAST_MIN_SPAN_MS = 10 * 60_000
+
+/** Records the 5-hour percent. A drop means the window reset, so older samples no longer apply. Mutates `samples`. */
+export const noteSample = (samples: PctSample[], now: number, pct: number | null): void => {
+  if (pct === null || now <= 0) return
+  const last = samples[samples.length - 1]
+  if (last !== undefined && pct < last.pct) samples.length = 0
+  else if (last !== undefined && now - last.t < SAMPLE_GAP_MS) return
+  samples.push({ t: now, pct })
+  if (samples.length > SAMPLE_MAX) samples.shift()
+}
+
+/** Epoch ms at which the percent is projected to reach 100 at the pace of the samples; null without 10 minutes of rising samples, or when the reset comes first. */
+export const forecastFull = (samples: PctSample[], now: number, resetAt: number | null): number | null => {
+  const first = samples[0]
+  const last = samples[samples.length - 1]
+  if (first === undefined || last === undefined || resetAt === null || last.t - first.t < FORECAST_MIN_SPAN_MS || last.pct <= first.pct) return null
+  const full = last.t + ((100 - last.pct) * (last.t - first.t)) / (last.pct - first.pct)
+  return full > now && full < resetAt ? full : null
+}
 
 export const guardDeny = (): string =>
   `${GUARD_CODE}: the teammate cap could not be checked. Do not treat this worker as started; leave its task pending and retry later.`

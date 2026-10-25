@@ -8,7 +8,7 @@ Goal: $ARGUMENTS. You are the lead.
 
 ## 0. Intent gate
 No clear ask for a team, multiple agents or parallel work (running `/ctk:team`, or asking to use CTK, counts as one)? Reply with one sentence suggesting a team, or offering to do it yourself, and WAIT. Spawn nothing.
-When team intent names a `BL-<16-hex>` task, read `references/backlog.md` before slicing. Backlog is optional for all ordinary teams.
+When team intent names a `BL-<16-hex>` task, read `references/backlog.md` before slicing. Backlog is optional for all ordinary teams. Recipes by kind of work (review, debug, feature, research, migration): `references/presets.md`.
 Asked, but the resolved goal has no 2+ independently verifiable slices? Say so in one line and do the work directly (still honour any explicit persistent task requirements, and only `start` a ready BL task when direct work actually begins).
 
 ## 1. Preflight
@@ -44,7 +44,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
 
 ## 4. Confirm every spawn
 A spawn exists only if the `Agent` result carries a `teammate_id` or agent id and `ctk_team_status` (if
-available) lists the worker. `TEAM_CAPACITY_REACHED`, `TEAM_GUARD_FAILED` or a row that only shows "Done" means
+available) lists the worker. `TEAM_CAPACITY_REACHED`, `TEAM_BUDGET_REACHED`, `TEAM_GUARD_FAILED` or a row that only shows "Done" means
 not started: no owner, slice stays pending, re-offer it when a slot frees. Details: `references/protocol.md`.
 
 ## 5. Run

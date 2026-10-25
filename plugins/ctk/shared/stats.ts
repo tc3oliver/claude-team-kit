@@ -17,6 +17,8 @@ export type StatsRecord = {
   spawnsAccepted: number
   /** Teammate spawns CTK refused with TEAM_CAPACITY_REACHED. */
   spawnsRejected: number
+  /** Teammate spawns CTK refused with TEAM_BUDGET_REACHED (a usage limit). */
+  spawnsBudgetStopped: number
   /** Teammate spawns refused for any other CTK reason (guard failure). */
   spawnsFailedClosed: number
   /** Every `agent.spawn` event the guard saw, teammate or not: proof that Claude Code reaches it. */
@@ -68,6 +70,7 @@ export const emptyStats = (sessionId: string, maxWorkers: number, now: number): 
   maxWorkers,
   spawnsAccepted: 0,
   spawnsRejected: 0,
+  spawnsBudgetStopped: 0,
   spawnsFailedClosed: 0,
   spawnsSeen: 0,
   spawnsOutsideCap: 0,
@@ -94,6 +97,7 @@ export const parseStats = (raw: unknown): StatsRecord | null => {
   return {
     ...(r as StatsRecord),
     toolCalls: typeof r.toolCalls === 'number' && r.toolCalls >= 0 ? r.toolCalls : 0,
+    spawnsBudgetStopped: count(r.spawnsBudgetStopped),
     spawnsSeen: count(r.spawnsSeen),
     spawnsOutsideCap: count(r.spawnsOutsideCap),
     subagentModels: typeof r.subagentModels === 'object' && r.subagentModels !== null ? r.subagentModels : {},

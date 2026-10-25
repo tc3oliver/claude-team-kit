@@ -84,6 +84,21 @@
       "title": "Bash output filter",
       "description": "Shrink long test, build and log output from Bash to its failures; the full output stays recallable. Off by default.",
       "default": false
+    },
+    "stopAtFiveHourPct": {
+      "type": "number",
+      "title": "Stop teammates at 5-hour usage",
+      "description": "Refuse new teammates once the 5-hour limit has used this percent (1-100). 0 turns it off.",
+      "default": 0,
+      "min": 0,
+      "max": 100
+    },
+    "stopAtCostUsd": {
+      "type": "number",
+      "title": "Stop teammates at session cost",
+      "description": "Refuse new teammates once the session cost reaches this many US dollars. 0 turns it off.",
+      "default": 0,
+      "min": 0
     }
   }
 }

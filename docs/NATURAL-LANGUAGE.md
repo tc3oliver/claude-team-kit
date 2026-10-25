@@ -35,13 +35,13 @@ and the line is not shown.
 | "use multiple agents / a team / in parallel", 「幫我用多個 Agent 重構這個模組」, 「這個功能可以平行開發嗎？」 | Claude loads `ctk:team`. The skill first checks you really asked for a team; if not, it answers with one suggestion sentence and waits. Spawns are still capped when the CTK mod is active (default 5). | `/ctk:team <goal>` |
 | "review my changes", 「幫我檢查一下這次的修改」 | Claude loads `ctk:review` (risk-based). Claude Code also ships a generic `code-review` skill, so it may pick that instead. | `/ctk:review` |
 | "use CTK to debug this failure", 「用 CTK 幫我診斷測試失敗」 | Explicit CTK debugging selects `ctk:debug`; generic debugging may use the standalone `diagnosing-bugs` skill when installed. | `/ctk:debug <symptom>` |
-| "how is the team doing", "how much of my 5h limit is left", 「團隊進度如何」 | Claude answers from the `ctk_team_status` tool (live, cap, workers, guard, usage, tasks). A field the tool does not return is reported as unavailable, never guessed. The CTK band is the live view; `/ctk-mission` opens Mission Control. | `/ctk-mission`, `/ctk-stats` |
+| "how is the team doing", "how much of my 5h limit is left", 「團隊進度如何」 | Claude answers from the `ctk_team_status` tool (live, cap, workers, guard, tasks; usage only when asked for). A field the tool does not return is reported as unavailable, never guessed. The CTK band is the live view; `/ctk-mission` opens Mission Control. | `/ctk-mission`, `/ctk-stats` |
 | "is CTK working" | Claude points you to `/ctk-doctor` or reads the status tool. | `/ctk-doctor` |
 | "change the worker cap to 2", "turn off the team band" | Claude calls `ctk_config` with `{"action":"propose",...}`. **Nothing is applied**: a confirmation opens in the Mission Control pane and **you** confirm there. Claude will not edit `settings.json`. | `/plugin configure ctk@ctk-kit` |
 | "sync my CTK profile to the other computer" | Needs the optional `ctk` CLI. Claude checks it exists, runs `ctk sync pull --dry-run` or `ctk sync publish --dry-run`, shows the output, and asks you in plain words before running the real command. Exit code 2 (conflicts) and the secrets scan are never bypassed. | run `ctk sync ...` yourself |
 
 Option names for `ctk_config`: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`,
-`highRiskModel`, `designerModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`, `bashFilter`.
+`highRiskModel`, `designerModel`, `hudBand`, `hudIdle` (what the band shows before a team starts: `full`, `minimal`, `hidden`), `recordStats`, `teamHint`, `bashFilter`, `stopAtFiveHourPct`, `stopAtCostUsd`.
 
 A plain task ("fix this bug in src/rle.js", "explain what slugify does") does not start a team. When both CTK and the independent `diagnosing-bugs` skill are installed, generic debugging should use one appropriate diagnosis protocol rather than run both. Explicit `/ctk:debug` remains available.
 A vague big task ("refactor the whole system") does not either; if the team skill were ever

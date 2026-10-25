@@ -22,6 +22,7 @@ export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras,
       const tail = pct === null ? `  ${text}` : reset === null ? '' : `  reset ${reset}`
       return line(key, `${label.padEnd(5)}${b.text}${tail}`, b.color === undefined ? {} : { color: b.color })
     }),
+    ...(m.usage.fiveHourFull === null ? [] : para('u-forecast', `At this pace the 5h limit is reached around ${m.usage.fiveHourFull}.`)),
     divider('u-d2', 'SESSION'),
     <Box key="u-metrics" flexDirection="row" flexWrap="wrap" columnGap={2}>
       {metric('u-model', 'Lead model', m.usage.model ?? UNAVAILABLE, m.usage.model === null ? COLOR.muted : undefined, modelW)}

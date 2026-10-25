@@ -83,6 +83,11 @@ export type BandOptions = {
   branch?: string | null
   /** Prompt-cache health of the last response; drawn only when it is not null. */
   cache?: CacheHealth | null
+  /** Workers that look stuck, longest first as given; drawn as a warning cell only when not empty. */
+  stalled?: { name: string; forMs: number }[]
+  /** Tasks that could start and teammates with nothing to do; drawn only when both are above zero. Display only. */
+  ready?: number
+  idleWorkers?: number
 }
 
 /** Guard states that need no words: it is working, or has nothing to do yet. */
@@ -93,7 +98,7 @@ const MORE_TASKS = 6
 
 // Rank when the line is too wide (higher stays longer). Model, usage, context and cost are
 // the status line's too; the rest is the team's.
-const RANK = { pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 110, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, cache: 25, workerModels: 10 }
+const RANK = { stalled: 97, pending: 95, fiveHour: 100, sevenDay: 90, tools: 80, context: 110, model: 60, branch: 55, agents: 50, guard: 45, tasks: 40, subagents: 35, cost: 30, cache: 25, readyIdle: 20, workerModels: 10 }
 
 export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions = {}): Segment[] => {
   const now = opts.nowMs ?? 0
@@ -128,6 +133,15 @@ export const bandSegments = (s: StatsRecord, snap: Snapshot, opts: BandOptions =
     const { ratio, state } = opts.cache
     const text = state === 'cold' ? 'Cache cold' : `Cache ${Math.round(ratio * 100)}%`
     out.push({ id: 'cache', prio: RANK.cache, ...(state === 'ok' ? {} : { tone: state === 'cold' ? ('bad' as const) : ('warn' as const) }), forms: [text, text, ''] })
+  }
+  const stuck = opts.stalled?.[0]
+  if (stuck !== undefined) {
+    const more = opts.stalled!.length > 1 ? ` +${opts.stalled!.length - 1}` : ''
+    out.push({ id: 'stalled', prio: RANK.stalled, tone: 'warn', forms: [`⚠ ${stuck.name} stalled ${spanText(stuck.forMs, DASH)}${more}`, `⚠ ${stuck.name} ${spanText(stuck.forMs, DASH)}${more}`, `⚠ stalled${more}`] })
+  }
+  if ((opts.ready ?? 0) > 0 && (opts.idleWorkers ?? 0) > 0) {
+    const text = `${opts.ready} ready · ${opts.idleWorkers} idle`
+    out.push({ id: 'readyIdle', prio: RANK.readyIdle, forms: [text, text, ''] })
   }
   if (opts.pendingChange === true) out.push({ id: 'pending', prio: RANK.pending, bold: true, forms: ['Confirm setting: click here', 'Confirm: click', '!'] })
   if (s.tasks !== null) {
@@ -210,7 +224,7 @@ export const formatSummary = (s: StatsRecord, snap: Snapshot, nowMs = 0): string
   [
     `CTK session ${s.sessionId}`,
     'counted by CTK:',
-    `  teammate spawns: ${s.spawnsAccepted} accepted, ${s.spawnsRejected} refused at capacity, ${s.spawnsFailedClosed} failed closed`,
+    `  teammate spawns: ${s.spawnsAccepted} accepted, ${s.spawnsRejected} refused at capacity, ${s.spawnsBudgetStopped > 0 ? `${s.spawnsBudgetStopped} stopped by a usage limit, ` : ''}${s.spawnsFailedClosed} failed closed`,
     `  guard reached by ${s.spawnsSeen} spawn event(s); named agents started outside the cap (with isolation): ${s.spawnsOutsideCap}`,
     `  peak live teammates: ${s.peakLive} (cap ${s.maxWorkers}); now ${num(snap.live)}`,
     `  worker models: ${fmtModels(s.workerModels) || DASH}`,

@@ -68,8 +68,17 @@ is reported as a conflict, the key is left alone, and the command exits `2`.
 | Field | Type | Default | Constraint | Plugin option |
 |---|---|---|---|---|
 | `team.maxWorkers` | integer | `5` | 1 to 12 | `maxWorkers` |
+| `team.stopAtFiveHourPct` | number | `0` (off) | 0, or 1 to 100 | `stopAtFiveHourPct` |
+| `team.stopAtCostUsd` | number | `0` (off) | 0 or more | `stopAtCostUsd` |
 
 The most teammates alive at once. A spawn beyond it is denied with `TEAM_CAPACITY_REACHED`.
+
+`stopAtFiveHourPct` and `stopAtCostUsd` are usage limits, off at `0`. Once the 5-hour limit has used that
+percent, or the session cost has reached that many dollars, a teammate spawn is denied with
+`TEAM_BUDGET_REACHED` and a message naming the limit; ordinary subagents and teammates already running are
+not touched. A figure Claude Code does not report never trips a limit. The Usage page of Mission Control also
+says when the 5-hour limit would be reached at the current pace, once ten minutes of readings show it
+climbing and the projection falls before the reset.
 
 ### Routing
 
@@ -161,6 +170,8 @@ CTK writes the effective values to `settings.json`, one key each, under
 | `recordStats` | `stats.record` | `true` | boolean |
 | `teamHint` | `team.hint` | `true` | boolean |
 | `bashFilter` | `output.bashFilter` | `false` | boolean |
+| `stopAtFiveHourPct` | `team.stopAtFiveHourPct` | `0` | number, 0 is off |
+| `stopAtCostUsd` | `team.stopAtCostUsd` | `0` | number, 0 is off |
 
 The plugin defaults in `plugin.json` equal the CTK defaults (a test enforces this), so the
 plugin behaves the same if you install it without the CLI. A native install writes the same

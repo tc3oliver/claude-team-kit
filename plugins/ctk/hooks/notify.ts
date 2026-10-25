@@ -1,4 +1,4 @@
-import type { TaskRec } from './mission.ts'
+import type { Stalled, TaskRec } from './mission.ts'
 import { isLiveStatus } from './team.ts'
 import type { Snapshot } from './team.ts'
 
@@ -23,6 +23,37 @@ export const teamNotices = (prev: Snapshot, cur: Snapshot, seen: Set<string>): s
   const out = failed.map(w => `Teammate ${w.name} ${w.status}.`)
   if (prev.live > 0 && cur.live === 0 && failed.length === 0) out.push('All teammates finished.')
   return out
+}
+
+/**
+ * One notice per stall episode. `noticed` holds the workers already announced as stalled; a worker that
+ * is no longer stalled is dropped from it, so its next stall is news again.
+ */
+export const stallNotices = (stalled: Stalled[], noticed: Set<string>): string[] => {
+  for (const n of noticed) if (!stalled.some(s => s.name === n)) noticed.delete(n)
+  const fresh = stalled.filter(s => !noticed.has(s.name))
+  for (const s of fresh) noticed.add(s.name)
+  return fresh.map(s => `Teammate ${s.name} looks stalled: ${s.reason}.`)
+}
+
+export const budgetNotice = (why: string): string => `Teammate spawn stopped: ${why}.`
+
+const WRAPPER = /<\/?teammate-message\b[^>]*>/g
+
+/**
+ * True only for a delivery that is nothing but a `task_assignment` JSON (inside the optional
+ * `<teammate-message>` wrapper) whose `assignedBy` is the recipient itself: the echo of its own claim.
+ * Any other text, sender or parse doubt is false, so the lead's assignments always arrive.
+ */
+export const isOwnAssignmentEcho = (text: string, name: string): boolean => {
+  try {
+    const body = text.replace(WRAPPER, '').trim()
+    if (!body.startsWith('{') || !body.endsWith('}')) return false
+    const m: unknown = JSON.parse(body)
+    return typeof m === 'object' && m !== null && (m as { type?: unknown }).type === 'task_assignment' && (m as { assignedBy?: unknown }).assignedBy === name
+  } catch {
+    return false
+  }
 }
 
 export const capNotice = (live: number, max: number): string => `Teammate spawn refused: ${live} live, cap ${max}.`

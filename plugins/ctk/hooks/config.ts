@@ -21,6 +21,8 @@ export const OPTION_NAMES = [
   'recordStats',
   'teamHint',
   'bashFilter',
+  'stopAtFiveHourPct',
+  'stopAtCostUsd',
 ] as const satisfies readonly (keyof PolicyOptions)[]
 export type OptionName = (typeof OPTION_NAMES)[number]
 
@@ -67,6 +69,8 @@ const META: Record<OptionName, Meta> = {
   recordStats: { label: 'Record stats', hint: 'Write small per-session counters for the ctk stats command.', allowed: 'on or off' },
   teamHint: { label: 'Team hint', hint: 'Add one hidden hint line to a prompt that asks for several agents or a team.', allowed: 'on or off' },
   bashFilter: { label: 'Bash output filter', hint: 'Shrink long test, build and log output to its failures; the full text stays recallable.', allowed: 'on or off' },
+  stopAtFiveHourPct: { label: 'Stop at 5-hour usage', hint: 'Refuse new teammates once the 5-hour limit has used this percent. 0 is off.', allowed: 'a number from 1 to 100, or 0 for off' },
+  stopAtCostUsd: { label: 'Stop at session cost', hint: 'Refuse new teammates once the session cost reaches this many dollars. 0 is off.', allowed: 'a dollar amount above 0, or 0 for off' },
 }
 
 /** The sections Mission Control groups the options into, in display order. */
@@ -74,6 +78,7 @@ export const OPTION_GROUPS: { title: string; names: OptionName[] }[] = [
   { title: 'Team', names: ['maxWorkers'] },
   { title: 'Models', names: ['explorerModel', 'implementerModel', 'reviewerModel', 'highRiskModel', 'designerModel'] },
   { title: 'Band', names: ['hudBand', 'hudIdle'] },
+  { title: 'Limits', names: ['stopAtFiveHourPct', 'stopAtCostUsd'] },
   { title: 'Other', names: ['recordStats', 'teamHint', 'bashFilter'] },
 ]
 
@@ -146,6 +151,13 @@ const parseWorkers = (raw: unknown): number | string => {
   return n
 }
 
+const parseBudget = (name: 'stopAtFiveHourPct' | 'stopAtCostUsd', raw: unknown): number => {
+  const text = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  const n = typeof raw === 'number' ? raw : text === 'off' ? 0 : /^\d{1,6}(\.\d{1,2})?$/.test(text) ? Number(text) : NaN
+  if (!Number.isFinite(n) || n < 0 || (name === 'stopAtFiveHourPct' && (n > 100 || (n > 0 && n < 1)))) throw new Error(`${name} takes ${META[name].allowed}.`)
+  return n
+}
+
 const parseModel = (name: OptionName, raw: unknown): string => {
   if (typeof raw !== 'string') throw new Error(`${name} takes ${MODEL_ALLOWED}, not ${typeof raw}.`)
   const v = raw.trim()
@@ -191,7 +203,8 @@ export const validateChange = (name: string, raw: unknown, opts: PolicyOptions):
     value = n
   } else {
     try {
-      value = name === 'hudBand' || name === 'recordStats' || name === 'teamHint' || name === 'bashFilter' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
+      if (name === 'stopAtFiveHourPct' || name === 'stopAtCostUsd') value = parseBudget(name, raw)
+      else value = name === 'hudBand' || name === 'recordStats' || name === 'teamHint' || name === 'bashFilter' ? parseSwitch(name, raw) : name === 'hudIdle' ? parseIdle(name, raw) : parseModel(name, raw)
     } catch (err) {
       return fail('invalid_value', (err as Error).message)
     }

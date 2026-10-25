@@ -26,15 +26,21 @@ const ALLOWED = new Set([
   'fs.list',
   'fs.read',
   'fs.write',
+  // Once per team run, when every teammate has finished: the dim prompt suggestion `/ctk-report` (the person presses Tab; nothing is sent).
+  'prompt.suggest',
   'session.cwd',
   'session.id',
   'session.model',
   'session.usage',
+  // /ctk-doctor shows the running engine version next to the types version.
+  'session.version',
   'settings.read',
   'tool.list',
   'tool.register',
   'ui.close',
   'ui.invalidate',
+  // The same short text as each desktop notice, shown in the terminal.
+  'ui.toast',
   // A desktop notice when the team finishes, a teammate fails or the cap refuses a spawn; once per event.
   'ui.notify',
   'ui.open',
@@ -58,7 +64,7 @@ test('the scan reaches hooks/ui', () => {
 test('nothing in the mod reaches for the network, a process or dynamic code', () => {
   for (const { file, text } of sources) {
     const code = text.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
-    for (const banned of [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/, /\beval\s*\(/, /new Function\s*\(/, /\bimport\s*\(/, /\$\.process\b/, /\$\.session\.send\b/, /\$\.agent\.spawn\b/, /\$\.tool\.call\b/, /\$\.prompt\b/]) {
+    for (const banned of [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/, /\beval\s*\(/, /new Function\s*\(/, /\bimport\s*\(/, /\$\.process\b/, /\$\.session\.send\b/, /\$\.agent\.spawn\b/, /\$\.tool\.call\b/, /\$\.prompt\.(?!suggest\b)/]) {
       assert.equal(banned.test(code), false, `${file} uses ${banned}`)
     }
   }

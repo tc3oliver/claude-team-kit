@@ -2,7 +2,8 @@ import { describe, expect } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
-import { TEAMS_FIX } from '../hooks/doctor.ts'
+import { factsFrom, formatDoctor, TEAMS_FIX, TYPES_VERSION } from '../hooks/doctor.ts'
+import { DEFAULT_OPTIONS } from '../shared/policy.ts'
 import { STATUS_TOOL } from '../hooks/team.ts'
 import { engine, fresh, statusOf, test } from './world.ts'
 import type { EngineOptions, World } from './world.ts'
@@ -141,5 +142,16 @@ describe('ctk_team_status preflight fields', () => {
   test('both null when nothing can be read; cap still reported', { options: { maxWorkers: 4 } }, async ($, on) => {
     setup(on, { settings: null, tools: null }, { envFails: true })
     expect(await status($)).toMatchObject({ cap: 4, teamsEnabled: null, taskTools: null })
+  })
+})
+
+describe('ctk-doctor engine row', () => {
+  const rowFor = (engine: string | null) =>
+    row(formatDoctor({ ...factsFrom({ opts: DEFAULT_OPTIONS, envFlag: null, settings: null, toolNames: null }), engine }).split('\n'), 'engine')
+
+  test('shows both versions and flags a different minor version only', async () => {
+    expect(rowFor('2.1.310')).toBe(`[info]   engine: 2.1.310 (plugin built against ${TYPES_VERSION})`)
+    expect(rowFor('2.2.0')).toContain('minor version differs')
+    expect(rowFor(null)).toContain('version not readable')
   })
 })

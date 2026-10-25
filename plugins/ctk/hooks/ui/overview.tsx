@@ -1,5 +1,5 @@
 import { displayWidth } from '../../shared/hudline.ts'
-import { fmtAge, fmtSpan, UNAVAILABLE, viewKey, workerKey } from '../mission.ts'
+import { collisionLine, fmtAge, fmtSpan, UNAVAILABLE, viewKey, workerKey } from '../mission.ts'
 import type { McState, Mission } from '../mission.ts'
 import type { Ctx } from './ctx.tsx'
 import { hudButtons } from './hud.tsx'
@@ -134,12 +134,16 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
       : displayWidth(`${refusedHead} · TEAM_CAPACITY_REACHED`, ambiguous) <= room
         ? [line('o-refused', `${refusedHead} · TEAM_CAPACITY_REACHED`, { color: COLOR.error, bold: ctx.motion.hot.has('guard') })]
         : [line('o-refused', refusedHead, { color: COLOR.error, bold: ctx.motion.hot.has('guard') }), line('o-refused2', '  TEAM_CAPACITY_REACHED', { color: COLOR.error })]
+  const budget = m.budgetStopped === 0 ? [] : block('o-budget', 'limit', `${m.budgetStopped} spawn(s) stopped by a usage limit · TEAM_BUDGET_REACHED`, { color: COLOR.error })
   const subagents = m.subagents.total > 0 ? block('o-sub', 'subagents', `${m.subagents.total} ordinary · ${m.subagents.live} live · ${room >= 62 ? 'not workers, not in the cap' : 'not in the cap'}`) : []
   const outside = m.outsideCap > 0 ? block('o-outside', 'isolated', `${m.outsideCap} named agent(s) started with isolation: ordinary subagents, not in the cap`, { color: COLOR.ready }) : []
 
   // The state pill is in the header; the reason is its short sentence, wrapped (full text: Doctor). A guard that is not working gets a line more.
   const bad = m.guard.state === 'error' || m.guard.state === 'unavailable'
   const guardWhy = block('o-why', 'guard', m.guard.short, bad ? { color: guardColor(m) } : { dim: true }, bad ? 3 : 2)
+
+  const collision = collisionLine(m.signals.collisions)
+  const collisionRow = collision === null ? [] : [line('o-coll', collision, { color: COLOR.ready })]
 
   // The refusal sits right after the workers so `fit` drops the quieter lines first, never the code.
   const rows = [
@@ -148,6 +152,8 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
     ...(moreRow === null ? [] : [moreRow]),
     ...empties,
     ...refusal,
+    ...budget,
+    ...collisionRow,
     tasksRow,
     ctxRow,
     quotaRow,

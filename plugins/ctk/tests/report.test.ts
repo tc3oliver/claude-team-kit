@@ -40,6 +40,14 @@ describe('formatReport', () => {
   })
 })
 
+describe('formatReport friction', () => {
+  test('lists only the non-zero items, or none', async () => {
+    expect(formatReport({ stats: emptyStats('s', 3, 0), tasks: [], files: [], teamMs: null })).toContain('### Friction\nnone\n')
+    const text = formatReport({ stats: stats(), tasks: [], files: [], teamMs: 0, friction: { compactions: 2, coldCache: 0, failed: 1 } })
+    expect(text).toContain('### Friction\n1 spawn(s) refused at capacity; 2 compaction(s); 1 failed teammate(s)\n')
+  })
+})
+
 describe('noteFileChange', () => {
   test('keeps paths of write tools only, once, bounded', async () => {
     const m = newMissionState()

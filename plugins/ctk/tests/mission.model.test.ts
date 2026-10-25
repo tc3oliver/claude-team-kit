@@ -366,7 +366,9 @@ describe('mission model', () => {
     expect(missionText(m)).toContain('workers:  1/3 active, 1 running, 0 idle, 0 completed, 0 failed; 0 refused')
     expect(missionText(m)).toContain('12 tool calls')
     expect(missionText(m)).toContain('unavailable')
-    expect(missionJson(m)).toMatchObject({ guard: { state: 'available' }, outsideCap: 0, running: 1, usage: { toolCalls: 12 } })
+    expect(missionJson(m)).toMatchObject({ guard: { state: 'available' }, outsideCap: 0, running: 1 })
+    expect(missionJson(m)).not.toHaveProperty('usage')
+    expect(missionJson(m, true)).toMatchObject({ usage: { toolCalls: 12 } })
   })
 })
 

@@ -9,6 +9,7 @@ Read this when a spawn is refused, unclear, or a worker misbehaves.
 | Result has `teammate_id` / agent id | Started | Record name and id; set task owner |
 | `ctk_team_status` lists the worker | Confirmed live | Count it against the cap |
 | Text contains `TEAM_CAPACITY_REACHED` | Refused, at cap | Not started. Keep task/slice pending. `SendMessage` an idle teammate, else wait |
+| Text contains `TEAM_BUDGET_REACHED` | Refused, usage limit (`stopAtFiveHourPct` or `stopAtCostUsd`) reached | Not started. Keep the task pending, do not retry, tell the person; they can raise the limit or finish with the workers already live |
 | Text contains `TEAM_GUARD_FAILED` | Refused, guard error | Not started. Retry once after a live-worker check; else work the task yourself |
 | Row shows only "Done", no id | Never started | Treat as refused |
 

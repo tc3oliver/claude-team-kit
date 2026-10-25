@@ -1,6 +1,6 @@
 import { DASH, displayWidth } from '../../shared/hudline.ts'
 import { modelLabel } from '../band.ts'
-import { BACK_KEY, fmtAge, fmtSpan, UNAVAILABLE, workerKey } from '../mission.ts'
+import { BACK_KEY, collisionLine, fmtAge, fmtCount, fmtSpan, fmtTokens, UNAVAILABLE, workerKey } from '../mission.ts'
 import type { McState, Mission, WorkerRow } from '../mission.ts'
 import { moreText } from './ctx.tsx'
 import type { Ctx } from './ctx.tsx'
@@ -36,13 +36,14 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
   const BODY_ROWS = ctx.rows
   const subTotal = m.subagents.total
   const subMax = m.workers.length === 0 ? SUBAGENT_ROWS : SUBAGENT_ROWS_BESIDE_WORKERS
-  const subRows = subTotal === 0 ? 0 : 1 + Math.min(subTotal, subMax) + (subTotal > subMax ? 1 : 0)
+  const collision = collisionLine(m.signals.collisions)
+  const subRows = (collision === null ? 0 : 1) + (subTotal === 0 ? 0 : 1 + Math.min(subTotal, subMax) + (subTotal > subMax ? 1 : 0))
   // Two lines per worker at any width while they fit under the hint (so the task is always visible); past that, one line each with a TASK column.
   const twoLine = m.workers.length * 2 <= BODY_ROWS - 1 - subRows
 
   const gw = displayWidth(GLYPH.running, ambiguous) + 1
   const widest = (xs: string[], min = 0) => Math.max(min, ...xs.map(x => displayWidth(x, ambiguous)))
-  const pill = (w: WorkerRow) => (statusOf(w.status) === 'done' ? 'DONE' : w.status.toUpperCase())
+  const pill = (w: WorkerRow) => (w.stalled !== null ? 'STALLED' : statusOf(w.status) === 'done' ? 'DONE' : w.status.toUpperCase())
   const modelOf = (w: WorkerRow) => modelLabel(w.model) ?? DASH
   // Activity is observed tool calls relative to the busiest worker, never progress.
   const busiest = Math.max(0, ...m.workers.map(w => w.toolCalls ?? 0))
@@ -55,10 +56,11 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     time: w => (w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs)),
     model: modelOf,
     last: w => (w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)),
+    tokens: w => (w.usage === null ? DASH : fmtCount(w.usage.input + w.usage.output)),
   }
-  const heads: Record<string, string> = { status: 'STATUS', activity: 'ACTIV', tools: 'TOOLS', idle: 'IDLE', time: 'TIME', model: 'MODEL', last: 'LAST' }
+  const heads: Record<string, string> = { status: 'STATUS', activity: 'ACTIV', tools: 'TOOLS', idle: 'IDLE', time: 'TIME', model: 'MODEL', last: 'LAST', tokens: 'TOKENS' }
   // Columns after the name, in the order they are given up when the room is short; widths follow the content.
-  const cols = ['status', 'activity', 'tools', 'idle', ...(compact || twoLine ? [] : ['time']), 'model', 'last'].map(id => ({ id, head: heads[id]!, w: widest([heads[id]!, ...m.workers.map(w => cellOf[id]!(w))]) }))
+  const cols = ['status', 'activity', 'tools', 'idle', ...(compact || twoLine ? [] : ['time']), 'model', 'last', 'tokens'].map(id => ({ id, head: heads[id]!, w: widest([heads[id]!, ...m.workers.map(w => cellOf[id]!(w))]) }))
   // A one-line row keeps the TASK column in preference to the optional columns.
   const reserve = twoLine ? 0 : TASK_MIN
   let left = room - gw - reserve
@@ -94,7 +96,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     const idle = w.status === 'idle'
     const age = idle ? (w.idleMs === null ? DASH : fmtSpan(w.idleMs)) : w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)
     const word = idle ? 'idle' : 'last'
-    const tools = `${w.toolCalls ?? DASH} tools`
+    const tools = `${w.toolCalls ?? DASH} tools${w.usage === null ? '' : ` · ${fmtCount(w.usage.input + w.usage.output)} tok`}`
     const clock = w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs)
     const tails = [[tools, clock, `${word} ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
     const need = Math.min(displayWidth(task, ambiguous), TASK_MIN)
@@ -121,10 +123,11 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
       line('w-name', picked.name, { bold: true }),
       field('w-id', 'Agent id', picked.agentId),
       field('w-model', 'Model', picked.model ?? `${UNAVAILABLE} (the spawn did not report one)`),
-      field('w-status', 'Status', picked.status),
+      field('w-status', 'Status', picked.stalled === null ? picked.status : `${picked.status}, stalled: ${picked.stalled.reason} for ${fmtSpan(picked.stalled.forMs)}`),
       field('w-task', 'Current task', picked.currentTask ?? `${UNAVAILABLE} (no in-progress task owned by this worker was observed)`),
       field('w-tools', 'Tool calls', picked.toolCalls === null ? UNAVAILABLE : `${picked.toolCalls} (its own loop)`),
       field('w-recent', 'Recent', picked.recent.length === 0 ? `${UNAVAILABLE} (no tool call of its own loop was seen)` : picked.recent.join(' ‹ ')),
+      field('w-tokens', 'Tokens', picked.usage === null ? `${UNAVAILABLE} (no turn of its own was reported)` : `${fmtTokens(picked.usage)} · ${fmtCount(picked.usage.cacheRead)} cache read`),
       field('w-last', 'Last activity', fmtAge(picked.lastActivityMs)),
       field('w-idle', 'Idle for', picked.status === 'idle' ? fmtSpan(picked.idleMs) : 'not idle'),
       <kit.Box key="w-actions" flexDirection="row" columnGap={2}>
@@ -161,6 +164,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     ...(!twoLine ? [line('w-head', `${' '.repeat(gw)}${pad('NAME', nameW)}${taskW <= 0 ? '' : ` ${pad('TASK', taskW)}`}${rest(id => shown.find(c => c.id === id)?.head ?? '')}`, { dim: true })] : []),
     ...visible.flatMap(twoLine ? twoLines : w => [oneLine(w)]),
     ...(hidden.length > 0 ? [line('w-more', `${moreText(hidden.length, room)}${summary === '' ? '' : ` (${summary})`}`, { dim: true })] : []),
+    ...(collision === null ? [] : [line('w-coll', collision, { color: COLOR.ready })]),
     line('w-hint', hint, { dim: true }),
     ...subagents(),
   ]
