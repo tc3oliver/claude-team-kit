@@ -103,7 +103,7 @@ describe('task event cost', () => {
     expect(s.tasks).toEqual({ created: 25, completed: 25 })
     // The stats file keeps its shape: the burst changed the counters, not the record.
     expect(Object.keys(s).sort()).toEqual(
-      ['schemaVersion', 'sessionId', 'startedAt', 'updatedAt', 'maxWorkers', 'spawnsAccepted', 'spawnsRejected', 'spawnsFailedClosed', 'spawnsSeen', 'spawnsOutsideCap', 'peakLive', 'workerModels', 'subagentModels', 'tasks', 'toolCalls', 'measured'].sort(),
+      ['schemaVersion', 'sessionId', 'startedAt', 'updatedAt', 'maxWorkers', 'spawnsAccepted', 'spawnsRejected', 'spawnsBudgetStopped', 'spawnsFailedClosed', 'spawnsSeen', 'spawnsOutsideCap', 'peakLive', 'workerModels', 'subagentModels', 'tasks', 'toolCalls', 'measured'].sort(),
     )
   })
 })

@@ -10,11 +10,11 @@ Request: $ARGUMENTS (if empty, use the user's last message). Pick ONE section. A
 The CTK tools are deferred: if `mcp__ctk__ctk_team_status` (or `mcp__ctk__ctk_config`) has no schema loaded, load it
 first with ToolSearch (`select:mcp__ctk__ctk_team_status`). Then call it and answer from its JSON only. Fields:
 `live`, `max`, `workers`, `rejected`, `accepted`, `cap`, `teamsEnabled`, `taskTools`, `guard`, `running`, `idle`,
-`completed`, `failed`, `teamElapsedMs`, `subagents`, `explain`, `tasks`, and `usage` (`contextPct`, `fiveHour`, `sevenDay`, `cost`,
-`toolCalls`, `model`).
+`completed`, `failed`, `teamElapsedMs`, `subagents`, `explain`, `tasks`. `usage` (`contextPct`, `fiveHour`, `sevenDay`, `cost`,
+`toolCalls`, `model`) appears only when called with `includeUsage: true`.
 - A field that is missing, null or "unavailable": say "unavailable". Never estimate or guess a number.
 - No workers or tasks: say `explain.workers` / `explain.tasks` in your own words. Agents counted in `subagents` are ordinary subagents, not teammates; never call them workers.
-- Usage questions (5h limit, weekly limit): report only what `usage` contains.
+- Usage questions (5h limit, weekly limit, cost): call with `includeUsage: true` and report only what `usage` contains. Never fetch it for plain progress questions or to pace the team.
 - Mention once that the clickable CTK band is the live view and `/ctk-mission` opens Mission Control.
 - Tool not registered: the CTK mod is not active here. Say so; do not invent values.
 
@@ -25,7 +25,7 @@ Never state a result you did not see.
 ## Change a setting
 Load the tool with ToolSearch (`select:mcp__ctk__ctk_config`) if its schema is not loaded.
 Option names: `maxWorkers`, `explorerModel`, `implementerModel`, `reviewerModel`, `highRiskModel`, `designerModel`, `hudBand`,
-`hudIdle` (what the band shows before a team starts: full, minimal or hidden), `recordStats`, `teamHint`, `bashFilter`. Never guess another name; if the request maps to none, say so and list these.
+`hudIdle` (what the band shows before a team starts: full, minimal or hidden), `recordStats`, `teamHint`, `bashFilter`, `stopAtFiveHourPct` (1-100, 0 off), `stopAtCostUsd` (dollars, 0 off). Never guess another name; if the request maps to none, say so and list these.
 - List current values: `mcp__ctk__ctk_config` with `{"action":"show"}`.
 - Change: `{"action":"propose","option":"maxWorkers","value":2}` (value is a number, boolean or model name).
 - The tool applies NOTHING. It opens a confirmation in the Mission Control pane and the user confirms there.

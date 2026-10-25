@@ -55,6 +55,8 @@ describe('option names', () => {
       'recordStats',
       'teamHint',
       'bashFilter',
+      'stopAtFiveHourPct',
+      'stopAtCostUsd',
     ])
     expect(Object.keys(DEFAULT_OPTIONS).sort()).toEqual([...OPTION_NAMES].sort())
   })
@@ -196,6 +198,17 @@ describe('switches', () => {
     for (const v of [1, 0, 'yes', 'no', '1', '', null, undefined, [], {}]) {
       expect(validateChange('hudBand', v, OPTS).ok).toBe(false)
     }
+  })
+
+  test('the usage limits ship off (0), clamp on read, and validate on change', () => {
+    expect(readOptions({}).stopAtFiveHourPct).toBe(0)
+    expect(readOptions({ stopAtFiveHourPct: 250, stopAtCostUsd: -1 })).toMatchObject({ stopAtFiveHourPct: 100, stopAtCostUsd: 0 })
+    expect(good('stopAtFiveHourPct', '80').value).toBe(80)
+    expect(good('stopAtCostUsd', 12.5).value).toBe(12.5)
+    expect(reason('stopAtFiveHourPct', 101)).toMatch(/1 to 100/)
+    expect(reason('stopAtFiveHourPct', 0.5)).toMatch(/1 to 100/)
+    expect(reason('stopAtCostUsd', 'lots')).toMatch(/dollar amount/)
+    expect(good('stopAtCostUsd', 3).value).toBe(3)
   })
 
   test('bashFilter is a switch that ships off', () => {
@@ -383,7 +396,7 @@ describe('purity', () => {
     for (const ev of ['config.set', 'fs.write', 'fs.read', 'settings.write', 'tool.call', 'ui.open', 'agent.spawn']) watch(ev)
     let st = emptyPending()
     for (const n of OPTION_NAMES) {
-      const r = validateChange(n, n === 'maxWorkers' ? 2 : n.endsWith('Model') ? 'inherit' : n === 'hudIdle' ? 'minimal' : n === 'bashFilter', OPTS)
+      const r = validateChange(n, n === 'maxWorkers' ? 2 : n.endsWith('Model') ? 'inherit' : n === 'hudIdle' ? 'minimal' : n === 'stopAtFiveHourPct' ? 80 : n === 'stopAtCostUsd' ? 5 : n === 'bashFilter', OPTS)
       if (!r.ok) throw new Error(r.reason)
       const { ok: _ok, ...change } = r
       st = propose(st, change, T0).state

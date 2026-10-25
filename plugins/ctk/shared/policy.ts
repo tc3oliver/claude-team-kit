@@ -30,6 +30,10 @@ export type PolicyOptions = {
   teamHint: boolean
   /** Shrink long test, build and log output from Bash to its failures; the full text stays recallable. Off by default. */
   bashFilter: boolean
+  /** Refuse a teammate spawn once the 5-hour rate limit has used this percent (1-100). 0 = off. */
+  stopAtFiveHourPct: number
+  /** Refuse a teammate spawn once the session cost reaches this many US dollars. 0 = off. */
+  stopAtCostUsd: number
 }
 
 export const DEFAULT_OPTIONS: PolicyOptions = {
@@ -44,6 +48,8 @@ export const DEFAULT_OPTIONS: PolicyOptions = {
   recordStats: true,
   teamHint: true,
   bashFilter: false,
+  stopAtFiveHourPct: 0,
+  stopAtCostUsd: 0,
 }
 
 /** Default reasoning effort per role. Mirrors the `effort:` frontmatter in plugins/ctk/agents/. */
@@ -67,6 +73,9 @@ export const AGENT_TYPES: Record<Role, string> = {
 /** Error code carried in every capacity refusal. The team skill keys off this exact token. */
 export const CAPACITY_CODE = 'TEAM_CAPACITY_REACHED'
 
+/** Error code carried in every usage-limit refusal (stopAtFiveHourPct, stopAtCostUsd). */
+export const BUDGET_CODE = 'TEAM_BUDGET_REACHED'
+
 const str = (v: unknown, d: string) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : d)
 const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d)
 
@@ -74,6 +83,9 @@ export const clampMax = (v: unknown): number => {
   const n = Number(v ?? DEFAULT_OPTIONS.maxWorkers)
   return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), 12) : DEFAULT_OPTIONS.maxWorkers
 }
+
+/** A usage limit: a finite number in (0, max], else 0 (off). */
+const limit = (v: unknown, max: number): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(v, max) : 0)
 
 /** Normalize whatever `register` received into a complete, valid PolicyOptions. */
 export const readOptions = (raw: unknown): PolicyOptions => {
@@ -90,6 +102,8 @@ export const readOptions = (raw: unknown): PolicyOptions => {
     recordStats: bool(o.recordStats, DEFAULT_OPTIONS.recordStats),
     teamHint: bool(o.teamHint, DEFAULT_OPTIONS.teamHint),
     bashFilter: bool(o.bashFilter, DEFAULT_OPTIONS.bashFilter),
+    stopAtFiveHourPct: limit(o.stopAtFiveHourPct, 100),
+    stopAtCostUsd: limit(o.stopAtCostUsd, Infinity),
   }
 }
 

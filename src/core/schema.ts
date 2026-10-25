@@ -21,7 +21,13 @@ const roleSchema = z.strictObject({ model })
 /** Complete profile: what `effective` resolves to. */
 export const profileSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION),
-  team: z.strictObject({ maxWorkers: z.number().int().min(1).max(12), hint: z.boolean() }),
+  team: z.strictObject({
+    maxWorkers: z.number().int().min(1).max(12),
+    hint: z.boolean(),
+    // 0 = off
+    stopAtFiveHourPct: z.number().min(0).max(100),
+    stopAtCostUsd: z.number().min(0),
+  }),
   routing: z.strictObject({ explorer: roleSchema, implementer: roleSchema, reviewer: roleSchema, highRisk: roleSchema, designer: roleSchema }),
   hud: z.strictObject({ band: z.boolean(), idle: z.enum(HUD_IDLE), statusLine: z.enum(['auto', 'off']) }),
   stats: z.strictObject({ record: z.boolean() }),
@@ -45,7 +51,14 @@ export type Profile = z.infer<typeof profileSchema>
 const partialRole = z.strictObject({ model: model.optional() })
 export const profileLayerSchema = z.strictObject({
   schemaVersion: z.literal(PROFILE_SCHEMA_VERSION).optional(),
-  team: z.strictObject({ maxWorkers: profileSchema.shape.team.shape.maxWorkers.optional(), hint: z.boolean().optional() }).optional(),
+  team: z
+    .strictObject({
+      maxWorkers: profileSchema.shape.team.shape.maxWorkers.optional(),
+      hint: z.boolean().optional(),
+      stopAtFiveHourPct: profileSchema.shape.team.shape.stopAtFiveHourPct.optional(),
+      stopAtCostUsd: profileSchema.shape.team.shape.stopAtCostUsd.optional(),
+    })
+    .optional(),
   routing: z
     .strictObject({
       explorer: partialRole.optional(),
@@ -66,7 +79,12 @@ export type ProfileLayer = z.infer<typeof profileLayerSchema>
 
 export const DEFAULT_PROFILE: Profile = {
   schemaVersion: PROFILE_SCHEMA_VERSION,
-  team: { maxWorkers: DEFAULT_OPTIONS.maxWorkers, hint: DEFAULT_OPTIONS.teamHint },
+  team: {
+    maxWorkers: DEFAULT_OPTIONS.maxWorkers,
+    hint: DEFAULT_OPTIONS.teamHint,
+    stopAtFiveHourPct: DEFAULT_OPTIONS.stopAtFiveHourPct,
+    stopAtCostUsd: DEFAULT_OPTIONS.stopAtCostUsd,
+  },
   routing: {
     explorer: { model: DEFAULT_OPTIONS.explorerModel },
     implementer: { model: DEFAULT_OPTIONS.implementerModel },
@@ -120,4 +138,6 @@ export const profileToPluginOptions = (p: Profile): PolicyOptions => ({
   recordStats: p.stats.record,
   teamHint: p.team.hint,
   bashFilter: p.output.bashFilter,
+  stopAtFiveHourPct: p.team.stopAtFiveHourPct,
+  stopAtCostUsd: p.team.stopAtCostUsd,
 })

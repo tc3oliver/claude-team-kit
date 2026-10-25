@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- `ctk_team_status` no longer hands the model the 5h and weekly usage, reset times and cost on every call. In a long team run the lead read them and stopped opening workers to "wrap up" on its own ([#8](https://github.com/tc3oliver/claude-team-kit/issues/8)). The figures come back only with `includeUsage: true`, which `/ctk` uses when the person asks about usage; the band and Mission Control still show them to the person.
+
+- A teammate that claimed a task got its own `task_assignment` back, which woke it for a whole extra turn and sent the lead a duplicate report. CTK now drops that echo (only when `assignedBy` is the recipient itself; the lead's assignments always arrive), and `/ctk-report` counts the dropped ones.
+
+### Added
+
+- Stalled teammates: one that owns an in-progress task and has made no tool call for 10 minutes, or whose last three tool calls failed, shows in the band, on Workers and in `ctk_team_status`, with one desktop notice per stall.
+- `N ready · M idle` in the band when tasks are ready and teammates are idle; `ready` and `idleWorkers` in `ctk_team_status`. Display only: CTK never assigns.
+- Unverified completions: a task a teammate completed stays `unverified` until the lead runs a Bash command, and completing the last open task while some are unverified adds a one-line reminder.
+- File collisions: two live agents writing the same file are shown on Workers and Overview, with one informational line on that tool result.
+- Per-teammate tokens (input, output, cache read) on Workers.
+- `team.stopAtFiveHourPct` and `team.stopAtCostUsd` (0 = off, the default): your own limit, past which a teammate spawn is refused with `TEAM_BUDGET_REACHED`, counted apart from cap refusals and announced like them.
+- A 5h burn-rate forecast on the Usage page.
+- `/ctk-report` lists friction (refused spawns, compactions, cold cache, failed teammates); the prompt suggests `/ctk-report` when the team finishes; notices are also shown as an in-terminal toast; `/ctk-doctor` shows the engine version; `ctk doctor` reports the mods check as unknown under WSL; team presets in `skills/team/references/presets.md`.
+
 ## [0.1.7] - 2026-10-25 (prerelease)
 
 ### Added

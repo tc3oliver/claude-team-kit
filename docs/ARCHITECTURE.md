@@ -104,6 +104,7 @@ hooks it registers and the host calls it makes; for this build that is:
   `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (every call counted; `ctk_team_status`,
   `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
   `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
+  `session.receive` (drops only a teammate's own `task_assignment` echo, whose `assignedBy` is the recipient; the lead's assignments and every other delivery pass),
   `session.compact` (adds the team state to the summarizer's instructions), `command.run` (only `ctk-stats`, `ctk-doctor`, `ctk-mission` and `ctk-report`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
@@ -126,6 +127,9 @@ reached the spawn is denied with
 ```
 TEAM_CAPACITY_REACHED: live=N starting=M max=K. Do not treat this worker as started; ...
 ```
+
+With `stopAtFiveHourPct` or `stopAtCostUsd` set, the same hook first re-reads the usage and denies a teammate
+spawn with `TEAM_BUDGET_REACHED: ...` once either limit is reached.
 
 Evidence: the cap was observed live on Claude Code 2.1.294 in the project's proof of concept
 (6 concurrent teammate spawns: 3 started, 3 refused). In this repository it has been
@@ -205,6 +209,12 @@ and the files changed. The file list is the `file_path` or `notebook_path` of `E
 `MultiEdit` and `NotebookEdit` calls that ran, kept in memory (at most 500, the first 50 printed);
 no other part of those inputs is read. Nothing is written to disk. The report shows paths relative to the
 session's working directory; paths outside it are only counted, as are older paths dropped past 500.
+A Friction section lists, when non-zero, refused spawns, compactions, times the cache went cold and
+failed teammates (`none` otherwise). When the last live teammate finishes, the mod offers
+`/ctk-report` once per team run as the prompt's dim suggestion (`prompt.suggest`; Tab takes it,
+nothing is sent), and each desktop notice is also shown as a terminal toast (`ui.toast`).
+`/ctk-doctor` adds an `engine` row: the running version (`session.version`) beside the version the
+bundled API types were written by, noted when the minor versions differ.
 
 **Counters.** `classic.TaskCreated` and `classic.TaskCompleted` only increment counters and pass
 the event on; they never block a task. A `tool.call` hook counts every tool call the model makes
@@ -295,10 +305,12 @@ Views are pure: they draw what they are given and never call the host.
 
 **Motion.** `hooks/ui/motion.ts` is pure too: `observe` compares this draw with the last to find what is new,
 `delayFor` says when the next redraw is due (or null), and `Motion` (`frame`, `reduced`, highlighted keys) reaches the
-views as `ctx.motion`. The only timer lives in `register.tsx` (`armMotion`): one `$.clock.after`, armed from the
+views as `ctx.motion`. The redraw timer lives in `register.tsx` (`armMotion`): one `$.clock.after`, armed from the
 pane's `ui.render` hook while something is running or highlighted, cancelled when the pane is closed with its button
 and when the session ends. A pane that is gone does not render, so the chain also ends by itself. `CTK_REDUCED_MOTION`
-and `NO_COLOR` are read once at session start.
+and `NO_COLOR` are read once at session start. A second timer (`armStall`) re-runs `refresh` once a minute while a
+teammate is live, so a worker that went silent is judged stalled (`stalledOf` in `hooks/mission.ts`) with no event to
+trigger it; it is cancelled at session end.
 
 What it knows comes from event hooks that pass every event on untouched: the spawn result (agent id,
 model), `tool.call` events (per-agent counts, last activity, and the named fields of `TaskCreate` and
@@ -332,6 +344,11 @@ whether `statusLine` is configured, and the band and stats options. The status t
 `ctk_team_status` returns the same preflight facts (`cap`, `teamsEnabled`, `taskTools`), which
 the `team` skill's step 0 reads: tool absent means the mod is inactive; `teamsEnabled` false
 means spawn nothing and give the one-time setting.
+
+The status tool leaves `usage` (quota, cost, context) out unless called with `includeUsage: true`. A lead that
+read the 5-hour and weekly figures in a long team run slowed the team down on its own (issue #8); progress
+questions never need them, and the usage questions in `skills/ctk/SKILL.md` ask for them explicitly. The model
+still sees the person's own limit through a `TEAM_BUDGET_REACHED` refusal, which is their setting, not a reading.
 
 Every host call in the mod is wrapped so that a failure degrades (no band, no stats) without
 touching a spawn decision. The band, stats and counters can fail; the cap fails closed.

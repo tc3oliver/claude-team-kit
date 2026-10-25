@@ -36,7 +36,9 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   const version = probe.version
   if (version === null) add('claude', 'fail', claudeProblem(probe), 'install Claude Code and make sure "claude" is on PATH')
   else add('claude', 'pass', `Claude Code ${version}`)
-  if (version !== null) {
+  if (version !== null && isWsl()) {
+    add('mods', 'info', `unknown under WSL: Claude Code ${version} has the mods API, but mods are reportedly not loaded in WSL sessions (not tested here)`, '/ctk-doctor inside Claude Code reports whether the mod loaded')
+  } else if (version !== null) {
     versionAtLeast(version, MODS_MIN_VERSION)
       ? add('mods', 'pass', `this Claude Code can load mods (>= ${MODS_MIN_VERSION}); a version check only, /ctk-doctor in Claude Code reports whether the guard is on`)
       : add('mods', 'warn', `Claude Code ${version} predates mods (>= ${MODS_MIN_VERSION}): team cap and band are inactive`, 'update Claude Code, then run "ctk update"')

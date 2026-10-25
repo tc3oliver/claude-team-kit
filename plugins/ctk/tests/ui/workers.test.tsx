@@ -162,8 +162,8 @@ describe('Workers page idle time', () => {
   const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
   const flatten = (n: any): string => (Array.isArray(n) ? n.map(flatten).join('') : n?.props === undefined ? String(n ?? '') : flatten(n.props.children))
   const detail = (idleMs: number | null) => {
-    const w: any = { agentId: 'a1', name: 'w1', status: 'idle', model: null, toolCalls: 7, currentTask: null, elapsedMs: 760_000, lastActivityMs: 240_000, idleMs, recent: [] }
-    const m: any = { workers: [w], subagents: { total: 0, rows: [] }, empty: {} }
+    const w: any = { agentId: 'a1', name: 'w1', status: 'idle', model: null, toolCalls: 7, currentTask: null, elapsedMs: 760_000, lastActivityMs: 240_000, idleMs, recent: [], stalled: null, usage: null }
+    const m: any = { workers: [w], subagents: { total: 0, rows: [] }, empty: {}, signals: { collisions: [] } }
     return renderWorkers(kit, m, {} as any, {} as any, createCtx(kit, { bodyColumns: 80 })).map(flatten).find((r: string) => r.includes('tools'))!
   }
   test('an idle worker shows how long it has been idle', () => {
@@ -171,5 +171,28 @@ describe('Workers page idle time', () => {
   })
   test('idle time not observed is a dash, never 0', () => {
     expect(detail(null)).toContain('12:40 · idle –')
+  })
+})
+
+describe('Workers page health and tokens', () => {
+  const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
+  const flatten = (n: any): string => (Array.isArray(n) ? n.map(flatten).join('') : n?.props === undefined ? String(n ?? '') : flatten(n.props.children))
+  const rows = (w: object, picked = false) => {
+    const base: any = { agentId: 'a1', name: 'w1', status: 'running', model: null, toolCalls: 7, currentTask: '#1 x', elapsedMs: 760_000, lastActivityMs: 240_000, idleMs: null, recent: [], stalled: null, usage: null, ...w }
+    const m: any = { workers: [base], subagents: { total: 0, rows: [] }, empty: {}, signals: { collisions: [] } }
+    const mc: any = picked ? { selected: { kind: 'worker', id: 'a1' } } : {}
+    return renderWorkers(kit, m, mc, {} as any, createCtx(kit, { bodyColumns: 100 })).map(flatten).join('\n')
+  }
+  test('a stalled worker reads STALLED in the list and says why on its page', () => {
+    const stalled = { name: 'w1', reason: 'no activity', forMs: 12 * 60_000 }
+    expect(rows({ stalled })).toContain('STALLED')
+    expect(rows({ stalled }, true)).toContain('stalled: no activity for 12m')
+    expect(rows({})).not.toContain('STALLED')
+  })
+  test('tokens appear in the list as one figure and in detail as in/out plus cache', () => {
+    const usage = { input: 12_000, output: 3_400, cacheRead: 90_000 }
+    expect(rows({ usage })).toContain('15.4k tok')
+    expect(rows({ usage }, true)).toContain('12k in / 3.4k out · 90k cache read')
+    expect(rows({}, true)).toContain('Tokens')
   })
 })

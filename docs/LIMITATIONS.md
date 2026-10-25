@@ -21,7 +21,7 @@ Evidence levels used below:
 | Agent Teams are experimental | They are enabled by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. Claude Code allows **one team per session** (Reported). Behaviour can change in any Claude Code release. |
 | There is no official worker cap | Claude Code has no setting that limits live teammates (Reported). CTK's cap is a **mod** (a function hook on `agent.spawn`) shipped in the plugin. |
 | Mods are early access | The mod API and the version floor (`2.1.287`) can change. A Claude Code update can break the cap, the band or `/ctk-stats` without any change to CTK. |
-| Mods do not exist everywhere | On Claude Code builds older than 2.1.287 the mod is not available: the cap and the band are inactive, while skills, agents and the status line script still work. Mods are also reported unsupported in WSL sessions; that was not tested. `ctk install` and `ctk doctor` decide this from the Claude Code **version only**; they do not detect WSL for this purpose and print "mods supported" there. |
+| Mods do not exist everywhere | On Claude Code builds older than 2.1.287 the mod is not available: the cap and the band are inactive, while skills, agents and the status line script still work. Mods are also reported unsupported in WSL sessions; that was not tested. `ctk doctor` decides this from the Claude Code **version only**, except under WSL, where it reports the mods check as unknown and says why; `ctk install` still decides from the version alone. |
 | `doctor` does not prove the mod is running | "this Claude Code can load mods" is a version comparison, not a check that the mod loaded. `doctor` does fail when `claude plugin list --json` reports load errors (Live: after the install directory was moved, Claude Code reported `failed to load`, `/ctk-stats` disappeared and `ctk doctor` failed). Confirm with `claude -p "/ctk-stats"`. If that command is unknown, **the cap is not enforced**. |
 | The cap is by teammate, not by plugin | It gates every teammate spawn in the session, including ones another plugin (for example OMC) starts. See [MIGRATION-FROM-OMC](MIGRATION-FROM-OMC.md). Live: a built-in `general-purpose` teammate was refused like a CTK one ([probe](REVIEW.md#hard-limit-coverage-probe)); the gate reads `isTeammate`, not who defined the agent. Another plugin's teammate spawn itself was not run. |
 
@@ -137,15 +137,18 @@ in practice:
 
 ## Cost, effort and routing
 
-- **Per-worker token and cost figures are not available.** Claude Code reports session cost,
-  context and rate-limit use, not per teammate. CTK shows session figures, labelled measured, and
-  its own event counts, labelled counted. It never estimates a per-worker number.
+- **Per-worker cost is not available; per-worker tokens are.** Claude Code reports cost only per
+  session. Mission Control's Workers page adds up each teammate's input, output and cache-read tokens
+  from the turns the engine reports for it; it never turns them into a price.
 - **Effort per role comes from the agent files and cannot be set from a profile.** The spawn
   hook can set a model but not an effort. `explorer`, `implementer` and `reviewer` are `medium`,
   `high-risk-reviewer` is `high`, as written in `plugins/ctk/agents/*.md`. A profile with
   `routing.<role>.effort` is rejected (Live: `error: routing.implementer.effort:
   routing.implementer: Unrecognized key: "effort"`). To change effort, edit or fork the agent
-  files.
+  files. A `turn.step` hook can rewrite a step's effort (probed on 2.1.310: the hook sees each
+  subagent's steps with their `agentId` and accepts the rewrite), but nothing showed that the engine
+  then sends that effort, and a changing effort would likely cost a loop its prompt cache, so CTK
+  does not do it.
 - **Model routing** applies only to `ctk:*` agents that give no model, and never overrides an
   explicit one. Tests cover the resolution. **Not verified live:** that the resolved model is
   the one each teammate actually runs on, in every team mode (in-process, tmux, iTerm2) and
@@ -183,7 +186,7 @@ operating system; the mod runs against a simulated host and `claude plugin test`
 | Windows native | CI only | Not verified | CI only; an ambiguous-width or legacy console was not seen | CI only; the `.cmd`/`.exe` handling and the Git Bash status line command are covered by unit tests alone. The first Windows runs failed and found real bugs, since fixed ([REVIEW](REVIEW.md#5a-found-by-ci-on-windows)) |
 | Windows Terminal | Not verified | Not verified (needs the terminal to pass mouse reports) | Not verified | Not verified |
 | VS Code terminal | Not verified | Not verified | Not verified | Not verified |
-| WSL | Not tested. Claude Code is reported not to load Mods there, so the cap and the band would be off and `/ctk:team` says so; the CLI does not detect WSL for this | Not applicable if Mods do not load | Not verified | Not verified |
+| WSL | Not tested. Claude Code is reported not to load Mods there, so the cap and the band would be off and `/ctk:team` says so; `ctk doctor` reports the mods check as unknown under WSL | Not applicable if Mods do not load | Not verified | Not verified |
 
 Claude Code's own docs say split-pane teammates are not supported in the VS Code integrated terminal, Windows Terminal
 or Ghostty; the default in-process mode works anywhere. CTK's cap counts both. Where the platform is "not verified",

@@ -5,6 +5,9 @@ import type { PolicyOptions } from '../shared/policy.ts'
 // null here and is reported as unknown, never guessed.
 
 export const TEAMS_FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
+/** The Claude Code version the bundled API types were written by (first line of .claude-plugin/types/claude-code/index.d.ts). */
+export const TYPES_VERSION = '2.1.295'
+
 export const TEAMS_FIX = `Add {"env":{"${TEAMS_FLAG}":"1"}} to ~/.claude/settings.json, then restart Claude Code.`
 
 export type Facts = {
@@ -28,6 +31,8 @@ export type Facts = {
   guard: { state: 'active' | 'available' | 'unavailable' | 'error'; why: string } | null
   /** Named agents started as ordinary subagents this session (outside the cap). */
   outsideCap: number
+  /** `$.session.version().version`; null when it could not be read. */
+  engine?: string | null
 }
 
 export type Inputs = {
@@ -86,8 +91,19 @@ const guardRow = (f: Facts): Row => {
   return { level: f.guard.state === 'active' ? 'ok' : 'info', text }
 }
 
+const minor = (v: string): string => v.split('.').slice(0, 2).join('.')
+
+const engineRow = (engine: string | null | undefined): Row => {
+  if (engine == null) return { level: 'info', text: `engine: version not readable (plugin built against ${TYPES_VERSION})` }
+  const text = `engine: ${engine} (plugin built against ${TYPES_VERSION})`
+  return minor(engine) === minor(TYPES_VERSION)
+    ? { level: 'info', text }
+    : { level: 'info', text: `${text}, minor version differs: an API the plugin uses may have changed` }
+}
+
 export const doctorRows = (f: Facts): Row[] => [
   { level: 'ok', text: 'mod: loaded (it answered this command)' },
+  engineRow(f.engine),
   guardRow(f),
   {
     level: 'ok',

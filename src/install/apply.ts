@@ -52,6 +52,8 @@ const OPTION_PROFILE_PATHS: Record<string, string> = {
   recordStats: 'stats.record',
   teamHint: 'team.hint',
   bashFilter: 'output.bashFilter',
+  stopAtFiveHourPct: 'team.stopAtFiveHourPct',
+  stopAtCostUsd: 'team.stopAtCostUsd',
 }
 
 /** The dotted profile path that produces a settings.json pointer, or null when the pointer is not profile-driven. */

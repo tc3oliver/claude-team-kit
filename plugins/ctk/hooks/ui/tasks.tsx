@@ -58,7 +58,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
     const list = (ids: string[]): string => (ids.length === 0 ? 'none' : ids.map(seen).join(' '))
     return [
       ...para(`t-${row.id}-title`, `#${row.id} ${row.subject}`, { bold: true }).slice(0, 2),
-      ...ctx.fieldWrap('t-status', 'Status', word(row) + (row.status === 'completed' ? ' (TaskUpdate; not verified)' : ''), statusColor(taskStatus(row))),
+      ...ctx.fieldWrap('t-status', 'Status', word(row) + (row.unverified ? ' (completed by a teammate; unverified until the lead runs a command)' : row.status === 'completed' ? ' (TaskUpdate; not verified)' : ''), statusColor(taskStatus(row))),
       field('t-owner', 'Owner', row.owner ?? UNAVAILABLE),
       field('t-by', 'Blocked by', list(row.blockedBy)),
       field('t-open', 'Still open', row.blockedBy.length === 0 ? 'none' : list(row.openBlockers)),
@@ -112,7 +112,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
     const avail = room - gw - displayWidth(id, ambiguous)
     // A long owner is cut, not dropped, so the title keeps at least two thirds of the room.
     const owner = r.owner === null ? null : `@${ctx.clip(r.owner, Math.max(6, Math.floor(avail / 3)) - 1)}`
-    const side = [owner, r.openBlockers.length === 0 ? null : `needs ${r.openBlockers.map(b => `#${b}`).join(',')}`].filter(x => x !== null).join(' · ')
+    const side = [owner, r.unverified ? 'unverified' : null, r.openBlockers.length === 0 ? null : `needs ${r.openBlockers.map(b => `#${b}`).join(',')}`].filter(x => x !== null).join(' · ')
     const showSide = side !== '' && displayWidth(side, ambiguous) * 2 <= avail
     out.push(
       <kit.Button key={taskKey(r.id)} plain label={`Task #${r.id}`} onPress={() => {}}>

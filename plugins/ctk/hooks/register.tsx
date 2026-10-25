@@ -8,8 +8,8 @@ import type { CacheUsage } from './band.ts'
 import { BAND_MARGIN, BAND_SEP, bandParts, cacheHealth, formatSummary, GUARD_QUIET } from './band.ts'
 import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
-import { capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
-import type { Snapshot } from './team.ts'
+import { budgetDeny, budgetReached, capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, noteSample, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
+import type { PctSample, Snapshot } from './team.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
@@ -17,7 +17,7 @@ import { readBranch } from './branch.ts'
 import { TRANSCRIPT_PREFIX } from './ui/workers.tsx'
 import { filterBashOutput, hashOutput } from './outfilter.ts'
 import { formatReport } from './report.ts'
-import { capNotice, NOTIFY_TITLE, teamNotices, teamSummary } from './notify.ts'
+import { budgetNotice, capNotice, isOwnAssignmentEcho, NOTIFY_TITLE, stallNotices, teamNotices, teamSummary } from './notify.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -26,8 +26,11 @@ import {
   missionJson,
   missionText,
   newMcState,
+  newCollisionNote,
   newMissionState,
   noteFileChange,
+  noteLeadBash,
+  noteWorkerActive,
   noteSpawn,
   noteTaskCall,
   noteTeammateIdle,
@@ -36,6 +39,8 @@ import {
   noteWorkerTurnEnd,
   OPEN_KEY,
   pressMc,
+  signalsOf,
+  stalledOf,
 } from './mission.ts'
 import type { McState, Mission, MissionState } from './mission.ts'
 import { renderMission } from './missionui.tsx'
@@ -59,6 +64,8 @@ type Ctx = {
   cache: CacheUsage | null
   /** When the last cap-refusal notice went out (clock ms); 0 before one. */
   lastCapNotice: number
+  /** When the last usage-limit notice went out (clock ms); 0 before one. */
+  lastBudgetNotice: number
   /** True once a response read from the cache: before that, a 0% read is the first write, not a lapse. */
   cacheWarm: boolean
   /** Spawns that passed the cap and have not returned yet; bumped before the first await. */
@@ -104,6 +111,16 @@ type Ctx = {
   ended: boolean
   /** Teammates already announced as failed or killed, so each is announced once. */
   announced: Set<string>
+  /** Recent 5-hour usage readings for the burn-rate forecast (memory only). */
+  samples: PctSample[]
+  /** Workers already announced as stalled; cleared per worker once it is active again. */
+  stallNoticed: Set<string>
+  /** Re-reads the roster while a team is live, so a stall is seen though nothing else happens. */
+  stallTimer: { cancel: () => void } | null
+  /** True once /ctk-report was suggested for the current team run; cleared when a teammate is live again. */
+  reportSuggested: boolean
+  /** Lead compactions and turns where the cache went cold, for the report's Friction section (memory only). */
+  friction: { compactions: number; coldCache: number; echoes: number }
 }
 
 async function ctkDir($: EngineInterface): Promise<string | null> {
@@ -207,9 +224,27 @@ async function refreshBranch($: EngineInterface, c: Ctx) {
 /** At most one cap-refusal notice per this gap. */
 const CAP_NOTICE_GAP_MS = 60_000
 
-// One desktop notification per event; a terminal without a channel, or any failure, says nothing.
+// One desktop notification per event, and the same text as a toast in the terminal; a terminal without
+// a channel, or any failure, says nothing.
 async function announce($: EngineInterface, texts: string[]) {
-  for (const text of texts) await $.ui.notify(text, { title: NOTIFY_TITLE }).catch(() => undefined)
+  for (const text of texts) {
+    try {
+      $.ui.toast(text)
+    } catch {
+      // The toast is a courtesy.
+    }
+    await $.ui.notify(text, { title: NOTIFY_TITLE }).catch(() => undefined)
+  }
+}
+
+const STALL_CHECK_MS = 60_000
+
+function armStall($: EngineInterface, c: Ctx) {
+  if (c.stallTimer !== null || c.ended || (c.snap.live ?? 0) === 0) return
+  c.stallTimer = $.clock.after(STALL_CHECK_MS, () => {
+    c.stallTimer = null
+    void refresh($, c)
+  })
 }
 
 // Re-reads the roster and usage, then redraws the band and writes stats. Never throws.
@@ -225,8 +260,18 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
     const before = c.snap
     c.snap = snapshotOf(agents, usage, now)
     // Not awaited: $.ui.notify runs the person's Notification hooks first, and a slow one must not hold a spawn or a turn.
-    void announce($, teamNotices(before, c.snap, c.announced))
-    if (usage !== null || model !== null) c.stats.measured = measuredOf(usage, model)
+    void announce($, [...teamNotices(before, c.snap, c.announced), ...(agents === null ? [] : stallNotices(stalledOf(c.mission, c.snap, c.lastNow), c.stallNoticed))])
+    armStall($, c)
+    // Once per team run, when the last live teammate has finished: offer the report as the prompt's dim suggestion.
+    if ((c.snap.live ?? 0) > 0) c.reportSuggested = false
+    else if (before.live !== null && before.live > 0 && c.snap.live === 0 && !c.reportSuggested) {
+      c.reportSuggested = true
+      void Promise.resolve($.prompt.suggest({ text: '/ctk-report' })).catch(() => undefined)
+    }
+    // A failed usage read keeps the last figures: a null must not switch a usage limit off.
+    if (usage !== null) c.stats.measured = measuredOf(usage, model)
+    else if (model !== null) c.stats.measured = { ...c.stats.measured, model }
+    noteSample(c.samples, now, c.stats.measured.fiveHourPct)
     if (c.snap.live !== null) c.stats.peakLive = Math.max(c.stats.peakLive, c.snap.live)
     c.ready = true
     c.dirty = true
@@ -282,15 +327,17 @@ async function liveTeammates($: EngineInterface, c: Ctx): Promise<number> {
 // What the readiness report and the status tool's preflight fields rest on. Each read
 // degrades to null on failure; nothing is written.
 async function gatherFacts($: EngineInterface, c: Ctx): Promise<Facts> {
-  const [value, settings, tools] = await Promise.all([
+  const [value, settings, tools, engine] = await Promise.all([
     $.env.get('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS').then(value => ({ value }), () => null),
     $.settings.read().catch(() => null),
     $.tool.list().catch(() => null),
+    // Added after the bundled types (2.1.295): an older build rejects, and the row says so.
+    Promise.resolve().then(() => $.session.version()).then(v => v.version, () => null),
   ])
   const base = factsFrom({ opts: c.opts, envFlag: value, settings, toolNames: tools === null ? null : tools.map(t => t.name) })
   // The guard is judged from what this session saw, with the flag read just now; callers refresh the roster first.
   const guard = guardOf(c.stats, c.snap, base.teamsEnabled, c.ready)
-  return { ...base, guard: { state: guard.state, why: guard.why }, outsideCap: c.stats.spawnsOutsideCap }
+  return { ...base, guard: { state: guard.state, why: guard.why }, outsideCap: c.stats.spawnsOutsideCap, engine }
 }
 
 // A session.start that fires again (enable, worker respawn, reload) continues this
@@ -364,8 +411,21 @@ function armMotion($: EngineInterface, c: Ctx, mission: Mission, now: number) {
 
 const noop = () => {}
 
+const bandSignals = (c: Ctx) => {
+  const s = signalsOf(c.mission, c.snap, c.lastNow)
+  return { stalled: s.stalled, ready: s.ready.length, idleWorkers: s.idleWorkers.length }
+}
+
+/** The one line for the lead when it closes the last open task while teammate completions are unchecked; null otherwise. */
+const uncheckedAtEnd = (m: MissionState): string | null => {
+  const tasks = [...m.tasks.values()].filter(t => t.status !== 'deleted')
+  if (tasks.some(t => t.status !== 'completed')) return null
+  const ids = tasks.filter(t => m.unverified.has(t.id)).map(t => `#${t.id}`)
+  return ids.length === 0 ? null : `CTK: ${ids.join(' ')} ${ids.length === 1 ? 'was' : 'were'} completed by a teammate and not checked by you yet; run the tests or inspect the result before reporting done.`
+}
+
 const missionOf = (c: Ctx) =>
-  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready, cache: c.cache })
+  buildMission({ stats: c.stats, snap: c.snap, state: c.mission, nowMs: c.lastNow, teamsEnabled: c.teamsEnabled, ready: c.ready, cache: c.cache, samples: c.samples })
 
 // Reads the readiness report for the Doctor view; a failure leaves a one-line reason.
 async function loadDoctor($: EngineInterface, c: Ctx) {
@@ -559,6 +619,12 @@ export const register: Register = (on, options) => {
     paneOpen: false,
     ended: false,
     announced: new Set(),
+    samples: [],
+    lastBudgetNotice: 0,
+    stallNoticed: new Set(),
+    stallTimer: null,
+    reportSuggested: false,
+    friction: { compactions: 0, coldCache: 0, echoes: 0 },
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -597,6 +663,20 @@ export const register: Register = (on, options) => {
     }
 
     try {
+      if (c.opts.stopAtFiveHourPct > 0 || c.opts.stopAtCostUsd > 0) {
+        await refresh($, c, false)
+        const why = budgetReached(c.opts, c.stats.measured)
+        if (why !== null) {
+          release()
+          c.stats.spawnsBudgetStopped += 1
+          const now = await $.clock.now().catch(() => 0)
+          if (now - c.lastBudgetNotice >= CAP_NOTICE_GAP_MS) {
+            c.lastBudgetNotice = now
+            void announce($, [budgetNotice(why)])
+          }
+          return { deny: budgetDeny(why) }
+        }
+      }
       const live = await liveTeammates($, c)
       if (live + c.inflight > c.opts.maxWorkers) {
         const starting = c.inflight - 1
@@ -659,7 +739,8 @@ export const register: Register = (on, options) => {
     try {
       await $.tool.register({
         name: STATUS_TOOL_NAME,
-        description: 'Live CTK team state: workers, cap, accepted and refused spawns.',
+        description: 'Live CTK team state: workers, cap, accepted and refused spawns. Quota, cost and context are left out unless includeUsage is true; ask for them only when the person asks about usage.',
+        inputSchema: { type: 'object', properties: { includeUsage: { type: 'boolean' } } },
       })
     } catch {
       // Without the tool the Agent result's teammate_id still confirms a spawn.
@@ -723,24 +804,38 @@ export const register: Register = (on, options) => {
     // The main loop only (a subagent's turn carries agentId): the usage is that turn's own, free, no extra call.
     if (e.agentId === undefined && e.usage !== undefined) {
       if (e.usage.cache_read_input_tokens > 0) c.cacheWarm = true
+      const was = cacheHealth(c.cache)?.state
       c.cache = c.cacheWarm ? e.usage : null
+      if (cacheHealth(c.cache)?.state === 'cold' && was !== 'cold') c.friction.coldCache++
     }
     await detectEnvironment($, c)
     await refresh($, c)
-    noteWorkerTurnEnd(c.mission, (e as { agentId?: string }).agentId, c.lastNow)
+    noteWorkerTurnEnd(c.mission, (e as { agentId?: string }).agentId, c.lastNow, e.usage)
     return r
   })
+
+  // A teammate that claims a task with TaskUpdate is sent its own task_assignment back, which wakes it for a whole
+  // extra turn. Only that echo (assignedBy is the recipient) is dropped; the lead's assignments always arrive.
+  on('session.receive', async ($, e, next) => {
+    const name = e.agentId === undefined ? undefined : c.snap.workers.find(w => w.agentId === e.agentId)?.name
+    if (name === undefined || !isOwnAssignmentEcho(e.text, name)) return next(e)
+    c.friction.echoes++
+    return { consumed: 'ctk: own task_assignment echo' }
+  }).catch(($, e, next) => next(e))
 
   // Whatever compacts, the summarizer is told to keep the live team and open tasks; with no team it is untouched.
   on('session.compact', async ($, e, next) => {
     // A subagent's or teammate's own compaction (agentId set) is about its task, not the lead's team.
     if (e.trigger === 'precompute' || (e as { agentId?: string }).agentId !== undefined) return next(e)
+    c.friction.compactions++
     const summary = teamSummary(c.snap, c.mission.tasks.values(), c.opts.maxWorkers)
     return next(summary === null ? e : { ...e, instructions: e.instructions ? `${e.instructions}\n\n${summary}` : summary })
   }).catch(($, e, next) => next(e))
 
   on('session.end', async ($, e, next) => {
     stopMotion(c, true)
+    c.stallTimer?.cancel()
+    c.stallTimer = null
     await persist($, c, true)
     // A recall can hold whatever a command printed, secrets included: it outlives no session.
     const dir = await recallDir($, c.stats.sessionId).catch(() => null)
@@ -771,15 +866,29 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const isNew = isNewToolCall(c.toolSeen, e.tool_use_id)
     if (isNew) c.stats.toolCalls += 1
+    // A call still running is activity: a tool that takes over ten minutes must not read as a stall.
+    if (isNew && e.agentId !== undefined) noteWorkerActive(c.mission, e.agentId, await $.clock.now().catch(() => c.lastNow))
     const r = await next(e)
     await touch($, c)
     if (isNew) {
-      noteWorkerToolCall(c.mission, e.agentId, c.lastNow, toolLabel(e.tool, e))
+      noteWorkerToolCall(c.mission, e.agentId, c.lastNow, toolLabel(e.tool, e), r.deny !== undefined || r.isError === true)
+      if (e.tool === 'Bash' && e.agentId === undefined) noteLeadBash(c.mission)
       // The task board is built from the Task tools' named fields only (see noteTaskCall), and only
       // from a call that ran: a denied or failed one changes nothing.
-      if (r.deny === undefined && r.isError !== true) noteFileChange(c.mission, e.tool, e)
+      if (r.deny === undefined && r.isError !== true) {
+        const path = noteFileChange(c.mission, e.tool, e, e.agentId)
+        const note = path === null ? null : newCollisionNote(c.mission, c.snap, path)
+        if (note !== null) return { ...r, context: [...(r.context ?? []), note] }
+      }
       if ((e.tool === 'TaskCreate' || e.tool === 'TaskUpdate') && r.deny === undefined) {
-        noteTaskCall(c.mission, e.tool, e as unknown as Record<string, unknown>, (r as { result?: unknown }).result)
+        const result = (r as { result?: unknown }).result
+        const taskId = (e as { taskId?: unknown }).taskId
+        const wasOpen = typeof taskId === 'string' && c.mission.tasks.get(taskId)?.status !== 'completed'
+        noteTaskCall(c.mission, e.tool, e as unknown as Record<string, unknown>, result, e.agentId)
+        const failed = (result as { success?: unknown } | null | undefined)?.success === false
+        const completes = (e as { status?: unknown }).status === 'completed' && wasOpen
+        const left = e.agentId === undefined && e.tool === 'TaskUpdate' && completes && !failed && r.isError !== true ? uncheckedAtEnd(c.mission) : null
+        if (left !== null) return { ...r, context: [...(r.context ?? []), left] }
       }
     }
     return r
@@ -833,11 +942,12 @@ export const register: Register = (on, options) => {
       max: c.opts.maxWorkers,
       workers: c.snap.workers,
       rejected: c.stats.spawnsRejected,
+      budgetStopped: c.stats.spawnsBudgetStopped,
       accepted: c.stats.spawnsAccepted,
       cap: c.opts.maxWorkers,
       teamsEnabled: facts.teamsEnabled,
       taskTools: facts.taskTools,
-      ...missionJson(missionOf(c)),
+      ...missionJson(missionOf(c), (e as { includeUsage?: unknown }).includeUsage === true),
     }
     // Claude Code validates a registered tool's result as a string or an array of content
     // blocks; an MCP-style { content, isError } object is rejected (verified on 2.1.294).
@@ -856,7 +966,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'ctk-report' }, async ($, e, next) => {
     await refresh($, c)
     const teamMs = c.mission.teamStartedAt === null ? null : Math.max(0, c.lastNow - c.mission.teamStartedAt)
-    return { text: formatReport({ stats: c.stats, tasks: c.mission.tasks.values(), files: c.mission.files, filesDropped: c.mission.filesDropped, cwd: await $.session.cwd().catch(() => null), teamMs }) }
+    return { text: formatReport({ stats: c.stats, tasks: c.mission.tasks.values(), files: c.mission.files, filesDropped: c.mission.filesDropped, cwd: await $.session.cwd().catch(() => null), teamMs, friction: { ...c.friction, failed: c.snap.failed ?? 0 } }) }
   })
 
   // The command is the way in where the band is hidden, and the answer where no pane can be drawn.
@@ -902,6 +1012,7 @@ export const register: Register = (on, options) => {
             branch: c.branch,
             guard,
             cache: cacheHealth(c.cache),
+            ...bandSignals(c),
             subagentsLive: c.snap.subagents.filter(a => isLiveStatus(a.status)).length,
             pendingChange: waiting,
             tierColumns: forcedTierColumns(c.mc.hudMode) ?? e.viewport?.columns ?? e.props.bodyColumns + BAND_MARGIN,

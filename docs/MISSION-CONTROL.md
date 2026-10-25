@@ -37,6 +37,25 @@ The cap is enforced by the CTK mod; Mission Control only displays it and never c
 - **Notifications.** A desktop notification (title `CTK`) says when a teammate failed or was killed,
   when all teammates finished, and when a spawn was refused at the cap (at most one per minute).
   Each failure is announced once. A terminal without a notification channel shows nothing.
+- **Worker health signals.** Display only; CTK never assigns or stops work.
+  - *Stalled:* a live teammate that owns an in-progress task and has made no tool call for 10 minutes, or
+    whose last 3 tool calls all failed. The band shows `⚠ w2 stalled 12m`, Workers show `STALLED` with the
+    reason, and `ctk_team_status` lists `stalled: [{name, reason, forMs}]`. One desktop notice per episode;
+    it can fire again after the worker is active again. While a team is live CTK re-reads the roster once a
+    minute so a worker that went silent is still noticed.
+  - *Ready and idle:* the band shows `N ready · M idle` only when both are above zero; the status tool has
+    `ready` (task ids) and `idleWorkers` (names).
+  - *Unverified:* a task a teammate marked completed is unverified until the lead's own loop runs a Bash
+    command afterwards. The Tasks page marks it, the status tool lists `unverified`, and when the lead
+    completes the last open task while any remain unverified, one line is added to that tool result for the
+    model.
+- **File collisions.** CTK remembers which agent (the lead, or a worker's agent id) wrote each path with
+  Edit, Write, MultiEdit or NotebookEdit. When a second live agent writes a path another live agent wrote,
+  Workers and Overview show `⚠ file.ts written by w1 + w2`, `ctk_team_status` lists `collisions`, and one
+  line is added to that tool result for the model, once per path. A finished agent no longer counts.
+- **Tokens per worker.** Workers shows each teammate's input and output tokens (a `TOKENS` column, and the
+  full figures with cache reads on the detail page), summed from its turns. Tokens only: Claude Code reports
+  no cost per worker, so none is shown.
 - **`/ctk-report`** prints a Markdown block to paste into a PR body: team duration, spawns accepted
   and refused, session cost and tool calls, models, the task list as CTK saw it, and the paths of
   files the write tools changed. It carries counts and paths only, never file contents, and the

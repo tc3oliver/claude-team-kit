@@ -3,8 +3,8 @@ import type { StatsRecord } from '../shared/stats.ts'
 import { fmtModels } from '../shared/format.ts'
 import { cacheHealth, cacheText, modelLabel, spanText } from './band.ts'
 import type { CacheHealth, CacheUsage } from './band.ts'
-import { isLiveStatus } from './team.ts'
-import type { Snapshot, Subagent } from './team.ts'
+import { forecastFull, isLiveStatus } from './team.ts'
+import type { PctSample, Snapshot, Subagent, Worker } from './team.ts'
 
 // The data behind Mission Control: what CTK observed this session, and the view model built
 // from it. Pure: no host calls (those are in register.tsx). Everything here is held in memory
@@ -42,7 +42,14 @@ export type WorkerRec = {
   idleSinceAt: number | null
   /** Epoch ms of the spawn CTK saw. */
   startedAt: number
+  /** Tool calls in a row that failed or were denied, and when the first of them was made; 0 / null after a success. */
+  failStreak: number
+  failSince: number | null
+  /** Tokens its turns used, summed from turn.complete (each event carries one turn's own counts); null before any. */
+  usage: TokenUse | null
 }
+
+export type TokenUse = { input: number; output: number; cacheRead: number }
 
 export type MissionState = {
   workers: Map<string, WorkerRec>
@@ -55,9 +62,28 @@ export type MissionState = {
   files: Set<string>
   /** How many older paths were dropped to keep `files` bounded. */
   filesDropped: number
+  /** Ids a teammate marked completed that the lead has not checked since: the lead's main loop has run no Bash command after the completion. */
+  unverified: Set<string>
+  /** Who wrote each path in `files`: `LEAD` or an agent id. Bounded with `files`. */
+  writers: Map<string, Set<string>>
+  /** Paths whose collision was already told to the model, once each. */
+  collided: Set<string>
 }
 
-export const newMissionState = (): MissionState => ({ workers: new Map(), tasks: new Map(), teamStartedAt: null, taskCallsSeen: false, files: new Set(), filesDropped: 0 })
+/** The writer key of the lead's own loop (its tool calls carry no agent id). */
+export const LEAD = 'main'
+
+export const newMissionState = (): MissionState => ({
+  workers: new Map(),
+  tasks: new Map(),
+  teamStartedAt: null,
+  taskCallsSeen: false,
+  files: new Set(),
+  filesDropped: 0,
+  unverified: new Set(),
+  writers: new Map(),
+  collided: new Set(),
+})
 
 /** Most workers and tasks remembered; the oldest are forgotten past this. */
 export const MEMORY_LIMIT = 500
@@ -101,7 +127,7 @@ const trimTasks = (tasks: Map<string, TaskRec>): void => {
 // --- Observations ------------------------------------------------------------------------
 
 export const noteSpawn = (m: MissionState, agentId: string, name: string, model: string | null, now: number): void => {
-  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, recent: [], lastActivityAt: now, idleSinceAt: null, startedAt: now })
+  m.workers.set(agentId, { agentId, name, model, toolCalls: 0, recent: [], lastActivityAt: now, idleSinceAt: null, startedAt: now, failStreak: 0, failSince: null, usage: null })
   m.teamStartedAt ??= now
   trim(m.workers)
 }
@@ -120,21 +146,49 @@ export const toolLabel = (tool: string, input: unknown): string => {
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
 
 /** Remembers the path a write tool was given, bounded to MEMORY_LIMIT (the oldest is forgotten). Nothing else of the input is read. */
-export const noteFileChange = (m: MissionState, tool: string, input: unknown): void => {
-  if (!WRITE_TOOLS.has(tool) || typeof input !== 'object' || input === null) return
+export const noteFileChange = (m: MissionState, tool: string, input: unknown, agentId?: string): string | null => {
+  if (!WRITE_TOOLS.has(tool) || typeof input !== 'object' || input === null) return null
   const i = input as Record<string, unknown>
   const path = i.file_path ?? i.notebook_path
-  if (typeof path !== 'string' || path === '') return
+  if (typeof path !== 'string' || path === '') return null
   m.files.add(path)
+  m.writers.set(path, (m.writers.get(path) ?? new Set()).add(agentId ?? LEAD))
   for (const old of m.files) {
     if (m.files.size <= MEMORY_LIMIT) break
     m.files.delete(old)
+    m.writers.delete(old)
+    m.collided.delete(old)
     m.filesDropped++
   }
+  return path
+}
+
+export type Collision = { path: string; writers: string[] }
+
+/** Paths written by two or more agents that are all still live (the lead always is). Names, not ids. */
+export const collisionsOf = (m: MissionState, snap: Snapshot, only?: string): Collision[] => {
+  const names = new Map<string, string>([[LEAD, 'lead']])
+  for (const w of snap.workers) if (isLiveStatus(w.status)) names.set(w.agentId, w.name)
+  for (const a of snap.subagents) if (isLiveStatus(a.status)) names.set(a.agentId, a.type.replace(/^ctk:/, ''))
+  const out: Collision[] = []
+  for (const [path, who] of only === undefined ? m.writers : [[only, m.writers.get(only) ?? new Set<string>()] as const]) {
+    const live = [...who].filter(k => names.has(k)).map(k => names.get(k)!)
+    if (live.length >= 2) out.push({ path, writers: live })
+  }
+  return out
+}
+
+/** The collisions on `path` that were not told yet, marked told; the line for the model, or null. */
+export const newCollisionNote = (m: MissionState, snap: Snapshot, path: string): string | null => {
+  if (m.collided.has(path)) return null
+  const hit = collisionsOf(m, snap, path)[0]
+  if (hit === undefined) return null
+  m.collided.add(path)
+  return `CTK: ${path} has now been written by ${hit.writers.join(' and ')}, who are all live. For information only: check its current content before editing it.`
 }
 
 /** A tool call made inside a subagent or teammate loop. The lead's own calls are not per-worker. */
-export const noteWorkerToolCall = (m: MissionState, agentId: string | undefined, now: number, label?: string): void => {
+export const noteWorkerToolCall = (m: MissionState, agentId: string | undefined, now: number, label?: string, failed = false): void => {
   if (agentId === undefined) return
   const w = m.workers.get(agentId)
   if (w === undefined) return
@@ -142,12 +196,29 @@ export const noteWorkerToolCall = (m: MissionState, agentId: string | undefined,
   if (label !== undefined) w.recent = [...w.recent, label].slice(-RECENT_CALLS)
   w.lastActivityAt = now
   w.idleSinceAt = null
+  w.failStreak = failed ? w.failStreak + 1 : 0
+  w.failSince = failed ? (w.failSince ?? now) : null
 }
 
-export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, now: number): void => {
+/** A tool call has started in the worker's loop: it is active now, though the call is not counted until it returns. */
+export const noteWorkerActive = (m: MissionState, agentId: string, now: number): void => {
+  const w = m.workers.get(agentId)
+  if (w === undefined) return
+  w.lastActivityAt = now
+  w.idleSinceAt = null
+}
+
+/** The lead's main loop ran a command: whatever teammates completed before it has now been looked at. */
+export const noteLeadBash = (m: MissionState): void => m.unverified.clear()
+
+export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, now: number, usage?: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number }): void => {
   if (agentId === undefined) return
   const w = m.workers.get(agentId)
-  if (w !== undefined) w.lastActivityAt = now
+  if (w === undefined) return
+  w.lastActivityAt = now
+  if (usage === undefined) return
+  const u = w.usage ?? { input: 0, output: 0, cacheRead: 0 }
+  w.usage = { input: u.input + usage.input_tokens, output: u.output + usage.output_tokens, cacheRead: u.cacheRead + usage.cache_read_input_tokens }
 }
 
 /** TeammateIdle carries the teammate's name, not its agent id. */
@@ -176,7 +247,7 @@ const STATUSES: readonly string[] = ['pending', 'in_progress', 'completed', 'del
  * read; descriptions, metadata and everything else are ignored. A call whose result says it
  * failed, or that carries no id, changes nothing.
  */
-export const noteTaskCall = (m: MissionState, tool: string, input: Record<string, unknown>, output: unknown): void => {
+export const noteTaskCall = (m: MissionState, tool: string, input: Record<string, unknown>, output: unknown, agentId?: string): void => {
   const out = record(output)
   if (tool === 'TaskCreate') {
     const task = record(out?.task)
@@ -196,7 +267,11 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
   const rec: TaskRec = m.tasks.get(id) ?? { id, subject: text(input.subject) ?? `(task ${id})`, status: 'unknown', owner: null, blockedBy: [], blocks: [], seenByUpdateOnly: true }
   const subject = text(input.subject)
   if (subject !== null) rec.subject = subject
-  if (typeof input.status === 'string' && STATUSES.includes(input.status)) rec.status = input.status as TaskStatus
+  if (typeof input.status === 'string' && STATUSES.includes(input.status)) {
+    rec.status = input.status as TaskStatus
+    if (rec.status === 'completed' && agentId !== undefined) m.unverified.add(id)
+    else if (rec.status !== 'completed') m.unverified.delete(id)
+  }
   const owner = text(input.owner)
   if (owner !== null) rec.owner = owner
   for (const b of idList(input.addBlockedBy)) if (!rec.blockedBy.includes(b)) rec.blockedBy.push(b)
@@ -281,6 +356,8 @@ export type TaskRow = {
   ready: boolean
   blocked: boolean
   seenByUpdateOnly: boolean
+  /** Completed by a teammate and not yet followed by a command from the lead. */
+  unverified: boolean
 }
 
 const byId = (a: { id: string }, b: { id: string }): number => {
@@ -291,8 +368,16 @@ const byId = (a: { id: string }, b: { id: string }): number => {
 
 export const taskRows = (m: MissionState): TaskRow[] => {
   const live = [...m.tasks.values()].filter(t => t.status !== 'deleted')
+  // Reverse edges, built once: `blocks` on another task is a blocker of this one, and its `blockedBy` a task this one blocks.
+  const blockersOf = new Map<string, string[]>()
+  const blockedOf = new Map<string, string[]>()
+  const push = (map: Map<string, string[]>, key: string, id: string) => map.set(key, [...(map.get(key) ?? []), id])
+  for (const o of live) {
+    for (const b of o.blocks) push(blockersOf, b, o.id)
+    for (const b of o.blockedBy) push(blockedOf, b, o.id)
+  }
   return live.sort(byId).map(t => {
-    const blockers = new Set([...t.blockedBy, ...live.filter(o => o.blocks.includes(t.id)).map(o => o.id)])
+    const blockers = new Set([...t.blockedBy, ...(blockersOf.get(t.id) ?? [])])
     const open = [...blockers].filter(id => m.tasks.get(id)?.status !== 'completed' && m.tasks.get(id)?.status !== 'deleted')
     return {
       id: t.id,
@@ -300,11 +385,12 @@ export const taskRows = (m: MissionState): TaskRow[] => {
       status: t.status,
       owner: t.owner,
       blockedBy: [...blockers].sort((a, b) => byId({ id: a }, { id: b })),
-      blocks: [...new Set([...t.blocks, ...live.filter(o => o.blockedBy.includes(t.id)).map(o => o.id)])].sort((a, b) => byId({ id: a }, { id: b })),
+      blocks: [...new Set([...t.blocks, ...(blockedOf.get(t.id) ?? [])])].sort((a, b) => byId({ id: a }, { id: b })),
       openBlockers: open.sort((a, b) => byId({ id: a }, { id: b })),
       ready: t.status === 'pending' && open.length === 0,
       blocked: (t.status === 'pending' || t.status === 'in_progress') && open.length > 0,
       seenByUpdateOnly: t.seenByUpdateOnly === true,
+      unverified: t.status === 'completed' && m.unverified.has(t.id),
     }
   })
 }
@@ -323,12 +409,38 @@ export type WorkerRow = {
   idleMs: number | null
   /** Time since the spawn CTK saw; null for a worker it did not see start. */
   elapsedMs: number | null
+  /** Why the worker is stalled (see stalledOf), with how long; null when it is not. */
+  stalled: Stalled | null
+  /** Tokens its turns used so far; null when none was reported. Tokens only: Claude Code reports no cost per worker. */
+  usage: TokenUse | null
 }
 
-export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows: TaskRow[] = taskRows(m)): WorkerRow[] =>
+/** A live worker owning an in-progress task with no activity for this long is stalled. */
+export const STALL_MS = 10 * 60_000
+/** Or one whose last this-many tool calls all failed. */
+export const STALL_FAILS = 3
+
+export type Stalled = { name: string; reason: string; forMs: number }
+
+const ownedBy = (rows: TaskRow[], w: Worker): TaskRow | undefined =>
+  rows.find(t => t.owner !== null && (t.owner === w.name || t.owner === w.teammateId) && t.status === 'in_progress')
+
+/** Stalled workers, from observed activity only. A worker CTK saw no spawn of, or that owns no in-progress task, is never reported. */
+export const stalledOf = (m: MissionState, snap: Snapshot, nowMs: number, rows: TaskRow[] = taskRows(m)): Stalled[] => {
+  const out: Stalled[] = []
+  for (const w of snap.workers) {
+    const rec = m.workers.get(w.agentId)
+    if (rec === undefined || !isLiveStatus(w.status) || ownedBy(rows, w) === undefined) continue
+    if (rec.failStreak >= STALL_FAILS && rec.failSince !== null) out.push({ name: w.name, reason: `its last ${rec.failStreak} tool calls failed`, forMs: Math.max(0, nowMs - rec.failSince) })
+    else if (rec.lastActivityAt !== null && nowMs - rec.lastActivityAt >= STALL_MS) out.push({ name: w.name, reason: 'no activity', forMs: nowMs - rec.lastActivityAt })
+  }
+  return out
+}
+
+export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows: TaskRow[] = taskRows(m), stalled: Stalled[] = stalledOf(m, snap, nowMs, rows)): WorkerRow[] =>
   snap.workers.map(w => {
     const rec = m.workers.get(w.agentId)
-    const mine = rows.find(t => t.owner !== null && (t.owner === w.name || t.owner === w.teammateId) && t.status === 'in_progress')
+    const mine = ownedBy(rows, w)
     const last = rec?.lastActivityAt ?? null
     const idleFrom = rec?.idleSinceAt ?? last
     return {
@@ -342,6 +454,8 @@ export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows:
       lastActivityMs: last === null || nowMs < last ? null : nowMs - last,
       idleMs: w.status === 'idle' && idleFrom !== null && nowMs >= idleFrom ? nowMs - idleFrom : null,
       elapsedMs: rec === undefined || nowMs < rec.startedAt ? null : nowMs - rec.startedAt,
+      stalled: stalled.find(s => s.name === w.name) ?? null,
+      usage: rec?.usage ?? null,
     }
   })
 
@@ -354,6 +468,8 @@ export type Mission = {
   completed: number | null
   failed: number | null
   rejected: number
+  /** Teammate spawns refused by a usage limit (TEAM_BUDGET_REACHED). */
+  budgetStopped: number
   /** Named agents Claude Code started as ordinary subagents (a call with `isolation` is one): outside the cap, counted only. */
   outsideCap: number
   /** Since the first teammate started; null before that. */
@@ -376,6 +492,8 @@ export type Mission = {
     rows: TaskRow[]
   }
   workers: WorkerRow[]
+  /** Display only: workers that look stuck, tasks that could start, teammates with nothing to do, and completions the lead has not checked. Nothing here assigns work. */
+  signals: { stalled: Stalled[]; ready: string[]; idleWorkers: string[]; unverified: string[]; collisions: Collision[] }
   usage: {
     contextPct: string
     fiveHour: string
@@ -395,6 +513,8 @@ export type Mission = {
     /** Prompt-cache line for the last response (`92% read`); UNAVAILABLE before one. */
     cache: string
     cacheState: CacheHealth['state'] | null
+    /** Local time the 5-hour limit is projected to be reached (`14:05`); null unless it lands before the reset. */
+    fiveHourFull: string | null
     /** Agents now listed per CTK role (`explorer`...), a count of the current roster, not of calls. Cost per role is not reported by Claude Code. */
     roles: string | null
   }
@@ -415,6 +535,11 @@ const usageText = (pct: number | null, resetsAt: string | null, nowMs: number): 
   return left === null ? p : `${p} (resets in ${left})`
 }
 
+const fullAt = (samples: PctSample[], nowMs: number, resetsAt: string | null): string | null => {
+  const at = forecastFull(samples, nowMs, resetMs(resetsAt))
+  return at === null ? null : new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 export type MissionInput = {
   stats: StatsRecord
   snap: Snapshot
@@ -424,6 +549,8 @@ export type MissionInput = {
   ready: boolean
   /** The last response's cache counts from local session usage; absent when not read. */
   cache?: CacheUsage | null
+  /** Recent 5-hour percent readings, for the forecast. */
+  samples?: PctSample[]
 }
 
 const EMPTY_TASKS =
@@ -445,13 +572,28 @@ const emptyWorkers = (snap: Snapshot, teamsEnabled: boolean | null): string | nu
  */
 export let missionBuilds = 0
 
-export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, cache }: MissionInput): Mission => {
+const signalsFrom = (m: MissionState, snap: Snapshot, rows: TaskRow[], stalled: Stalled[]): Mission['signals'] => ({
+  stalled,
+  ready: rows.filter(r => r.ready).map(r => r.id),
+  idleWorkers: snap.workers.filter(w => w.status === 'idle').map(w => w.name),
+  unverified: rows.filter(r => r.unverified).map(r => r.id),
+  collisions: collisionsOf(m, snap),
+})
+
+/** The signals alone, for the band, which must not rebuild the whole mission on every draw. */
+export const signalsOf = (m: MissionState, snap: Snapshot, nowMs: number): Mission['signals'] => {
+  const rows = taskRows(m)
+  return signalsFrom(m, snap, rows, stalledOf(m, snap, nowMs, rows))
+}
+
+export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, cache, samples = [] }: MissionInput): Mission => {
   missionBuilds += 1
   const rows = taskRows(state)
   const detailed = state.taskCallsSeen
   const partial = rows.some(t => t.seenByUpdateOnly)
   const count = (pred: (t: TaskRow) => boolean): number | null => (detailed && !partial ? rows.filter(pred).length : null)
   const counted = stats.tasks
+  const stalled = stalledOf(state, snap, nowMs, rows)
   return {
     guard: guardOf(stats, snap, teamsEnabled, ready),
     cap: stats.maxWorkers,
@@ -461,6 +603,7 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, c
     completed: snap.done === null ? null : snap.workers.filter(w => w.status === 'completed').length,
     failed: snap.failed,
     rejected: stats.spawnsRejected,
+    budgetStopped: stats.spawnsBudgetStopped,
     outsideCap: stats.spawnsOutsideCap,
     teamElapsedMs: state.teamStartedAt === null || nowMs < state.teamStartedAt ? null : nowMs - state.teamStartedAt,
     subagents: { total: snap.subagents.length, live: snap.subagents.filter(a => isLiveStatus(a.status)).length, rows: snap.subagents },
@@ -480,7 +623,8 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, c
       ready: count(t => t.ready),
       rows,
     },
-    workers: workerRows(state, snap, nowMs, rows),
+    workers: workerRows(state, snap, nowMs, rows, stalled),
+    signals: signalsFrom(state, snap, rows, stalled),
     usage: {
       contextPct: fmtPct(stats.measured.contextPct) === DASH ? UNAVAILABLE : fmtPct(stats.measured.contextPct),
       fiveHour: usageText(stats.measured.fiveHourPct, stats.measured.fiveHourResetsAt, nowMs),
@@ -496,6 +640,7 @@ export const buildMission = ({ stats, snap, state, nowMs, teamsEnabled, ready, c
       agentModels: agentModelsText(stats),
       cache: cacheText(cacheHealth(cache)),
       cacheState: cacheHealth(cache)?.state ?? null,
+      fiveHourFull: fullAt(samples, nowMs, stats.measured.fiveHourResetsAt),
       roles: rolesText(snap),
     },
   }
@@ -524,6 +669,19 @@ const agentModelsText = (s: StatsRecord): string | null => {
     }
   }
   return fmtModels(counts) || null
+}
+
+/** `950`, `3.4k`, `120k`, `1.2M`. */
+export const fmtCount = (v: number): string => (v < 1000 ? String(v) : v < 100_000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k` : v < 1_000_000 ? `${Math.round(v / 1000)}k` : `${(v / 1_000_000).toFixed(1)}M`)
+
+/** `12k in / 3.4k out`: a worker's tokens. */
+export const fmtTokens = (u: TokenUse): string => `${fmtCount(u.input)} in / ${fmtCount(u.output)} out`
+
+/** The collision line for Workers and Overview: the first path by its file name, then a count of the rest. */
+export const collisionLine = (cs: Collision[]): string | null => {
+  const c = cs[0]
+  if (c === undefined) return null
+  return `⚠ ${c.path.split(/[\\/]/).filter(Boolean).pop() ?? c.path} written by ${c.writers.join(' + ')}${cs.length > 1 ? ` (+${cs.length - 1} more)` : ''}`
 }
 
 /** `5s`, `4m`, `1h05m`; used for "last activity" and "idle for". */
@@ -638,7 +796,7 @@ export const missionText = (m: Mission): string => {
     'CTK Mission Control (read-only):',
     `  guard:    ${guardWord(m.guard)} - ${m.guard.why}`,
     ...(m.outsideCap > 0 ? [`  outside the cap: ${m.outsideCap} named agent(s) started as ordinary subagents (with isolation); the cap does not count them`] : []),
-    `  workers:  ${n(m.active)}/${m.cap} active, ${n(m.running)} running, ${n(m.idle)} idle, ${n(m.completed)} completed, ${n(m.failed)} failed; ${m.rejected} refused`,
+    `  workers:  ${n(m.active)}/${m.cap} active, ${n(m.running)} running, ${n(m.idle)} idle, ${n(m.completed)} completed, ${n(m.failed)} failed; ${m.rejected} refused at capacity${m.budgetStopped > 0 ? `, ${m.budgetStopped} stopped by a usage limit` : ''}`,
     ...(m.subagents.total > 0 ? [`  subagents: ${m.subagents.total} ordinary (${m.subagents.live} live); not teammates, so the cap does not count them`] : []),
     `  tasks:    ${tasks}`,
     `  team time: ${m.teamElapsedMs === null ? UNAVAILABLE : fmtSpan(m.teamElapsedMs)}`,
@@ -646,16 +804,19 @@ export const missionText = (m: Mission): string => {
   ]
   if (m.empty.workers !== null) lines.push(`  note: ${m.empty.workers}`)
   if (m.empty.tasks !== null) lines.push(`  note: ${m.empty.tasks}`)
+  for (const s of m.signals.stalled) lines.push(`  stalled:  ${s.name} - ${s.reason} for ${fmtSpan(s.forMs)}`)
+  if (m.signals.unverified.length > 0) lines.push(`  unverified: ${m.signals.unverified.map(i => `#${i}`).join(' ')} completed by a teammate, no command run by the lead since`)
   for (const w of m.workers) {
     lines.push(
-      `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}`,
+      `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}${w.usage === null ? '' : `, tokens ${fmtTokens(w.usage)}`}`,
     )
   }
   return lines.join('\n')
 }
 
 /** A small, serialisable summary for the status tool, so the model can answer "how is the team doing" from facts. */
-export const missionJson = (m: Mission) => ({
+/** `usage` (quota, cost, context) is left out unless asked for: a model that reads it unprompted may throttle its own work. */
+export const missionJson = (m: Mission, includeUsage = false) => ({
   guard: { state: m.guard.state, why: m.guard.why },
   outsideCap: m.outsideCap,
   subagents: { total: m.subagents.total, live: m.subagents.live },
@@ -674,5 +835,10 @@ export const missionJson = (m: Mission) => ({
     blocked: m.tasks.blocked,
     ready: m.tasks.ready,
   },
-  usage: m.usage,
+  stalled: m.signals.stalled,
+  ready: m.signals.ready,
+  idleWorkers: m.signals.idleWorkers,
+  unverified: m.signals.unverified,
+  collisions: m.signals.collisions,
+  ...(includeUsage ? { usage: m.usage } : {}),
 })
