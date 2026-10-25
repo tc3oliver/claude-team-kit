@@ -17,7 +17,7 @@ import { readBranch } from './branch.ts'
 import { TRANSCRIPT_PREFIX } from './ui/workers.tsx'
 import { filterBashOutput, hashOutput } from './outfilter.ts'
 import { formatReport } from './report.ts'
-import { budgetNotice, capNotice, isOwnAssignmentEcho, NOTIFY_TITLE, stallNotices, teamNotices, teamSummary } from './notify.ts'
+import { budgetNotice, capNotice, isLifecycleOnly, isOwnAssignmentEcho, LEAD_NAME, NOTIFY_TITLE, stallNotices, teamNotices, teamSummary } from './notify.ts'
 import {
   buildMission,
   forcedTierColumns,
@@ -120,7 +120,7 @@ type Ctx = {
   /** True once /ctk-report was suggested for the current team run; cleared when a teammate is live again. */
   reportSuggested: boolean
   /** Lead compactions and turns where the cache went cold, for the report's Friction section (memory only). */
-  friction: { compactions: number; coldCache: number; echoes: number }
+  friction: { compactions: number; coldCache: number; echoes: number; lifecycle: number }
 }
 
 async function ctkDir($: EngineInterface): Promise<string | null> {
@@ -624,7 +624,7 @@ export const register: Register = (on, options) => {
     stallNoticed: new Set(),
     stallTimer: null,
     reportSuggested: false,
-    friction: { compactions: 0, coldCache: 0, echoes: 0 },
+    friction: { compactions: 0, coldCache: 0, echoes: 0, lifecycle: 0 },
   }
 
   // Hard cap on live teammates. `inflight` is bumped synchronously before the first await,
@@ -814,10 +814,15 @@ export const register: Register = (on, options) => {
     return r
   })
 
-  // A teammate that claims a task with TaskUpdate is sent its own task_assignment back, which wakes it for a whole
-  // extra turn. Only that echo (assignedBy is the recipient) is dropped; the lead's assignments always arrive.
+  // An agent that claims a task with TaskUpdate is sent its own task_assignment back, which wakes it for a whole
+  // extra turn. Only that echo (assignedBy is the recipient; the main conversation is the team's lead) is dropped,
+  // and so is shutdown bookkeeping that woke the lead to say nothing. Everything else arrives.
   on('session.receive', async ($, e, next) => {
-    const name = e.agentId === undefined ? undefined : c.snap.workers.find(w => w.agentId === e.agentId)?.name
+    if (e.agentId === undefined && isLifecycleOnly(e.text)) {
+      c.friction.lifecycle++
+      return { consumed: 'ctk: shutdown bookkeeping' }
+    }
+    const name = e.agentId === undefined ? LEAD_NAME : c.snap.workers.find(w => w.agentId === e.agentId)?.name
     if (name === undefined || !isOwnAssignmentEcho(e.text, name)) return next(e)
     c.friction.echoes++
     return { consumed: 'ctk: own task_assignment echo' }

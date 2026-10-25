@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format follows
 - `ctk_team_status` no longer hands the model the 5h and weekly usage, reset times and cost on every call. In a long team run the lead read them and stopped opening workers to "wrap up" on its own ([#8](https://github.com/tc3oliver/claude-team-kit/issues/8)). The figures come back only with `includeUsage: true`, which `/ctk` uses when the person asks about usage; the band and Mission Control still show them to the person.
 
 - A teammate that claimed a task got its own `task_assignment` back, which woke it for a whole extra turn and sent the lead a duplicate report. CTK now drops that echo (only when `assignedBy` is the recipient itself; the lead's assignments always arrive), and `/ctk-report` counts the dropped ones.
+- The lead's own task claims came back the same way and were let through; the main conversation now counts as `team-lead`. A delivery to the lead that is only `shutdown_approved` or `teammate_terminated` without released tasks no longer wakes it for a turn (the band and Mission Control show the exit; a termination that unassigned tasks still arrives).
+- The implementer agent no longer loads the Artifact and Workflow tools it never uses (`disallowedTools`) and reports a failure outside its file scope as such instead of waiting on other workers, and reviewers report at most 8 findings, most severe first. The team skill hands each worker a verify command that covers only its slice.
 
 ### Added
 

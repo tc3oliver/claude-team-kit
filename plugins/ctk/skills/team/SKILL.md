@@ -40,7 +40,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
   ordinary subagent, outside the team and the cap.
 - One file scope and one owner per task (unless the owner failed or exited); slices that could touch the same
   file do not run at once: order them with `addBlockedBy` or narrow scopes. Hand over: task id, spec path,
-  file list, commit sha, the verify command; nothing pasted. A worker not of a `ctk:` type is told to send its final reply once, without a `SendMessage` copy.
+  file list, commit sha, a verify command that covers only that slice; nothing pasted. A worker not of a `ctk:` type is told to send its final reply once, without a `SendMessage` copy.
 
 ## 4. Confirm every spawn
 A spawn exists only if the `Agent` result carries a `teammate_id` or agent id and `ctk_team_status` (if

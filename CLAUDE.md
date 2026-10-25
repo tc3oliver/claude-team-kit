@@ -28,5 +28,6 @@ this file lists only what goes wrong most often.
 - A new plugin option touches `shared/policy.ts`, `hooks/config.ts`, `plugin.json`, the profile in
   `src/core/schema.ts`, `OPTION_PROFILE_PATHS` in `src/install/apply.ts`, and the option lists in
   docs and `skills/ctk/SKILL.md`.
+- The generated `index.d.ts` is over 600 KB: Grep it for the symbol you need and Read only that range, never page through it.
 - In a `tool.call` hook, code after `await next(e)` handles its own errors. `next` inside a
   `.catch` is replay-safe (see `Caught` in the generated `index.d.ts`), so it does not run the tool twice.

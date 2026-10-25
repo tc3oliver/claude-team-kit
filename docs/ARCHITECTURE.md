@@ -104,7 +104,7 @@ hooks it registers and the host calls it makes; for this build that is:
   `classic.TaskCreated`, `classic.TaskCompleted`, `tool.call` (every call counted; `ctk_team_status`,
   `ctk_config`, and `Bash` when `bashFilter` is on), `prompt.submit` (the team hint),
   `prompt.attachment` (drops the engine's task-tools reminder once the session has created tasks),
-  `session.receive` (drops only a teammate's own `task_assignment` echo, whose `assignedBy` is the recipient; the lead's assignments and every other delivery pass),
+  `session.receive` (drops only an agent's own `task_assignment` echo, whose `assignedBy` is the recipient, the main conversation counting as `team-lead`, and a delivery to the lead that is nothing but `shutdown_approved` or a `teammate_terminated` that released no task; the lead's assignments and every other delivery pass),
   `session.compact` (adds the team state to the summarizer's instructions), `command.run` (only `ctk-stats`, `ctk-doctor`, `ctk-mission` and `ctk-report`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,

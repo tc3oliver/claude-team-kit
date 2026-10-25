@@ -17,7 +17,7 @@ export type ReportInput = {
   /** Milliseconds since the first teammate started; null when none did. */
   teamMs: number | null
   /** Session events that cost the team time; the report lists the non-zero ones. */
-  friction?: { compactions: number; coldCache: number; failed: number; echoes?: number }
+  friction?: { compactions: number; coldCache: number; failed: number; echoes?: number; lifecycle?: number }
 }
 
 /** Most files listed; the rest is a count. */
@@ -41,6 +41,7 @@ const frictionLine = (s: StatsRecord, f: ReportInput['friction']): string => {
     [f?.coldCache ?? 0, 'time(s) the cache went cold'],
     [f?.failed ?? 0, 'failed teammate(s)'],
     [f?.echoes ?? 0, 'own task_assignment echo(es) dropped'],
+    [f?.lifecycle ?? 0, 'shutdown notice(s) dropped'],
   ].filter(([n]) => (n as number) > 0)
   return items.length === 0 ? 'none' : items.map(([n, t]) => `${n} ${t}`).join('; ')
 }
