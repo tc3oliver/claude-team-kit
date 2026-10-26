@@ -138,7 +138,7 @@ When a team finishes, `/ctk-report` prints a Markdown summary (tasks, spawns, co
 - The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
 - The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
 - Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
-- Status: public preview, released as the GitHub pre-release [`v0.1.7`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.7): workers report once, an opt-in filter shortens long test and build output, the band shows prompt-cache health, and desktop notices, `/ctk-report` and a transcript button say what the team did. The install commands above follow `main`.
+- Status: public preview, released as the GitHub pre-release [`v0.1.8`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.8): the model no longer sees your quota unless asked, stalled and colliding teammates are flagged, optional usage limits refuse new spawns, and teammates and the lead are woken less for nothing. The install commands above follow `main`.
 
 More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 

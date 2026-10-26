@@ -1,43 +1,53 @@
-# Claude Team Kit 0.1.7 (prerelease)
+# Claude Team Kit 0.1.8 (prerelease)
 
-Team runs cost fewer tokens and say more about themselves. No new runtime dependencies (still only
-`zod`), and the worker cap, model routing and sync behaviour are unchanged.
+The lead stops rationing on its own, sees which teammates need attention, and is woken less for
+nothing. No new runtime dependencies (still only `zod`). The worker cap, model routing and sync
+behaviour are unchanged. Two new options, both off by default.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## Fewer tokens in a team run
+## The model no longer sees your quota
 
-- Workers report **once**, within a word limit. A worker used to send its final reply, a
-  `SendMessage` copy, and another report when a `task_assignment` echo woke it.
-- The engine's "task tools haven't been used recently" reminder is dropped once tasks exist.
-- **`output.bashFilter`** (off by default) shortens long test, build, lint and log output to its
-  head, tail and failure lines. The full output is saved under `<config>/ctk/recall/<session>/` and
-  the shortened result names the file. Turn it on in Mission Control's Config page or with
-  `ctk config set output.bashFilter true`.
-- A **`Cache`** cell in the band warns when the prompt cache is cold or mostly missed, which makes
-  every following request pay for the whole prefix again.
+`ctk_team_status` used to return the 5h and weekly usage, reset times and cost on every call. In a
+long team run the lead read them and stopped opening workers to "wrap up", which nobody had asked for
+([#8](https://github.com/tc3oliver/claude-team-kit/issues/8)). The figures now come back only when
+`/ctk` is asked about usage. The band and Mission Control still show them to you.
 
-## Knowing what the team did
+If you do want a limit, set it yourself: `team.stopAtFiveHourPct` or `team.stopAtCostUsd` (0 is off).
+Past it, a new teammate spawn is refused with `TEAM_BUDGET_REACHED` and you get a notice. Workers that
+are already running carry on.
 
-- **Desktop notices** when every teammate has finished, when one fails, and when the cap refuses a
-  spawn. They go through your Notification hooks like any other notice.
-- **`/ctk-report`** lists the session's tasks, spawns, cost, models and changed files.
-- Mission Control's worker detail page has an **Open transcript** button (Claude Code 2.1.300+).
-- After the main session compacts, a short team summary is kept, so the lead still knows who is
-  live and which tasks are open.
+## Which teammate needs you
 
-## Safer team flow
+- **Stalled**: a teammate with a task in progress and no tool call for 10 minutes, or three failed
+  calls in a row. It shows in the band and on Workers, and you get one notice per stall.
+- **`N ready · M idle`** in the band when there are tasks ready to start and teammates idle.
+- **Unverified**: a task a teammate marked done stays unverified until the lead runs a check.
+- **Collisions**: two live agents writing the same file are flagged, for information only.
+- **Tokens per teammate** on Workers. No price: Claude Code reports cost per session only.
+- The Usage page forecasts when the 5h limit is reached at the current pace.
 
-- A slice touching auth, money, migrations, data deletion or security waits for your approval
-  before its worker starts; the other slices go ahead.
-- Review findings go back to the teammate that wrote the slice, for one fix round and a re-review.
+## Fewer wasted turns
+
+- A teammate, or the lead, that claims a task no longer gets its own `task_assignment` back. That echo
+  used to wake it for a whole extra turn.
+- The lead is no longer woken by shutdown approvals, or by terminations that released no task.
+- The implementer does not load the Artifact and Workflow tools. It reports a test failure outside its
+  own files and finishes, instead of waiting on other workers. Reviewers report at most 8 findings.
+- `/ctk-report` adds a Friction line, and the prompt suggests `/ctk-report` when the team finishes.
+
+## Also
+
+Notices also show as an in-terminal toast, `/ctk-doctor` shows the engine version, `ctk doctor`
+reports the mods check as unknown under WSL, and the team skill has preset recipes
+(`skills/team/references/presets.md`).
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.6 to 0.1.7 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.7 to 0.1.8 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
 If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
@@ -61,7 +71,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.6`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.7`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -100,8 +110,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.7` with the npm tarball attached. The earlier prereleases
-`v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.8` with the npm tarball attached. The earlier prereleases
+`v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.7` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.8` does. `npm publish` stays a
 manual step after review.
