@@ -101,6 +101,37 @@ line in its definition (`plugins/ctk/agents/*.md`): `medium` for `explorer`, `im
 spawn hook can set a model but not an effort; a layer containing `routing.<role>.effort` is
 rejected. To use a different effort, edit or fork the agent files.
 
+### Optional built-in Explore override (CLI)
+
+Claude Code's built-in `Explore` normally uses the main conversation's model, even
+when CTK's own `ctk:explorer` is configured to use Haiku. A **user- or project-level**
+subagent named `Explore` overrides the built-in. CTK's optional CLI can create
+one without changing the other CTK agents:
+
+```sh
+ctk explore status                 # inspect the current project's override
+ctk explore enable --dry-run      # preview, no writes
+ctk explore enable                # <project>/.claude/agents/Explore.md
+ctk explore disable               # remove only the file CTK created
+ctk explore enable --user         # <config>/agents/Explore.md, all projects
+ctk explore disable --user
+```
+
+The override selects `model: haiku`, permits only Read/Grep/Glob and sets
+`omitClaudeMd: true` so that exploration starts with less context. Restart
+Claude Code after a change; check `/tasks` while Explore runs to confirm
+the actual model. A custom Explore with different contents is never modified
+or deleted, and symlinked agent directories are refused. The override is
+**opt-in** and is not installed by `ctk install`, synced in profiles, or
+removed by `ctk uninstall` (use `ctk explore disable` instead).
+
+This affects only Claude Code calls to the built-in `Explore`, not the
+main model's direct file reads, Plan, ordinary subagents, or CTK teammate
+routing. Per-agent model overrides can also be superseded by
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. Savings have not been benchmarked.
+
+Official behavior: [Claude Code subagents](https://code.claude.com/docs/en/sub-agents#built-in-subagents).
+
 ### HUD and statistics
 
 | Field | Type | Default | Meaning | Plugin option |
