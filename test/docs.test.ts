@@ -54,7 +54,8 @@ const cap = async (fn: (out: (l: string) => void) => Promise<unknown>): Promise<
 const helpText = async (): Promise<string> => {
   const main_ = await cap(out => main(['--help'], { out, err: out, env: {}, cwd: ROOT }))
   const sync = await cap(out => runSync(['--help'], { out, err: out } as unknown as Ctx))
-  return `${main_}\n${sync}`
+  const explore = await cap(out => main(['explore', '--help'], { out, err: out, env: {}, cwd: ROOT }))
+  return `${main_}\n${sync}\n${explore}`
 }
 
 const VALUE_FLAGS = new Set(['--config-dir', '--profile', '--device', '--to', '--remote', '--branch', '--message', '-m'])
