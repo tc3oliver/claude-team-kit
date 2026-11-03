@@ -9,6 +9,7 @@ import { rollback, uninstall } from '../install/undo.ts'
 import { runUpdate } from '../install/update.ts'
 import { runConfig } from './commands/config.ts'
 import { runDoctor } from './commands/doctor.ts'
+import { runExplore } from './commands/explore.ts'
 import { runStats } from './commands/stats.ts'
 import { EXIT, type Ctx } from './context.ts'
 import { emit, failure, type Report } from './report.ts'
@@ -37,6 +38,7 @@ Commands:
   rollback     Undo the latest transaction (--to <id>: that one and every later one)
   uninstall    Remove what ctk added; keep backups
   stats        Per-session and total team figures
+  explore      Opt-in Haiku override for built-in Explore (enable|disable|status)
   config       get|set|list|unset <dotted.path> [value] (--device-layer, --no-apply)
 
 ${GLOBAL_HELP}
@@ -71,6 +73,14 @@ Options:
 
 Reverse what ctk added where it is still as ctk left it, uninstall the plugin, and delete
 <config>/ctk except backups/, devices/ and sync/. Backups are never deleted.`,
+  explore: `Usage: ctk explore enable|disable|status [--user]
+
+Manage a project-scoped (default) or user-scoped Haiku override for Claude Code's built-in
+Explore agent. Never overwrites an existing agent; disable removes only CTK's exact file.
+Requires a Claude Code restart; does not change CTK's ctk:explorer or other agents.
+
+Options:
+  --user               Use <config>/agents/Explore.md instead of <project>/.claude/agents/Explore.md`,
   stats: `Usage: ctk stats
 
 Per-session and total figures from <config>/ctk/stats: spawns, tasks, models (counted by ctk) and
@@ -105,6 +115,7 @@ const OPTIONS = {
   to: { type: 'string' },
   'device-layer': { type: 'boolean' },
   'no-apply': { type: 'boolean' },
+  user: { type: 'boolean' },
 } as const
 
 export type Io = { out: (line: string) => void; err: (line: string) => void; env: NodeJS.ProcessEnv; cwd: string; claudeBin?: string }
@@ -171,7 +182,7 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
   try {
     const first = splitArgs(argv)
     wantsJson = first.json
-    const known = ['install', 'doctor', 'sync', 'update', 'rollback', 'uninstall', 'stats', 'config']
+    const known = ['install', 'doctor', 'sync', 'update', 'rollback', 'uninstall', 'stats', 'config', 'explore']
     const help = first.help
     if (first.version) {
       io.out(ctkVersion())
@@ -228,6 +239,8 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
           return runDoctor(ctx)
         case 'stats':
           return runStats(ctx)
+        case 'explore':
+          return runExplore(ctx, positionals.slice(1), { user: v.user === true })
         case 'config':
           return runConfig(ctx, positionals.slice(1), { deviceLayer: v['device-layer'] === true, noApply: v['no-apply'] === true })
         case 'rollback': {
