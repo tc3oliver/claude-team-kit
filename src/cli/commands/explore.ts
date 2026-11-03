@@ -1,12 +1,13 @@
 import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
+import { sha256 } from '../../core/fsx.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import { failure, type Report } from '../report.ts'
 
 // Claude Code only lets a user- or project-scoped "Explore" replace the built-in
 // agent. A plugin-scoped ctk:explorer does not replace it.
-export const EXPLORE_AGENT = `---
+const BODY = `---
 name: Explore
 description: Fast, read-only codebase search; return concise file:line findings.
 model: haiku
@@ -19,13 +20,22 @@ specific ranges. Return file:line references with short explanations, not file
 dumps. Do not edit files or make design decisions.
 `
 
+// The trailing stamp is the hash of everything above it, so any CTK release can tell an
+// untouched file it wrote from an edited one without knowing older contents.
+const STAMP = '<!-- ctk:explore '
+const stamp = (body: string): string => `${STAMP}${sha256(body)} -->\n`
+export const EXPLORE_AGENT = BODY + stamp(BODY)
+
 type State = 'absent' | 'managed' | 'conflict'
 
 const inspect = (path: string): State => {
   try {
     const info = lstatSync(path)
     if (!info.isFile() || info.isSymbolicLink()) return 'conflict'
-    return readFileSync(path, 'utf8') === EXPLORE_AGENT ? 'managed' : 'conflict'
+    // A git checkout with autocrlf must not turn CTK's own file into a conflict.
+    const text = readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
+    const body = text.slice(0, Math.max(text.lastIndexOf(STAMP), 0))
+    return text === body + stamp(body) ? 'managed' : 'conflict'
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return 'absent'
     throw e
@@ -83,7 +93,7 @@ export const runExplore = (ctx: Ctx, args: string[], opts: { user: boolean }): R
     // Recheck after mkdir: no replacement if another process created the file.
     if (isLink(root) || isLink(dir)) return failure(`refusing to use a symlinked agent directory: ${path}`, EXIT.attention)
     try {
-      writeFileSync(path, EXPLORE_AGENT, { flag: 'wx', mode: 0o600 })
+      writeFileSync(path, EXPLORE_AGENT, { flag: 'wx' })
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
         return report(EXIT.attention, 'conflict', `conflict: ${path} appeared during enable; left unchanged`)
