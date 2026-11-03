@@ -118,7 +118,8 @@ ctk explore disable --user
 ```
 
 The override selects `model: haiku`, permits only Read/Grep/Glob and sets
-`omitClaudeMd: true` so that exploration starts with less context. Restart
+`omitClaudeMd: true` so that exploration starts with less context (`omitClaudeMd`
+needs Claude Code v2.1.271 or later; older versions ignore it and still load CLAUDE.md). Restart
 Claude Code after a change; check `/tasks` while Explore runs to confirm
 the actual model. A custom Explore with different contents is never modified
 or deleted, and symlinked agent directories are refused. The override is

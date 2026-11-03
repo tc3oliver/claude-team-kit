@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { sha256 } from '../src/core/fsx.ts'
 import { main } from '../src/cli/index.ts'
 import { EXPLORE_AGENT, runExplore } from '../src/cli/commands/explore.ts'
 import { makeEnv } from './helpers.ts'
@@ -90,4 +91,18 @@ test('CLI command supports --help, --json, --dry-run, --user and errors', async 
   assert.equal(await main([...base, 'explore', 'unknown', '--json'], io), 1)
   assert.match(JSON.parse(out.pop() as string).error, /usage/)
   assert.deepEqual(err, [])
+})
+
+test('a stamped file from another release or with CRLF endings is still ours; an edit is not', t => {
+  const e = makeEnv(t)
+  const path = join(e.dir, '.claude', 'agents', 'Explore.md')
+  mkdirSync(join(e.dir, '.claude', 'agents'), { recursive: true })
+  const older = '---\nname: Explore\nmodel: haiku\n---\nold wording\n'
+  const stamped = (body: string): string => `${body}<!-- ctk:explore ${sha256(body)} -->\n`
+  writeFileSync(path, stamped(older))
+  assert.equal(runExplore(e.ctx, ['status'], { user: false }).data.state, 'managed')
+  writeFileSync(path, stamped(older).replace(/\n/g, '\r\n'))
+  assert.equal(runExplore(e.ctx, ['disable'], { user: false }).code, 0)
+  writeFileSync(path, stamped(older).replace('old', 'edited'))
+  assert.equal(runExplore(e.ctx, ['disable'], { user: false }).code, 2)
 })
