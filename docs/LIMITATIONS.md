@@ -168,6 +168,11 @@ in practice:
   overlapping file scopes are handled by ordering the slices (`addBlockedBy`) or narrowing them. A user who asks for
   worktree workers gets workers CTK does not limit, and Mission Control shows how many started outside the cap.
   Whether a later Claude Code changes which calls are teammates is not something CTK can know in advance.
+- **CTK's `tool.call` hooks and worktree subagents.** [anthropics/claude-code#92533](https://github.com/anthropics/claude-code/issues/92533)
+  reports that a Bash `tool.call` hook makes `isolation: "worktree"` subagents refuse every Bash call. Not reproduced
+  with CTK at default options on 2.1.319 (`-p`, Haiku, one run with the issue's flags): the subagent's Bash ran in its
+  worktree, and CTK's tool count of 2 shows its hook saw that call and the `Agent` call. Interactive sessions and repeat
+  runs were not tested.
 - **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
   runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),
