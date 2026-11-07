@@ -25,6 +25,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
 - Cut vertical slices: each delivers a working, independently verifiable behavior, and states spec/context
   pointers (never pasted contents), file scope and verify command. Ready frontier = pending slices with no open
   blockers.
+- Read `references/parallel-fit.md` first: advice only, an explicit team request still gets a team.
 - If `TaskCreate` is in your tool list, you MUST create the tasks before spawning anyone, even when every
   slice is independent: one per slice plus a final verification task blocked by all of them, with `addBlockedBy`
   for real dependencies only. Workers claim a task with `TaskUpdate` (owner + `in_progress`) and complete it;
@@ -56,5 +57,4 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 
 ## 6. Close
 Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch. Report tasks, files changed, check results.
-Any task failed, blocked or unverified: say the goal is NOT complete and name it.
-If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
+Any task failed, blocked or unverified: say the goal is NOT complete and name it. If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
