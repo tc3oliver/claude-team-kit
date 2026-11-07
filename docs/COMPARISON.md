@@ -10,6 +10,8 @@ Compared: CTK (this repository), Claude Code's native **Agent Teams**,
 
 ## Scope and method
 
+- The CTK rows describe CTK 0.1.8; the columns for the other projects were collected on 2026-10-08 and
+  were not refreshed.
 - Facts were collected on 2026-10-08 from each project's README and files (fetched with
   `gh api`), the Claude Code Agent Teams documentation page, and the locally installed OMC
   plugin cache. Nothing from the plugin cache was executed and no credential file was opened.
@@ -29,7 +31,7 @@ Compared: CTK (this repository), Claude Code's native **Agent Teams**,
 
 | Project | Self-description (source) | Delivery |
 |---|---|---|
-| CTK 0.1.0 | "A lightweight, token-efficient, portable team companion for Claude Code." (`README.md`) | Claude Code plugin, Node CLI, status line script |
+| CTK 0.1.8 | "A lightweight, token-efficient, portable team companion for Claude Code." (`README.md`) | Claude Code plugin, Node CLI, status line script |
 | Agent Teams | "Coordinate multiple Claude Code instances working together as a team, with shared tasks, inter-agent messaging, and centralized management." (code.claude.com/docs/en/agent-teams) | Built into Claude Code; experimental, off by default, enabled with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 | OMC | "Teams-first Multi-agent orchestration for Claude Code" (GitHub description); "Multi-agent orchestration for Claude Code. Zero learning curve." (`README.md`) | Claude Code plugin, optional npm CLI, MCP server, HUD |
 | superpowers | "An agentic skills framework & software development methodology that works." (GitHub description) | Plugin of skills plus one `SessionStart` hook |
@@ -42,7 +44,7 @@ Counts are from the sources named in the last column.
 
 | Project | Skills | Agents | Hooks | MCP server | Source |
 |---|---|---|---|---|---|
-| CTK | 3 | 4 | `Hooks (0)` in `claude plugin details`; one in-process mod | none | `plugins/ctk/`, `claude plugin details ctk@ctk-kit` |
+| CTK | 4 | 5 | `Hooks (0)` in `claude plugin details`; one in-process mod | none | `plugins/ctk/`, `claude plugin details ctk@ctk-kit` |
 | Agent Teams | n/a | uses subagent definitions as teammate roles | events `TeammateIdle`, `TaskCreated`, `TaskCompleted` | n/a | agent-teams page |
 | OMC 5.3.0 | 37 listed in `plugin.json` | 19 (`agents/*.md`) | 25 hook commands over 11 events in `hooks/hooks.json` | 1 (`t`, `node bridge/mcp-server.cjs`, `.mcp.json`) | local cache, `5.3.0/` |
 | superpowers 6.4.2 | 15 `skills/*/SKILL.md` | none in the repository tree | 1 command hook (`SessionStart`, matcher `startup\|clear\|compact`) | none seen in the tree | repository tree, `hooks/hooks.json` |
@@ -55,8 +57,9 @@ in `hooks.json`. The difference was not resolved.
 ## What each adds to Claude Code
 
 - **CTK** (per its README and `docs/ARCHITECTURE.md`): a hard cap on live teammates, enforced by
-  denying spawns in a mod; model routing by role; three skills (`team`, `review`, `debug`); four
-  agent definitions; a one-line team band; and a CLI that installs reversibly (ledger, backups,
+  denying spawns in a mod; model routing by role; four skills (`ctk`, `team`, `review`, `debug`); five
+  agent definitions; desktop notifications when a teammate fails or stalls or all have finished; a
+  one-line team band; and a CLI that installs reversibly (ledger, backups,
   rollback) and syncs a profile through a plain git repository with a secret scan. It has no
   orchestrator of its own.
 - **Agent Teams**: a lead session, teammates in separate context windows, a shared task list with
@@ -121,7 +124,7 @@ command on each refresh only when `CLAUDE_HUD_ALLOW_EXTRA_CMD=1`) was not audite
 
 | Project | Cross-machine config sync | Reversible installer | Install (Claude Code) |
 |---|---|---|---|
-| CTK | `ctk sync` through a plain git repository; three-way merge; secret scan before publish | Yes: ledger, backups, `ctk rollback`, `ctk uninstall` | `ctk install` from a checkout (`npm install`, `npm run build` first) |
+| CTK | `ctk sync` through a plain git repository; three-way merge; secret scan before publish | Yes: ledger, backups, `ctk rollback`, `ctk uninstall` | `claude plugin marketplace add` and `claude plugin install` from the public GitHub repository; the `ctk` CLI is built from a checkout |
 | Agent Teams | None on the page; "There is no project-level equivalent of the team config." | n/a | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 | OMC | Not stated (config files `.claude/omc.jsonc` and `~/.config/claude-omc/config.jsonc`; project skills in `.omc/skills/` can be committed) | Not stated | `/plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode`, `/plugin install oh-my-claudecode`, `/omc-setup` |
 | superpowers | Not stated | Not stated | `/plugin install superpowers@claude-plugins-official` |
@@ -154,13 +157,13 @@ Other facts that affect the choice:
   needs nothing beyond the experimental flag. CTK depends on it and does not replace it.
 - **superpowers or mattpocock/skills.** These are methodology libraries: sets of skills that
   prescribe or support how to plan, test and review. CTK has no opinion on methodology beyond
-  three short skills, and it does not conflict with them in principle. They can be installed
+  four short skills, and it does not conflict with them in principle. They can be installed
   next to CTK (this combination was not tested). Choose them for the method, in the form each
   describes: a prescribed automatic workflow (superpowers) or small editable skills that leave
   process control with the user (mattpocock/skills). mattpocock/skills ships no hooks or HUD.
 - **OMC.** Choose it for a large set of ready-made workflows (autopilot, ralph, ralplan, a staged
-  team pipeline, deep interview), its MCP-backed memory and state tools, notifications, and the
-  ability to start Codex, Gemini, Cursor and other vendors' CLIs as tmux workers. CTK provides
+  team pipeline, deep interview), its MCP-backed memory and state tools, chat-service
+  notifications (Telegram, Discord, Slack), and the ability to start Codex, Gemini, Cursor and other vendors' CLIs as tmux workers. CTK provides
   none of these.
 - **claude-hud.** Choose it for a stand-alone status line with many display options. It does not
   orchestrate or limit anything, and it can be used with or without CTK; CTK's own status line

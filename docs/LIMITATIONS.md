@@ -55,9 +55,9 @@ in practice:
   is why the wording is now unconditional (Reported). Whether a lead model now always follows it is
   not verified.
 - **Options are defaults until you configure them.** `claude plugin install` prints
-  `7 userConfig options not yet set`; that is harmless. `/plugin configure ctk@ctk-kit` was not run
+  `<N> userConfig options not yet set`; that is harmless. `/plugin configure ctk@ctk-kit` was not run
   (it is interactive); `--config KEY=VALUE` at install was (Live).
-- **Updating** is `/plugin update ctk@ctk-kit`. A real version bump through it was not run.
+- **Updating** is `/plugin update ctk@ctk-kit`. A real version bump through it was run ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)).
 - **Removal leaves traces.** After `/plugin uninstall` and `/plugin marketplace remove`,
   `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
   counters stay in `<config>/ctk/stats/` until you delete them (Live).
@@ -168,6 +168,17 @@ in practice:
   overlapping file scopes are handled by ordering the slices (`addBlockedBy`) or narrowing them. A user who asks for
   worktree workers gets workers CTK does not limit, and Mission Control shows how many started outside the cap.
   Whether a later Claude Code changes which calls are teammates is not something CTK can know in advance.
+- **CTK's `tool.call` hooks and worktree subagents.** [anthropics/claude-code#92533](https://github.com/anthropics/claude-code/issues/92533)
+  reports that a Bash `tool.call` hook makes `isolation: "worktree"` subagents refuse every Bash call. Not reproduced
+  with CTK at default options on 2.1.319 (`-p`, Haiku, one run with the issue's flags): the subagent's Bash ran in its
+  worktree, and CTK's tool count of 2 shows its hook saw that call and the `Agent` call. Interactive sessions and repeat
+  runs were not tested.
+- **Shutdown bookkeeping still wakes the lead.** The `session.receive` filter for `shutdown_approved` and
+  `teammate_terminated` has no effect on 2.1.319: in an interactive team run, a probe mod saw the hook fire for a
+  teammate's text and its `idle_notification`, each as one bare message body, but not for the shutdown messages,
+  which reached the lead unchanged. `/ctk-report` therefore never counts a dropped shutdown notice. The
+  `task_assignment` echo filter does work: in the same kind of run the teammate's own claim echo was dropped
+  (`/ctk-report`: 1 echo dropped) and never reached its transcript.
 - **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
   runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),
@@ -249,12 +260,13 @@ credentials. In `-p` mode no prompt appeared.
 
 ## Updates and versions
 
-- **Plugin updates are not verified.** Only a same-version `ctk update` (nothing to change) was
-  run. A real version bump through `claude plugin update`, and a rollback of one, were not.
+- **Plugin updates were exercised on macOS only.** A same-version update, a real version bump
+  and a move back to an older ref through `claude plugin update` were run
+  ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)).
 - **Rolling back to an older CTK release (git tag or older tarball) is not verified.** The
   expected path is `ctk uninstall`, install the old version, `ctk install`.
-- CTK is not published to npm or any marketplace host. Install is from a checkout or a tarball
-  you build.
+- CTK is not published to npm or a marketplace host. Install is through Claude Code's Plugin
+  Manager from the public GitHub repository ([INSTALL](../INSTALL.md)).
 
 ## Reporting a gap
 

@@ -138,9 +138,9 @@ describe('worker tokens', () => {
   test('each turn.complete adds its own counts; none reported stays null', () => {
     const { m, snap } = team()
     expect(buildMission({ stats: emptyStats('s', 3, NOW), snap, state: m, nowMs: NOW, teamsEnabled: true, ready: true }).workers[0]?.usage).toBeNull()
-    noteWorkerTurnEnd(m, 'a1', NOW, { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 5 })
-    noteWorkerTurnEnd(m, 'a1', NOW, { input_tokens: 50, output_tokens: 10, cache_read_input_tokens: 0 })
-    expect(buildMission({ stats: emptyStats('s', 3, NOW), snap, state: m, nowMs: NOW, teamsEnabled: true, ready: true }).workers[0]?.usage).toEqual({ input: 150, output: 30, cacheRead: 5 })
+    noteWorkerTurnEnd(m, 'a1', NOW, { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 5, cache_creation_input_tokens: 7 })
+    noteWorkerTurnEnd(m, 'a1', NOW, { input_tokens: 50, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    expect(buildMission({ stats: emptyStats('s', 3, NOW), snap, state: m, nowMs: NOW, teamsEnabled: true, ready: true }).workers[0]?.usage).toEqual({ input: 150, output: 30, cacheRead: 5, cacheWrite: 7 })
   })
 })
 

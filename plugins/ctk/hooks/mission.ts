@@ -49,7 +49,7 @@ export type WorkerRec = {
   usage: TokenUse | null
 }
 
-export type TokenUse = { input: number; output: number; cacheRead: number }
+export type TokenUse = { input: number; output: number; cacheRead: number; cacheWrite: number }
 
 export type MissionState = {
   workers: Map<string, WorkerRec>
@@ -211,14 +211,14 @@ export const noteWorkerActive = (m: MissionState, agentId: string, now: number):
 /** The lead's main loop ran a command: whatever teammates completed before it has now been looked at. */
 export const noteLeadBash = (m: MissionState): void => m.unverified.clear()
 
-export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, now: number, usage?: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number }): void => {
+export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, now: number, usage?: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }): void => {
   if (agentId === undefined) return
   const w = m.workers.get(agentId)
   if (w === undefined) return
   w.lastActivityAt = now
   if (usage === undefined) return
-  const u = w.usage ?? { input: 0, output: 0, cacheRead: 0 }
-  w.usage = { input: u.input + usage.input_tokens, output: u.output + usage.output_tokens, cacheRead: u.cacheRead + usage.cache_read_input_tokens }
+  const u = w.usage ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+  w.usage = { input: u.input + usage.input_tokens, output: u.output + usage.output_tokens, cacheRead: u.cacheRead + usage.cache_read_input_tokens, cacheWrite: u.cacheWrite + usage.cache_creation_input_tokens }
 }
 
 /** TeammateIdle carries the teammate's name, not its agent id. */

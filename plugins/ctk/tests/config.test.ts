@@ -42,7 +42,7 @@ const changeOf = (name = 'maxWorkers', raw: unknown = 2): Change => {
 }
 
 describe('option names', () => {
-  test('exactly the eleven userConfig fields', () => {
+  test('exactly the thirteen userConfig fields', () => {
     expect([...OPTION_NAMES]).toEqual([
       'maxWorkers',
       'explorerModel',
