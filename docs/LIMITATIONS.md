@@ -176,8 +176,9 @@ in practice:
 - **Shutdown bookkeeping still wakes the lead.** The `session.receive` filter for `shutdown_approved` and
   `teammate_terminated` has no effect on 2.1.319: in an interactive team run, a probe mod saw the hook fire for a
   teammate's text and its `idle_notification`, each as one bare message body, but not for the shutdown messages,
-  which reached the lead unchanged. `/ctk-report` therefore never counts a dropped shutdown notice. Whether the
-  `task_assignment` echo filter fires was not tested live.
+  which reached the lead unchanged. `/ctk-report` therefore never counts a dropped shutdown notice. The
+  `task_assignment` echo filter does work: in the same kind of run the teammate's own claim echo was dropped
+  (`/ctk-report`: 1 echo dropped) and never reached its transcript.
 - **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
   runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),
