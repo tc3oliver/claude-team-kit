@@ -190,9 +190,9 @@ describe('Workers page health and tokens', () => {
     expect(rows({})).not.toContain('STALLED')
   })
   test('tokens appear in the list as one figure and in detail as in/out plus cache', () => {
-    const usage = { input: 12_000, output: 3_400, cacheRead: 90_000 }
+    const usage = { input: 12_000, output: 3_400, cacheRead: 90_000, cacheWrite: 4_000 }
     expect(rows({ usage })).toContain('15.4k tok')
-    expect(rows({ usage }, true)).toContain('12k in / 3.4k out · 90k cache read')
+    expect(rows({ usage }, true)).toContain('12k in / 3.4k out · 90k cache read / 4k cache write')
     expect(rows({}, true)).toContain('Tokens')
   })
 })

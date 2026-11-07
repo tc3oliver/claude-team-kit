@@ -127,7 +127,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
       field('w-task', 'Current task', picked.currentTask ?? `${UNAVAILABLE} (no in-progress task owned by this worker was observed)`),
       field('w-tools', 'Tool calls', picked.toolCalls === null ? UNAVAILABLE : `${picked.toolCalls} (its own loop)`),
       field('w-recent', 'Recent', picked.recent.length === 0 ? `${UNAVAILABLE} (no tool call of its own loop was seen)` : picked.recent.join(' ‹ ')),
-      field('w-tokens', 'Tokens', picked.usage === null ? `${UNAVAILABLE} (no turn of its own was reported)` : `${fmtTokens(picked.usage)} · ${fmtCount(picked.usage.cacheRead)} cache read`),
+      field('w-tokens', 'Tokens', picked.usage === null ? `${UNAVAILABLE} (no turn of its own was reported)` : `${fmtTokens(picked.usage)} · ${fmtCount(picked.usage.cacheRead)} cache read / ${fmtCount(picked.usage.cacheWrite)} cache write`),
       field('w-last', 'Last activity', fmtAge(picked.lastActivityMs)),
       field('w-idle', 'Idle for', picked.status === 'idle' ? fmtSpan(picked.idleMs) : 'not idle'),
       <kit.Box key="w-actions" flexDirection="row" columnGap={2}>
