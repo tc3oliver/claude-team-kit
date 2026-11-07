@@ -55,9 +55,9 @@ in practice:
   is why the wording is now unconditional (Reported). Whether a lead model now always follows it is
   not verified.
 - **Options are defaults until you configure them.** `claude plugin install` prints
-  `7 userConfig options not yet set`; that is harmless. `/plugin configure ctk@ctk-kit` was not run
+  `<N> userConfig options not yet set`; that is harmless. `/plugin configure ctk@ctk-kit` was not run
   (it is interactive); `--config KEY=VALUE` at install was (Live).
-- **Updating** is `/plugin update ctk@ctk-kit`. A real version bump through it was not run.
+- **Updating** is `/plugin update ctk@ctk-kit`. A real version bump through it was run ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)).
 - **Removal leaves traces.** After `/plugin uninstall` and `/plugin marketplace remove`,
   `settings.json` keeps empty `enabledPlugins` and `extraKnownMarketplaces` objects, and the mod's
   counters stay in `<config>/ctk/stats/` until you delete them (Live).
@@ -249,12 +249,13 @@ credentials. In `-p` mode no prompt appeared.
 
 ## Updates and versions
 
-- **Plugin updates are not verified.** Only a same-version `ctk update` (nothing to change) was
-  run. A real version bump through `claude plugin update`, and a rollback of one, were not.
+- **Plugin updates were exercised on macOS only.** A same-version update, a real version bump
+  and a move back to an older ref through `claude plugin update` were run
+  ([INSTALLATION](INSTALLATION.md#what-was-exercised-for-update-recovery-and-rollback)).
 - **Rolling back to an older CTK release (git tag or older tarball) is not verified.** The
   expected path is `ctk uninstall`, install the old version, `ctk install`.
-- CTK is not published to npm or any marketplace host. Install is from a checkout or a tarball
-  you build.
+- CTK is not published to npm or a marketplace host. Install is through Claude Code's Plugin
+  Manager from the public GitHub repository ([INSTALL](../INSTALL.md)).
 
 ## Reporting a gap
 

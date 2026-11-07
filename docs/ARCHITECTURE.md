@@ -55,9 +55,9 @@ things only the CLI, or you by hand, can provide.
 
 | Part | Where | What it does |
 |---|---|---|
-| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the eleven options below. |
+| Plugin manifest | `plugins/ctk/.claude-plugin/plugin.json` | Name `ctk`, version, and `userConfig` for the thirteen options below. |
 | Marketplace | `.claude-plugin/marketplace.json` | Marketplace `ctk-kit` with one plugin, `ctk`, sourced from `./plugins/ctk`. Plugin id: `ctk@ctk-kit`. |
-| Skills | `plugins/ctk/skills/{team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
+| Skills | `plugins/ctk/skills/{ctk,team,review,debug}` | Short procedures (`SKILL.md`) with details in `references/*.md` that are read only on demand. `team` starts with a preflight (step 0) and creates the task list whenever `TaskCreate` exists. |
 | Agents | `plugins/ctk/agents/*.md` | Five role definitions with a pinned `model` and `effort` in their frontmatter. |
 | Mod | `plugins/ctk/hooks/{register.tsx,team.ts,band.ts,doctor.ts}` | Function hooks that Claude Code runs in-process (see below). |
 | Shared types | `plugins/ctk/shared/{policy,stats}.ts` | Option defaults, role names and the stats record. Imported by both the mod and the CLI so defaults cannot drift. |
@@ -445,7 +445,7 @@ indentation. CTK owns exactly these pointers:
 
 | Pointer | Written when |
 |---|---|
-| `/pluginConfigs/ctk@ctk-kit/options/<option>` (seven keys) | Always. |
+| `/pluginConfigs/ctk@ctk-kit/options/<option>` (thirteen keys) | Always. |
 | `/env/CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` = `"1"` | Key absent and `claude.enableAgentTeams` is true. |
 | `/statusLine` | Key absent (or already CTK's command) and `hud.statusLine` is `auto`. The command is `'<node>' '<script>'` with each path single-quoted for POSIX shells; on Windows, double-quoted forward-slash paths, and paths containing `" $ ` %` are refused. |
 | `/model`, `/effortLevel`, `/teammateMode`, `/outputStyle`, `/language` | Present in `portable.settings` of the effective profile. |

@@ -1,7 +1,7 @@
 # Configuration
 
 CTK has two configuration paths. A **native install** (`/plugin install ctk@ctk-kit`, see
-[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's eleven options with
+[INSTALLATION](INSTALLATION.md)) has no profile: you set the plugin's thirteen options with
 `/plugin configure ctk@ctk-kit` or `claude plugin install ctk@ctk-kit --config KEY=VALUE`, and
 every option has a default. With the optional **`ctk` CLI** you configure a **profile**: a small
 JSON document. You never have to write one by hand; `ctk config` edits it and applies the
@@ -76,7 +76,9 @@ The most teammates alive at once. A spawn beyond it is denied with `TEAM_CAPACIT
 `stopAtFiveHourPct` and `stopAtCostUsd` are usage limits, off at `0`. Once the 5-hour limit has used that
 percent, or the session cost has reached that many dollars, a teammate spawn is denied with
 `TEAM_BUDGET_REACHED` and a message naming the limit; ordinary subagents and teammates already running are
-not touched. A figure Claude Code does not report never trips a limit. The Usage page of Mission Control also
+not touched. A figure Claude Code does not report never trips a limit.
+`stopAtFiveHourPct` cannot fire for API-key users: the 5-hour figure is subscriber-only (see
+[LIMITATIONS](LIMITATIONS.md#the-hud)). The Usage page of Mission Control also
 says when the 5-hour limit would be reached at the current pace, once ten minutes of readings show it
 climbing and the projection falls before the reset.
 
@@ -153,7 +155,7 @@ Used by `ctk sync`; see [ARCHITECTURE](ARCHITECTURE.md#sync).
 
 ## How fields reach the plugin
 
-The plugin declares eleven `userConfig` options in `plugins/ctk/.claude-plugin/plugin.json`.
+The plugin declares thirteen `userConfig` options in `plugins/ctk/.claude-plugin/plugin.json`.
 CTK writes the effective values to `settings.json`, one key each, under
 `/pluginConfigs/ctk@ctk-kit/options/`:
 
@@ -185,7 +187,7 @@ to 1-12.
 
 | Key | When |
 |---|---|
-| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the eleven options above) |
+| `pluginConfigs["ctk@ctk-kit"].options.*` | always (the thirteen options above) |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | absent and `claude.enableAgentTeams` |
 | `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` | absent and `claude.enableTaskTools` (default off) |
 | `statusLine` | absent (or already CTK's) and `hud.statusLine = auto` |
