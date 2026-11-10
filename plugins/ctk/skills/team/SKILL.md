@@ -56,5 +56,5 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 
 ## 6. Close
 Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch.
-With `ctk_goal`, record `verify` and passed `review`, then call `close` BEFORE sending shutdown requests; if refused, do not shut down. Follow `references/goal-lifecycle.md` and `references/protocol.md` roster checks; never claim unknown exits. On failure preserve open work and report live workers.
+With `ctk_goal`, record `verify` and passed `review`, then call `close` BEFORE sending shutdown requests; if refused, do not shut down. Follow `references/goal-lifecycle.md` and `references/protocol.md`; confirm every worker exited via `ctk_team_status`, never from a request acknowledgement. On failure preserve open work and report live workers.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
