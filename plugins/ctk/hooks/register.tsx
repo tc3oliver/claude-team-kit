@@ -29,7 +29,6 @@ import {
   newCollisionNote,
   newMissionState,
   noteFileChange,
-  noteLeadBash,
   noteWorkerActive,
   noteSpawn,
   noteTaskCall,
@@ -421,7 +420,7 @@ const uncheckedAtEnd = (m: MissionState): string | null => {
   const tasks = [...m.tasks.values()].filter(t => t.status !== 'deleted')
   if (tasks.some(t => t.status !== 'completed')) return null
   const ids = tasks.filter(t => m.unverified.has(t.id)).map(t => `#${t.id}`)
-  return ids.length === 0 ? null : `CTK: ${ids.join(' ')} ${ids.length === 1 ? 'was' : 'were'} completed by a teammate and not checked by you yet; run the tests or inspect the result before reporting done.`
+  return ids.length === 0 ? null : `CTK: ${ids.join(' ')} ${ids.length === 1 ? 'was' : 'were'} completed by a teammate and not acknowledged by you; verify, then confirm each completed task with TaskUpdate before reporting done.`
 }
 
 const missionOf = (c: Ctx) =>
@@ -877,7 +876,6 @@ export const register: Register = (on, options) => {
     await touch($, c)
     if (isNew) {
       noteWorkerToolCall(c.mission, e.agentId, c.lastNow, toolLabel(e.tool, e), r.deny !== undefined || r.isError === true)
-      if (e.tool === 'Bash' && e.agentId === undefined) noteLeadBash(c.mission)
       // The task board is built from the Task tools' named fields only (see noteTaskCall), and only
       // from a call that ran: a denied or failed one changes nothing.
       if (r.deny === undefined && r.isError !== true) {
@@ -931,9 +929,12 @@ export const register: Register = (on, options) => {
     }
   }).catch(($, e, next) => next(e)) // a failure before next() runs: the call goes through untouched
 
-  // A teammate going idle is the one moment its idle time starts; nothing else reads this event.
+  // An idle notice may lack agent_id. Resolve a unique live roster match; never update same-name history by guesswork.
   on('classic.TeammateIdle', async ($, e, next) => {
-    noteTeammateIdle(c.mission, e.teammate_name, await $.clock.now().catch(() => c.lastNow))
+    const eventId = (e as { agent_id?: unknown }).agent_id
+    const matches = c.snap.workers.filter(w => w.name === e.teammate_name && isLiveStatus(w.status))
+    const agentId = typeof eventId === 'string' && eventId !== '' ? eventId : matches.length === 1 ? matches[0]!.agentId : undefined
+    noteTeammateIdle(c.mission, e.teammate_name, await $.clock.now().catch(() => c.lastNow), agentId)
     await refresh($, c)
     return next(e)
   }).catch(($, e, next) => next(e))

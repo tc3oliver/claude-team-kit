@@ -358,6 +358,55 @@ describe('mission model', () => {
     expect(m.usage.sevenDay).toBe('unavailable (window reset)')
   })
 
+  test('cleanup candidates require complete observed tasks and idle live teammates', () => {
+    const state = newMissionState()
+    const idle = snapshotOf([agent('a1', 'w1', 'idle')], null, NOW)
+    const candidates = (snap = idle) => buildMission({ stats: emptyStats('s', 3, 0), snap, state, nowMs: NOW, teamsEnabled: true, ready: true }).signals.cleanupCandidates
+    expect(candidates()).toEqual([]) // An idle worker with no observed tasks is not safe to close.
+    create(state, '1', 'build')
+    expect(candidates()).toEqual([])
+    noteTaskCall(state, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
+    expect(candidates()).toEqual([]) // Lead has not checked the result.
+    noteTaskCall(state, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true })
+    expect(candidates()).toEqual([{ agentId: 'a1', teammateId: 'w1@t', name: 'w1' }])
+    expect(candidates(snapshotOf([agent('a1', 'w1', 'running')], null, NOW))).toEqual([])
+    expect(candidates(snapshotOf(null, null, NOW))).toEqual([])
+    create(state, '2', 'still open')
+    expect(candidates()).toEqual([])
+  })
+
+  test('a failed or owner-only update cannot acknowledge a completed worker task', () => {
+    const m = newMissionState()
+    create(m, '1', 'build')
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: false })
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', owner: 'w1' }, { success: true })
+    expect(m.unverified.has('1')).toBe(true)
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true })
+    expect(m.unverified.has('1')).toBe(false)
+  })
+
+  test('name-only idle events cannot overwrite another worker with the same name', () => {
+    const m = newMissionState()
+    noteSpawn(m, 'a1', 'w1', null, NOW - 6 * MIN)
+    noteSpawn(m, 'a2', 'w1', null, NOW - 2 * MIN)
+    noteTeammateIdle(m, 'w1', NOW - MIN)
+    expect(m.workers.get('a1')!.idleSinceAt).toBeNull()
+    expect(m.workers.get('a2')!.idleSinceAt).toBeNull()
+    noteTeammateIdle(m, 'w1', NOW - MIN, 'a2')
+    expect(m.workers.get('a1')!.idleSinceAt).toBeNull()
+    expect(m.workers.get('a2')!.idleSinceAt).toBe(NOW - MIN)
+    noteTeammateIdle(m, 'w1', NOW, 'unknown')
+    expect(m.workers.get('a2')!.idleSinceAt).toBe(NOW - MIN)
+  })
+
+  test('cleanup candidates exclude incomplete task histories', () => {
+    const state = newMissionState()
+    noteTaskCall(state, 'TaskUpdate', { taskId: '3', status: 'completed' }, { success: true })
+    const m = buildMission({ stats: emptyStats('s', 3, 0), snap: snapshotOf([agent('a1', 'w1', 'idle')], null, NOW), state, nowMs: NOW, teamsEnabled: true, ready: true })
+    expect(m.signals.cleanupCandidates).toEqual([])
+  })
+
   test('the text answer and the status JSON carry the same facts', () => {
     const stats = emptyStats('s', 3, 0)
     stats.toolCalls = 12

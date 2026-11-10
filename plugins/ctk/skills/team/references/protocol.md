@@ -21,8 +21,18 @@ Idle teammates count as live; reuse them with `SendMessage` rather than spawning
 ## Reusing capacity
 
 1. List workers with `ctk_team_status`.
-2. An idle worker takes the next ready task via `SendMessage` (task id + pointers).
-3. A worker with no further tasks gets a shutdown request. Capacity frees only after it exits.
+2. Reuse an idle worker **only within the current Goal** via `SendMessage` (task id + pointers).
+3. A worker with no further tasks gets a shutdown request after integration and review. Capacity frees only after it exits.
+
+## Verification acknowledgement
+
+A worker's `TaskUpdate(completed)` remains unverified until the lead runs the assigned verify command, checks its result, and explicitly calls `TaskUpdate` on the same task with `status: completed`. A Bash command by itself, including `git status` or a failed test run, does **not** clear unverified state. If native Task tools are unavailable or the acknowledgement fails, leave verification unconfirmed. The mod records the acknowledgement, not proof of the test result; review remains required.
+
+## Goal boundaries
+
+Each independent `/ctk:team` request is a new Goal unless the user explicitly continues the same unfinished work. At the start of a new Goal, inspect the roster before spawning. Old live teammates are **not** a pool for the new Goal. If the prior Goal has open or unverified tasks, or its review state is unknown, leave those workers and tasks alone and report the conflict. Otherwise, retire the old team first, then verify exit before starting a fresh one. An unreadable roster is not proof that workers are gone.
+
+`cleanupCandidates` in `ctk_team_status` is only a hint: all **observed** tasks are marked complete and live teammates are idle. Entries include `agentId`, `teammateId`, and `name`; use IDs to distinguish repeated names. It does not prove review succeeded, that unobserved work is absent, or that shutdown is safe.
 
 ## Handoff message (copy the shape)
 
@@ -49,8 +59,9 @@ say that those workers are not limited by CTK, and count them yourself.
 
 `SendMessage` with `message` as an **object**: `{"type":"shutdown_request","reason":"work verified"}`. The same JSON as a
 string is refused ("message text must not be a teammate protocol frame", seen live: five wasted calls before the object
-form). The result says `Shutdown request sent`; until it does, the teammate still counts against the cap. Do not tell the
-user workers were shut down until it has.
+form). The result says `Shutdown request sent` when the request was accepted; **that is not confirmation of exit**.
+
+After sending each request, read `ctk_team_status` and match the original teammate (not just its name) against the live roster. Its status must be terminal (`completed`, `failed`, `killed`) or it must be absent. Shutdown can lag while a tool call finishes: allow a turn for the response, then recheck once, without tight polling or repeated shutdown requests. If the status tool is unavailable or a teammate remains live, report that worker as unconfirmed and do not reuse it for another Goal. Never kill the underlying process or delete native team files as a workaround.
 
 ## Failures and retries
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { AgentInfo } from 'claude-code'
 
 import { formatBand } from '../hooks/band.ts'
-import { buildMission, collisionLine, newCollisionNote, newMissionState, noteFileChange, noteLeadBash, noteSpawn, noteTaskCall, noteWorkerActive, noteWorkerToolCall, noteWorkerTurnEnd, signalsOf, stalledOf, STALL_MS, taskRows } from '../hooks/mission.ts'
+import { buildMission, collisionLine, newCollisionNote, newMissionState, noteFileChange, noteSpawn, noteTaskCall, noteWorkerActive, noteWorkerToolCall, noteWorkerTurnEnd, signalsOf, stalledOf, STALL_MS, taskRows } from '../hooks/mission.ts'
 import { stallNotices } from '../hooks/notify.ts'
 import { snapshotOf } from '../hooks/team.ts'
 import { emptyStats } from '../shared/stats.ts'
@@ -80,11 +80,11 @@ describe('ready and idle', () => {
 })
 
 describe('unverified completion', () => {
-  test('a teammate completion is unverified until the lead runs a command', () => {
+  test('a teammate completion stays unverified until explicit lead acknowledgement', () => {
     const { m, snap } = team()
     noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
     expect(signalsOf(m, snap, NOW).unverified).toEqual(['1'])
-    noteLeadBash(m)
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true })
     expect(signalsOf(m, snap, NOW).unverified).toEqual([])
   })
 
