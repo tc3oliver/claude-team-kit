@@ -30,6 +30,8 @@ A worker's `TaskUpdate(completed)` remains unverified until the lead runs the as
 
 ## Goal boundaries
 
+When available, use `ctk_goal` and follow `references/goal-lifecycle.md` for ownership, lead attestations, Close and roster reconciliation. A Goal Close request does not stop a teammate.
+
 Each independent `/ctk:team` request is a new Goal unless the user explicitly continues the same unfinished work. At the start of a new Goal, inspect the roster before spawning. Old live teammates are **not** a pool for the new Goal. If the prior Goal has open or unverified tasks, or its review state is unknown, leave those workers and tasks alone and report the conflict. Otherwise, retire the old team first, then verify exit before starting a fresh one. An unreadable roster is not proof that workers are gone.
 
 `cleanupCandidates` in `ctk_team_status` is only a hint: all **observed** tasks are marked complete and live teammates are idle. Entries include `agentId`, `teammateId`, and `name`; use IDs to distinguish repeated names. It does not prove review succeeded, that unobserved work is absent, or that shutdown is safe.
