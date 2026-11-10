@@ -493,7 +493,7 @@ export type Mission = {
   }
   workers: WorkerRow[]
   /** Display only: workers that look stuck, tasks that could start, teammates with nothing to do, and completions the lead has not checked. Nothing here assigns work. */
-  signals: { stalled: Stalled[]; ready: string[]; idleWorkers: string[]; unverified: string[]; collisions: Collision[] }
+  signals: { stalled: Stalled[]; ready: string[]; idleWorkers: string[]; cleanupCandidates: string[]; unverified: string[]; collisions: Collision[] }
   usage: {
     contextPct: string
     fiveHour: string
@@ -572,10 +572,20 @@ const emptyWorkers = (snap: Snapshot, teamsEnabled: boolean | null): string | nu
  */
 export let missionBuilds = 0
 
+/** Advisory only: observed tasks are complete and all live teammates are idle.
+ * This does not establish that review finished or that unobserved work is safe to close. */
+const cleanupCandidatesOf = (m: MissionState, snap: Snapshot, rows: TaskRow[]): string[] => {
+  if (snap.live === null || !m.taskCallsSeen || rows.length === 0 ||
+      rows.some(r => r.seenByUpdateOnly || r.status !== 'completed' || r.unverified) ||
+      snap.workers.some(w => isLiveStatus(w.status) && w.status !== 'idle')) return []
+  return snap.workers.filter(w => w.status === 'idle').map(w => w.name)
+}
+
 const signalsFrom = (m: MissionState, snap: Snapshot, rows: TaskRow[], stalled: Stalled[]): Mission['signals'] => ({
   stalled,
   ready: rows.filter(r => r.ready).map(r => r.id),
   idleWorkers: snap.workers.filter(w => w.status === 'idle').map(w => w.name),
+  cleanupCandidates: cleanupCandidatesOf(m, snap, rows),
   unverified: rows.filter(r => r.unverified).map(r => r.id),
   collisions: collisionsOf(m, snap),
 })
@@ -806,6 +816,7 @@ export const missionText = (m: Mission): string => {
   if (m.empty.tasks !== null) lines.push(`  note: ${m.empty.tasks}`)
   for (const s of m.signals.stalled) lines.push(`  stalled:  ${s.name} - ${s.reason} for ${fmtSpan(s.forMs)}`)
   if (m.signals.unverified.length > 0) lines.push(`  unverified: ${m.signals.unverified.map(i => `#${i}`).join(' ')} completed by a teammate, no command run by the lead since`)
+  if (m.signals.cleanupCandidates.length > 0) lines.push(`  cleanup:  ${m.signals.cleanupCandidates.join(', ')} idle after observed tasks; review before shutdown`)
   for (const w of m.workers) {
     lines.push(
       `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}${w.usage === null ? '' : `, tokens ${fmtTokens(w.usage)}`}`,
@@ -838,6 +849,7 @@ export const missionJson = (m: Mission, includeUsage = false) => ({
   stalled: m.signals.stalled,
   ready: m.signals.ready,
   idleWorkers: m.signals.idleWorkers,
+  cleanupCandidates: m.signals.cleanupCandidates,
   unverified: m.signals.unverified,
   collisions: m.signals.collisions,
   ...(includeUsage ? { usage: m.usage } : {}),

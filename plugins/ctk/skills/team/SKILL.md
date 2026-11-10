@@ -20,6 +20,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
   `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to settings.json, restart Claude Code. Edit it only if
   they say yes (Edit tool, so they approve). `/ctk-doctor` shows readiness.
 - `teamsEnabled` null: say you cannot tell, then proceed. `guard.state` `available` or `active`: proceed.
+- For a new, independent Goal, do not inherit teammates from a previous Goal. Check the live roster before planning or spawning. If the old Goal was reviewed and has no open or unverified work, shut down its live teammates and confirm their exit as in `references/protocol.md`. If work is still open or its state is unknown, report the conflict; do not silently stop or reassign anyone. Explicitly continuing the same Goal may reuse its teammates.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior, and states spec/context
@@ -35,7 +36,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
 
 ## 3. Spawn
 - High-risk slice (as defined in `../review/references/risk.md`): show the user its plan before spawning. It stays pending and unowned until approved while other ready slices proceed; if declined it stays unstarted and you report it.
-- Idle teammate first (`ctk_team_status`): give it the next ready task with `SendMessage`. Spawn only when none is idle and live teammates are below the cap (`maxWorkers`, default 5).
+- Idle teammate first (`ctk_team_status`), but only from this Goal: give it the next ready task with `SendMessage`. Spawn only when none is eligible and live teammates are below the cap (`maxWorkers`, default 5).
 - `Agent` with a `name` on every worker (named = a teammate the cap counts and Mission Control lists; unnamed = a plain subagent neither does); `subagent_type`:
   `ctk:implementer` to build, `ctk:explorer` to scout. Never set `isolation` on a worker: it then starts as an
   ordinary subagent, outside the team and the cap.
@@ -49,12 +50,14 @@ available) lists the worker. `TEAM_CAPACITY_REACHED`, `TEAM_BUDGET_REACHED`, `TE
 not started: no owner, slice stays pending, re-offer it when a slot frees. Details: `references/protocol.md`.
 
 ## 5. Run
-- Wait for teammate messages; reassign idle teammates with `SendMessage` to the next ready task. Do not do a worker's slice yourself while it is assigned.
+- Wait for teammate messages; reassign idle teammates from this Goal with `SendMessage` to the next ready task. Do not do a worker's slice yourself while it is assigned.
 - Reviewer `path:line` findings on a slice go by `SendMessage` to its live owner, not fixed by you: one fix round, then re-review. Owner exited or failed: reuse an idle `ctk:implementer` or spawn one, else fix it yourself. A re-review that still fails is the task's second failure (below).
 - A worker that reports done is unverified until you run its verify command and read the result. Failure, an
   error or silence: read the report, retry that task once; a second failure: stop, mark it blocked, do it
   yourself or ask the user. Never loop on a refused spawn or a failing task.
 
 ## 6. Close
-Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch. Report tasks, files changed, check results.
+Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch.
+After requesting shutdown, call `ctk_team_status` and confirm each teammate is terminal (`completed`, `failed`, `killed`) or absent from the live roster. A `Shutdown request sent` result only confirms delivery. If a teammate is still live, recheck once; do not loop or claim it exited. If the roster cannot be read, report cleanup as unconfirmed. A later independent Goal must not reuse an unconfirmed teammate.
+If the Goal fails or is abandoned, preserve open task ownership and handoff before closing workers with no outstanding work; do not kill a busy owner. Report tasks, files changed, check results, and any workers still live.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.

@@ -85,3 +85,15 @@ test('review findings on a teammate slice go back to its live owner for one fix 
   assert.match(read('skills/review/SKILL.md'), /the lead only routes: `SendMessage` findings on a\s+teammate's slice to its live implementer \(one fix round, then re-review\); the lead does not fix them itself/)
   assert.match(s, /`\/ctk:review` while teammates are still live, so a finding reaches its owner\. Then shut each down/)
 })
+
+test('new goals do not inherit old workers and shutdown requires a roster check', () => {
+  const skill = read('skills/team/SKILL.md')
+  const protocol = read('skills/team/references/protocol.md')
+  assert.match(skill, /For a new, independent Goal, do not inherit teammates/)
+  assert.match(skill, /reassign idle teammates from this Goal/)
+  assert.match(skill, /confirm each teammate is terminal/)
+  assert.match(skill, /A `Shutdown request sent` result only confirms delivery/)
+  assert.match(protocol, /only within the current Goal/)
+  assert.match(protocol, /not confirmation of exit/)
+  assert.match(protocol, /unreadable roster is not proof/)
+})

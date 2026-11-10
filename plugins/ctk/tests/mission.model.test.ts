@@ -16,6 +16,7 @@ import {
   missionText,
   newMcState,
   newMissionState,
+  noteLeadBash,
   noteSpawn,
   noteTaskCall,
   noteTeammateIdle,
@@ -356,6 +357,30 @@ describe('mission model', () => {
     const m = buildMission({ stats, snap: snapshotOf([], null, NOW), state: newMissionState(), nowMs: NOW, teamsEnabled: true, ready: true })
     expect(m.usage.fiveHour).toBe('28% (resets in 2h34m)')
     expect(m.usage.sevenDay).toBe('unavailable (window reset)')
+  })
+
+  test('cleanup candidates require complete observed tasks and idle live teammates', () => {
+    const state = newMissionState()
+    const idle = snapshotOf([agent('a1', 'w1', 'idle')], null, NOW)
+    const candidates = (snap = idle) => buildMission({ stats: emptyStats('s', 3, 0), snap, state, nowMs: NOW, teamsEnabled: true, ready: true }).signals.cleanupCandidates
+    expect(candidates()).toEqual([]) // An idle worker with no observed tasks is not safe to close.
+    create(state, '1', 'build')
+    expect(candidates()).toEqual([])
+    noteTaskCall(state, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
+    expect(candidates()).toEqual([]) // Lead has not checked the result.
+    noteLeadBash(state)
+    expect(candidates()).toEqual(['w1'])
+    expect(candidates(snapshotOf([agent('a1', 'w1', 'running')], null, NOW))).toEqual([])
+    expect(candidates(snapshotOf(null, null, NOW))).toEqual([])
+    create(state, '2', 'still open')
+    expect(candidates()).toEqual([])
+  })
+
+  test('cleanup candidates exclude incomplete task histories', () => {
+    const state = newMissionState()
+    noteTaskCall(state, 'TaskUpdate', { taskId: '3', status: 'completed' }, { success: true })
+    const m = buildMission({ stats: emptyStats('s', 3, 0), snap: snapshotOf([agent('a1', 'w1', 'idle')], null, NOW), state, nowMs: NOW, teamsEnabled: true, ready: true })
+    expect(m.signals.cleanupCandidates).toEqual([])
   })
 
   test('the text answer and the status JSON carry the same facts', () => {

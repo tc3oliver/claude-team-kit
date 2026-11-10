@@ -120,7 +120,7 @@ first.
 A worker marking a task complete is native and is **not** verification: it unblocks dependents right away. The
 skill tells the lead to treat a "done" as unverified until it has run the task's verification command and read the
 result, to run the full suite once at the end, to close the final task only after that, and then to shut the
-workers down. In the illustration the last task belongs to the lead for exactly that reason.
+workers down. The lead must check the roster after shutdown requests: a request sent is not an exit. A new independent Goal starts with fresh teammates rather than reusing the previous Goal's idle ones; this is skill-guided, not enforced by the mod. In the illustration the last task belongs to the lead for exactly that reason.
 
 Nothing in code enforces this: no hook stops a task from being completed, and CTK does not use Claude Code's
 `TaskCompleted` hook to block. In the Run D frames (removed from the tree; `git show cbf785d:docs/DEMO.md`) the task count rose before the lead had run its own check, and
