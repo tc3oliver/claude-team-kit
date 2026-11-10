@@ -16,11 +16,9 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
 - Tool absent: the CTK mod is not active. Say the cap, band and stats are OFF and teams run unlimited; offer to go on.
 - `guard.state` is `error` or `unavailable` (`guard.why` says why): the cap is not confirmed. Say so in one
   line and ask before starting anyone; if they go on, say workers run without a confirmed limit.
-- `teamsEnabled` is false: spawn nothing. Tell the user the one-time setup: add
-  `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to settings.json, restart Claude Code. Edit it only if
-  they say yes (Edit tool, so they approve). `/ctk-doctor` shows readiness.
+- `teamsEnabled` is false: spawn nothing. Ask before adding `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to settings.json; restart Claude Code. `/ctk-doctor` shows readiness.
 - `teamsEnabled` null: say you cannot tell, then proceed. `guard.state` `available` or `active`: proceed.
-- For a new, independent Goal, do not inherit teammates from a previous Goal. Check the live roster before planning or spawning. If the old Goal was reviewed and has no open or unverified work, shut down its live teammates and confirm their exit as in `references/protocol.md`. If work is still open or its state is unknown, report the conflict; do not silently stop or reassign anyone. Explicitly continuing the same Goal may reuse its teammates.
+- For a new, independent Goal, do not inherit teammates. Check the live roster and follow `references/protocol.md` Goal boundaries; never silently stop or reuse a teammate with unfinished or unverified work.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior, and states spec/context
@@ -58,6 +56,5 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 
 ## 6. Close
 Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch.
-After requesting shutdown, call `ctk_team_status` and confirm each teammate is terminal (`completed`, `failed`, `killed`) or absent from the live roster. A `Shutdown request sent` result only confirms delivery. If a teammate is still live, recheck once; do not loop or claim it exited. If the roster cannot be read, report cleanup as unconfirmed. A later independent Goal must not reuse an unconfirmed teammate.
-If the Goal fails or is abandoned, preserve open task ownership and handoff before closing workers with no outstanding work; do not kill a busy owner. Report tasks, files changed, check results, and any workers still live.
+Follow `references/protocol.md` shutdown checks: confirm every worker exited via `ctk_team_status`, not just `Shutdown request sent`; never claim unknown exits. If the Goal fails or is abandoned, preserve open work and report any live workers.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.

@@ -57,7 +57,7 @@ say that those workers are not limited by CTK, and count them yourself.
 string is refused ("message text must not be a teammate protocol frame", seen live: five wasted calls before the object
 form). The result says `Shutdown request sent` when the request was accepted; **that is not confirmation of exit**.
 
-After sending each request, read `ctk_team_status` and match the original teammate (not just its name) against the live roster. Its status must be terminal (`completed`, `failed`, `killed`) or it must be absent. Recheck once if it is still live; never resend in a loop. If the status tool is unavailable or a teammate remains live, report that worker as unconfirmed and do not reuse it for another Goal. Never kill the underlying process or delete native team files as a workaround.
+After sending each request, read `ctk_team_status` and match the original teammate (not just its name) against the live roster. Its status must be terminal (`completed`, `failed`, `killed`) or it must be absent. Shutdown can lag while a tool call finishes: allow a turn for the response, then recheck once, without tight polling or repeated shutdown requests. If the status tool is unavailable or a teammate remains live, report that worker as unconfirmed and do not reuse it for another Goal. Never kill the underlying process or delete native team files as a workaround.
 
 ## Failures and retries
 
