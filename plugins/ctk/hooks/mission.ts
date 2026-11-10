@@ -62,7 +62,7 @@ export type MissionState = {
   files: Set<string>
   /** How many older paths were dropped to keep `files` bounded. */
   filesDropped: number
-  /** Ids a teammate marked completed that the lead has not checked since: the lead's main loop has run no Bash command after the completion. */
+  /** Completed teammate task ids awaiting explicit verification acknowledgement from the lead. */
   unverified: Set<string>
   /** Who wrote each path in `files`: `LEAD` or an agent id. Bounded with `files`. */
   writers: Map<string, Set<string>>
@@ -208,9 +208,6 @@ export const noteWorkerActive = (m: MissionState, agentId: string, now: number):
   w.idleSinceAt = null
 }
 
-/** The lead's main loop ran a command: whatever teammates completed before it has now been looked at. */
-export const noteLeadBash = (m: MissionState): void => m.unverified.clear()
-
 export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, now: number, usage?: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }): void => {
   if (agentId === undefined) return
   const w = m.workers.get(agentId)
@@ -221,14 +218,14 @@ export const noteWorkerTurnEnd = (m: MissionState, agentId: string | undefined, 
   w.usage = { input: u.input + usage.input_tokens, output: u.output + usage.output_tokens, cacheRead: u.cacheRead + usage.cache_read_input_tokens, cacheWrite: u.cacheWrite + usage.cache_creation_input_tokens }
 }
 
-/** TeammateIdle carries the teammate's name, not its agent id. */
-export const noteTeammateIdle = (m: MissionState, name: string, now: number): void => {
-  for (const w of m.workers.values()) {
-    if (w.name === name) {
-      w.idleSinceAt = now
-      w.lastActivityAt = now
-    }
-  }
+/** Prefer the agent id; a name-only idle notice cannot identify duplicate worker names. */
+export const noteTeammateIdle = (m: MissionState, name: string, now: number, agentId?: string): void => {
+  const matches = agentId === undefined
+    ? [...m.workers.values()].filter(w => w.name === name)
+    : [m.workers.get(agentId)].filter((w): w is WorkerRec => w !== undefined && w.name === name)
+  if (matches.length !== 1) return
+  matches[0]!.idleSinceAt = now
+  matches[0]!.lastActivityAt = now
 }
 
 const record = (v: unknown): Record<string, unknown> | null =>
@@ -270,6 +267,7 @@ export const noteTaskCall = (m: MissionState, tool: string, input: Record<string
   if (typeof input.status === 'string' && STATUSES.includes(input.status)) {
     rec.status = input.status as TaskStatus
     if (rec.status === 'completed' && agentId !== undefined) m.unverified.add(id)
+    else if (rec.status === 'completed' && out?.success === true) m.unverified.delete(id)
     else if (rec.status !== 'completed') m.unverified.delete(id)
   }
   const owner = text(input.owner)
@@ -356,7 +354,7 @@ export type TaskRow = {
   ready: boolean
   blocked: boolean
   seenByUpdateOnly: boolean
-  /** Completed by a teammate and not yet followed by a command from the lead. */
+  /** Completed by a teammate, but not yet explicitly acknowledged by the lead. */
   unverified: boolean
 }
 
@@ -493,7 +491,7 @@ export type Mission = {
   }
   workers: WorkerRow[]
   /** Display only: workers that look stuck, tasks that could start, teammates with nothing to do, and completions the lead has not checked. Nothing here assigns work. */
-  signals: { stalled: Stalled[]; ready: string[]; idleWorkers: string[]; cleanupCandidates: string[]; unverified: string[]; collisions: Collision[] }
+  signals: { stalled: Stalled[]; ready: string[]; idleWorkers: string[]; cleanupCandidates: { agentId: string; teammateId: string; name: string }[]; unverified: string[]; collisions: Collision[] }
   usage: {
     contextPct: string
     fiveHour: string
@@ -574,11 +572,11 @@ export let missionBuilds = 0
 
 /** Advisory only: observed tasks are complete and all live teammates are idle.
  * This does not establish that review finished or that unobserved work is safe to close. */
-const cleanupCandidatesOf = (m: MissionState, snap: Snapshot, rows: TaskRow[]): string[] => {
+const cleanupCandidatesOf = (m: MissionState, snap: Snapshot, rows: TaskRow[]): { agentId: string; teammateId: string; name: string }[] => {
   if (snap.live === null || !m.taskCallsSeen || rows.length === 0 ||
       rows.some(r => r.seenByUpdateOnly || r.status !== 'completed' || r.unverified) ||
       snap.workers.some(w => isLiveStatus(w.status) && w.status !== 'idle')) return []
-  return snap.workers.filter(w => w.status === 'idle').map(w => w.name)
+  return snap.workers.filter(w => w.status === 'idle').map(({ agentId, teammateId, name }) => ({ agentId, teammateId, name }))
 }
 
 const signalsFrom = (m: MissionState, snap: Snapshot, rows: TaskRow[], stalled: Stalled[]): Mission['signals'] => ({
@@ -815,8 +813,8 @@ export const missionText = (m: Mission): string => {
   if (m.empty.workers !== null) lines.push(`  note: ${m.empty.workers}`)
   if (m.empty.tasks !== null) lines.push(`  note: ${m.empty.tasks}`)
   for (const s of m.signals.stalled) lines.push(`  stalled:  ${s.name} - ${s.reason} for ${fmtSpan(s.forMs)}`)
-  if (m.signals.unverified.length > 0) lines.push(`  unverified: ${m.signals.unverified.map(i => `#${i}`).join(' ')} completed by a teammate, no command run by the lead since`)
-  if (m.signals.cleanupCandidates.length > 0) lines.push(`  cleanup:  ${m.signals.cleanupCandidates.join(', ')} idle after observed tasks; review before shutdown`)
+  if (m.signals.unverified.length > 0) lines.push(`  unverified: ${m.signals.unverified.map(i => `#${i}`).join(' ')} completed by a teammate, awaiting lead verification acknowledgement`)
+  if (m.signals.cleanupCandidates.length > 0) lines.push(`  cleanup:  ${m.signals.cleanupCandidates.map(w => `${w.name} (${w.agentId})`).join(', ')} idle after observed tasks; review before shutdown`)
   for (const w of m.workers) {
     lines.push(
       `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}${w.usage === null ? '' : `, tokens ${fmtTokens(w.usage)}`}`,

@@ -16,7 +16,6 @@ import {
   missionText,
   newMcState,
   newMissionState,
-  noteLeadBash,
   noteSpawn,
   noteTaskCall,
   noteTeammateIdle,
@@ -368,12 +367,37 @@ describe('mission model', () => {
     expect(candidates()).toEqual([])
     noteTaskCall(state, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
     expect(candidates()).toEqual([]) // Lead has not checked the result.
-    noteLeadBash(state)
-    expect(candidates()).toEqual(['w1'])
+    noteTaskCall(state, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true })
+    expect(candidates()).toEqual([{ agentId: 'a1', teammateId: 'w1@t', name: 'w1' }])
     expect(candidates(snapshotOf([agent('a1', 'w1', 'running')], null, NOW))).toEqual([])
     expect(candidates(snapshotOf(null, null, NOW))).toEqual([])
     create(state, '2', 'still open')
     expect(candidates()).toEqual([])
+  })
+
+  test('a failed or owner-only update cannot acknowledge a completed worker task', () => {
+    const m = newMissionState()
+    create(m, '1', 'build')
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true }, 'a1')
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: false })
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', owner: 'w1' }, { success: true })
+    expect(m.unverified.has('1')).toBe(true)
+    noteTaskCall(m, 'TaskUpdate', { taskId: '1', status: 'completed' }, { success: true })
+    expect(m.unverified.has('1')).toBe(false)
+  })
+
+  test('name-only idle events cannot overwrite another worker with the same name', () => {
+    const m = newMissionState()
+    noteSpawn(m, 'a1', 'w1', null, NOW - 6 * MIN)
+    noteSpawn(m, 'a2', 'w1', null, NOW - 2 * MIN)
+    noteTeammateIdle(m, 'w1', NOW - MIN)
+    expect(m.workers.get('a1')!.idleSinceAt).toBeNull()
+    expect(m.workers.get('a2')!.idleSinceAt).toBeNull()
+    noteTeammateIdle(m, 'w1', NOW - MIN, 'a2')
+    expect(m.workers.get('a1')!.idleSinceAt).toBeNull()
+    expect(m.workers.get('a2')!.idleSinceAt).toBe(NOW - MIN)
+    noteTeammateIdle(m, 'w1', NOW, 'unknown')
+    expect(m.workers.get('a2')!.idleSinceAt).toBe(NOW - MIN)
   })
 
   test('cleanup candidates exclude incomplete task histories', () => {

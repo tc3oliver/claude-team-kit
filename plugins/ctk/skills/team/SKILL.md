@@ -52,7 +52,7 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 - Reviewer `path:line` findings on a slice go by `SendMessage` to its live owner, not fixed by you: one fix round, then re-review. Owner exited or failed: reuse an idle `ctk:implementer` or spawn one, else fix it yourself. A re-review that still fails is the task's second failure (below).
 - A worker that reports done is unverified until you run its verify command and read the result. Failure, an
   error or silence: read the report, retry that task once; a second failure: stop, mark it blocked, do it
-  yourself or ask the user. Never loop on a refused spawn or a failing task.
+  yourself or ask the user. On success, acknowledge the worker's completed task with a lead `TaskUpdate` (`status: completed`); no arbitrary Bash call counts as verification. Never loop on a refused spawn or a failing task.
 
 ## 6. Close
 Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch.

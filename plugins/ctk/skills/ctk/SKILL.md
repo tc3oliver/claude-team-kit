@@ -12,7 +12,7 @@ first with ToolSearch (`select:mcp__ctk__ctk_team_status`). Then call it and ans
 `live`, `max`, `workers`, `rejected`, `accepted`, `cap`, `teamsEnabled`, `taskTools`, `guard`, `running`, `idle`, `cleanupCandidates`,
 `completed`, `failed`, `teamElapsedMs`, `subagents`, `explain`, `tasks`. `usage` (`contextPct`, `fiveHour`, `sevenDay`, `cost`,
 `toolCalls`, `model`) appears only when called with `includeUsage: true`.
-- `cleanupCandidates` is an advisory list of idle teammates after observed task completion, not proof review passed or permission to shut them down.
+- `cleanupCandidates` carries `agentId`, `teammateId`, and `name` for idle teammates after observed task completion; it is advisory, not proof review passed or permission to shut them down.
 - A field that is missing, null or "unavailable": say "unavailable". Never estimate or guess a number.
 - No workers or tasks: say `explain.workers` / `explain.tasks` in your own words. Agents counted in `subagents` are ordinary subagents, not teammates; never call them workers.
 - Usage questions (5h limit, weekly limit, cost): call with `includeUsage: true` and report only what `usage` contains. Never fetch it for plain progress questions or to pace the team.

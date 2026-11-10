@@ -45,4 +45,16 @@ describe('context the mod adds to a tool result', () => {
     const again: any = await call($, 'TaskUpdate', 'tu4', { taskId: '2', status: 'completed' })
     expect(again.context).toBeUndefined()
   })
+
+  test('unrelated Bash does not clear unverified; explicit lead completion does', async ($, on) => {
+    await team($, on)
+    await call($, 'TaskCreate', 'tc1', { subject: 'build' })
+    await call($, 'TaskUpdate', 'tu1', { agentId: 'a1', taskId: '1', status: 'completed' })
+    const status = async () => JSON.parse((await $.tool.call({ tool: 'mcp__ctk__ctk_team_status' })).result as string)
+    expect((await status()).unverified).toEqual(['1'])
+    await call($, 'Bash', 'bash1', { command: 'git status' })
+    expect((await status()).unverified).toEqual(['1'])
+    await call($, 'TaskUpdate', 'tu2', { taskId: '1', status: 'completed' })
+    expect((await status()).unverified).toEqual([])
+  })
 })
