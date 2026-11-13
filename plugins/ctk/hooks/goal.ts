@@ -22,9 +22,11 @@ export type GoalRecord = {
   unknownTasks: boolean
   verification: 'unknown' | 'acknowledged'
   review: 'unknown' | 'passed' | 'failed'
+  /** Closed by lead declaration without roster-confirmed cleanup. */
+  abandoned: boolean
 }
 export type GoalLedger = { next: number; current: GoalRecord | null }
-export type GoalAction = 'start' | 'verify' | 'review' | 'close' | 'status'
+export type GoalAction = 'start' | 'verify' | 'review' | 'close' | 'abandon' | 'status'
 export type GoalRequest = { action?: unknown; goalId?: unknown; result?: unknown }
 
 export const newGoalLedger = (): GoalLedger => ({ next: 0, current: null })
@@ -103,6 +105,7 @@ export const goalStatus = (ledger: GoalLedger, snap: Snapshot, mission: MissionS
     phase: g.phase,
     verification: g.verification,
     review: g.review,
+    abandoned: g.abandoned,
     taskIds: [...g.taskIds],
     unverifiedOrOpen: openTasks(g, mission),
     unknownTasks: g.unknownTasks,
@@ -121,7 +124,7 @@ const denied = (error: string, ledger: GoalLedger, snap: Snapshot, mission: Miss
 /** Explicit lead attestations only; no tool call here can close or terminate an Agent Team worker. */
 export const applyGoalAction = (ledger: GoalLedger, mission: MissionState, snap: Snapshot, input: GoalRequest) => {
   const action = input.action
-  if (!['start', 'verify', 'review', 'close', 'status'].includes(String(action))) return denied('invalid action', ledger, snap, mission)
+  if (!['start', 'verify', 'review', 'close', 'abandon', 'status'].includes(String(action))) return denied('invalid action', ledger, snap, mission)
   if (action === 'status') return { ok: true, goal: goalStatus(ledger, snap, mission) }
   if (snap.live === null) return denied('roster unavailable; ownership and cleanup cannot be confirmed', ledger, snap, mission)
 
@@ -134,7 +137,7 @@ export const applyGoalAction = (ledger: GoalLedger, mission: MissionState, snap:
       return denied('unresolved session tasks; do not assume they belong to the new goal', ledger, snap, mission)
     const goal: GoalRecord = {
       id: `goal-${++ledger.next}`, phase: 'active', workers: new Map(), taskIds: new Set(),
-      unknownTasks: false, verification: 'unknown', review: 'unknown',
+      unknownTasks: false, verification: 'unknown', review: 'unknown', abandoned: false,
     }
     ledger.current = goal
     return { ok: true, goal: goalStatus(ledger, snap, mission) }
@@ -143,6 +146,14 @@ export const applyGoalAction = (ledger: GoalLedger, mission: MissionState, snap:
   const g = ledger.current
   if (g === null || typeof input.goalId !== 'string' || input.goalId !== g.id)
     return denied('goalId required and must match the current goal', ledger, snap, mission)
+  // The escape hatch for a goal stuck in closing (e.g. a worker that never reached the roster).
+  // It stops nothing: start still refuses while any live worker or unresolved task remains.
+  if (action === 'abandon') {
+    if (g.phase === 'closed') return denied('goal is already closed', ledger, snap, mission)
+    g.phase = 'closed'
+    g.abandoned = true
+    return { ok: true, note: 'lead abandoned the goal; worker exits were not confirmed', goal: goalStatus(ledger, snap, mission) }
+  }
   if (g.phase !== 'active') return denied('goal is no longer active', ledger, snap, mission)
   if (g.unknownTasks || openTasks(g, mission).length > 0)
     return denied('unowned, incomplete or unacknowledged tasks; keep the goal open', ledger, snap, mission)

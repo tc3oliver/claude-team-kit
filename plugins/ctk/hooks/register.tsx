@@ -776,7 +776,7 @@ export const register: Register = (on, options) => {
         inputSchema: {
           type: 'object',
           properties: {
-            action: { type: 'string', enum: ['start', 'verify', 'review', 'close', 'status'] },
+            action: { type: 'string', enum: ['start', 'verify', 'review', 'close', 'abandon', 'status'] },
             goalId: { type: 'string' },
             result: { type: 'string', enum: ['passed', 'failed'] },
           },

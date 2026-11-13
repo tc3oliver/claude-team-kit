@@ -128,6 +128,22 @@ describe('goal ownership', () => {
     expect(goalStatus(ledger, snap(), mission)).toMatchObject({ phase: 'closing', unconfirmedWorkerIds: ['a1'] })
   })
 
+  test('abandon releases a goal stuck in closing but never bypasses live workers', () => {
+    const { ledger, mission } = empty()
+    start(ledger, mission)
+    noteGoalSpawn(ledger, 'a1', 'w1@team', 'w1')
+    applyGoalAction(ledger, mission, snap(), { action: 'verify', goalId: 'goal-1' })
+    applyGoalAction(ledger, mission, snap(), { action: 'review', goalId: 'goal-1', result: 'passed' })
+    applyGoalAction(ledger, mission, snap(), { action: 'close', goalId: 'goal-1' })
+    expect(applyGoalAction(ledger, mission, snap(), { action: 'abandon', goalId: 'other' }).ok).toBe(false)
+    expect(applyGoalAction(ledger, mission, snapshotOf(null, null, NOW), { action: 'abandon', goalId: 'goal-1' }).ok).toBe(false)
+    expect(applyGoalAction(ledger, mission, snap(), { action: 'abandon', goalId: 'goal-1' }))
+      .toMatchObject({ ok: true, goal: { phase: 'closed', abandoned: true, unconfirmedWorkerIds: ['a1'] } })
+    expect(applyGoalAction(ledger, mission, snap(), { action: 'abandon', goalId: 'goal-1' }).ok).toBe(false)
+    expect(start(ledger, mission, snap(worker('a1', 'w1', 'idle'))).ok).toBe(false)
+    expect(start(ledger, mission)).toMatchObject({ ok: true, goal: { id: 'goal-2', abandoned: false } })
+  })
+
   test('existing session tasks or unverified completions block new goal ownership', () => {
     const { ledger, mission } = empty()
     noteTaskCall(mission, 'TaskCreate', { subject: 'old' }, { task: { id: 'old', subject: 'old' } })
