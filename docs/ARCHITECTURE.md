@@ -530,9 +530,9 @@ Secret scanning is described in [THREAT-MODEL](THREAT-MODEL.md#secrets-handling)
 
 ## Design constraints
 
-- **Thin layer over native Agent Teams.** No phase state machine, no scheduler, no resident
-  processes. The only things CTK adds to a team are a cap, model routing by role, and
-  visibility.
+- **Thin layer over native Agent Teams.** No scheduler, process controller or resident
+  workers. CTK adds a cap, model routing, visibility, and an in-memory Goal ledger with
+  ownership and shutdown reconciliation; the native Team still runs and stops its agents.
 - **Fixed context stays small.** Descriptions are the always-on cost and are limited to 25
   words; skills use progressive disclosure; CI fails above 500 estimated tokens.
 - **Measured, not invented.** Anything shown as a figure comes from Claude Code or from a

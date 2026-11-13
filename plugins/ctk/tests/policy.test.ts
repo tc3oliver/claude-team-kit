@@ -242,7 +242,7 @@ describe('status tool and command', () => {
     const w = fresh()
     engine(on, w)
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
-    expect(w.registeredTools).toEqual(['ctk_team_status', 'ctk_config'])
+    expect(w.registeredTools).toEqual(['ctk_team_status', 'ctk_config', 'ctk_goal'])
     expect(w.registeredCommands).toEqual(['ctk-stats', 'ctk-doctor', 'ctk-mission', 'ctk-report'])
   })
 
@@ -302,7 +302,7 @@ describe('status tool result shape', () => {
     const r: any = await $.tool.call({ tool: STATUS_TOOL })
     expect(typeof r.result).toBe('string')
     expect(Object.keys(JSON.parse(r.result)).sort()).toEqual(
-      ['accepted', 'budgetStopped', 'cap', 'cleanupCandidates', 'collisions', 'completed', 'explain', 'failed', 'guard', 'idle', 'idleWorkers', 'live', 'max', 'outsideCap', 'ready', 'rejected', 'running', 'stalled', 'subagents', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'unverified', 'workers'],
+      ['accepted', 'budgetStopped', 'cap', 'cleanupCandidates', 'collisions', 'completed', 'explain', 'failed', 'goal', 'guard', 'idle', 'idleWorkers', 'live', 'max', 'outsideCap', 'ready', 'rejected', 'running', 'stalled', 'subagents', 'taskTools', 'tasks', 'teamElapsedMs', 'teamsEnabled', 'unverified', 'workers'],
     )
     const withUsage: any = await $.tool.call({ tool: STATUS_TOOL, includeUsage: true })
     expect(JSON.parse(withUsage.result)).toHaveProperty('usage.cost')

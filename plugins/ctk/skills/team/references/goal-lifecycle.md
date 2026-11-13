@@ -1,0 +1,15 @@
+# Goal lifecycle (when the CTK mod and `ctk_goal` are available)
+
+The goal ledger is session-local and advisory. It does not run verification, schedule work, send messages, or stop workers. All actions that change it are lead-only; a teammate cannot approve its own work.
+
+1. Before `TaskCreate` or spawning a new team, call `ctk_goal` with `{"action":"start"}`. Keep the returned `goal.id` for this Goal. If refused, inspect `ctk_team_status`; do **not** adopt or repurpose live workers of unknown ownership. A plugin reload or session resume loses the ledger; existing workers must be finished by native means before starting a tracked Goal.
+2. During the Goal, CTK links successful teammate spawns and observed TaskCreate calls to the active Goal. A task not created in that Goal, or a worker started without an active Goal, is **not** automatically adopted. If Task Tools are unavailable, use the numbered plan from `SKILL.md`; the ledger cannot observe its entries.
+3. Run each slice's verification command, inspect the results, integrate, run the full verification and `/ctk:review` **while the implementers are still live**. Return review findings for repairs before proceeding. A teammate's TaskUpdate(completed) needs a successful lead TaskUpdate(completed) acknowledgement as described in `protocol.md`.
+4. After successful checks, call `ctk_goal` with `{"action":"verify","goalId":"<id>"}`. It records **the lead's declaration**, not independent proof the tests passed. After a clean review call `{"action":"review","goalId":"<id>","result":"passed"}`; a failed review needs repairs and a new verification.
+5. Only after those acknowledgements, call `{"action":"close","goalId":"<id>"}`. An open/unverified task, ambiguous ownership, unavailable roster or busy worker refuses Close. Never infer safety from `cleanupCandidates` alone.
+6. If Close succeeds, it enters **closing** and returns `shutdownCandidates`, each with `agentId`, `teammateId`, `name`. Send the native `SendMessage` object `{"type":"shutdown_request"}` to those idle teammates, then call `ctk_goal` with `{"action":"status"}` or `ctk_team_status`. Only roster-confirmed exits produce **closed**. Never claim workers exited from the request acknowledgement alone.
+7. If a Goal cannot reach **closed** (for example a worker never appeared in the roster), call `{"action":"abandon","goalId":"<id>"}`. It closes the ledger entry with `abandoned: true` and stops nothing; `start` still refuses while any live worker or unresolved task remains. Say the Goal was abandoned, not completed.
+
+If the mod/tool is absent, follow `protocol.md`'s skill-guided shutdown and confirmation process without pretending Goal tracking is active. When Task Tools are missing, `ctk_goal` can still track workers and explicit lead attestations, but **cannot establish that unobserved tasks were completed**. Do not treat a declaration as automatic permission to kill a worker.
+
+The ledger is kept in memory; no data is added to the persistent stats file. Unknown/legacy workers remain unowned, and the cap still counts them until the native roster confirms they exited.

@@ -10,6 +10,8 @@ import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
 import type { Facts } from './doctor.ts'
 import { budgetDeny, budgetReached, capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, noteSample, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
 import type { PctSample, Snapshot } from './team.ts'
+import { applyGoalAction, goalStatus, newGoalLedger, noteGoalSpawn, noteGoalTask, noteGoalTaskUpdate, reconcileGoal, GOAL_TOOL_NAME } from './goal.ts'
+import type { GoalLedger } from './goal.ts'
 import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
 import type { PendingState } from './config.ts'
 import { displayWidth } from '../shared/hudline.ts'
@@ -90,6 +92,8 @@ type Ctx = {
   ambiguous: 1 | 2
   /** What Mission Control shows: workers, tasks and tool calls observed this session (memory only). */
   mission: MissionState
+  /** Observed goal/worker ownership. In memory only: reloads must not adopt unknown workers. */
+  goals: GoalLedger
   /** Which view the pane shows and the HUD form; session-local, never saved. */
   mc: McState
   /** Whether the Agent Teams flag is set; null until read. */
@@ -258,6 +262,7 @@ async function refresh($: EngineInterface, c: Ctx, write = true) {
     if (now > 0) c.lastNow = now
     const before = c.snap
     c.snap = snapshotOf(agents, usage, now)
+    reconcileGoal(c.goals, c.snap)
     // Not awaited: $.ui.notify runs the person's Notification hooks first, and a slow one must not hold a spawn or a turn.
     void announce($, [...teamNotices(before, c.snap, c.announced), ...(agents === null ? [] : stallNotices(stalledOf(c.mission, c.snap, c.lastNow), c.stallNoticed))])
     armStall($, c)
@@ -608,6 +613,7 @@ export const register: Register = (on, options) => {
     branch: null,
     ambiguous: 1,
     mission: newMissionState(),
+    goals: newGoalLedger(),
     mc: newMcState(),
     teamsEnabled: null,
     cfg: emptyPending(),
@@ -701,6 +707,7 @@ export const register: Register = (on, options) => {
         c.pending.set(started.teammateId, acceptedAt)
         // `teammateId.split('@')[0]` is always a string, so the name fallback needs no further `??`.
         noteSpawn(c.mission, started.agentId, e.name ?? started.teammateId.split('@')[0], started.model, acceptedAt)
+        noteGoalSpawn(c.goals, started.agentId, started.teammateId, e.name ?? started.teammateId.split('@')[0])
       }
       release()
       await refresh($, c)
@@ -761,6 +768,24 @@ export const register: Register = (on, options) => {
       })
     } catch {
       // Without the tool, options are changed with /plugin configure.
+    }
+    try {
+      await $.tool.register({
+        name: GOAL_TOOL_NAME,
+        description: 'Track Goal ownership and reconcile worker exits. No worker is stopped by this tool. Lead only for changes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', enum: ['start', 'verify', 'review', 'close', 'abandon', 'status'] },
+            goalId: { type: 'string' },
+            result: { type: 'string', enum: ['passed', 'failed'] },
+          },
+          required: ['action'],
+        },
+        isDeferred: true,
+      })
+    } catch {
+      // Without the goal tool the team skill still uses native lifecycle handling.
     }
     try {
       await $.command.register({ name: 'ctk-stats', description: 'Show CTK team stats for this session.' })
@@ -888,6 +913,14 @@ export const register: Register = (on, options) => {
         const taskId = (e as { taskId?: unknown }).taskId
         const wasOpen = typeof taskId === 'string' && c.mission.tasks.get(taskId)?.status !== 'completed'
         noteTaskCall(c.mission, e.tool, e as unknown as Record<string, unknown>, result, e.agentId)
+        if (r.isError !== true) {
+          const out = result as { task?: { id?: unknown }; success?: unknown } | null | undefined
+          if (e.tool === 'TaskCreate' && typeof out?.task?.id === 'string' && c.mission.tasks.has(out.task.id)) {
+            noteGoalTask(c.goals, out.task.id, e.agentId)
+          } else if (e.tool === 'TaskUpdate' && out?.success === true && typeof taskId === 'string') {
+            noteGoalTaskUpdate(c.goals, taskId, e.agentId)
+          }
+        }
         const failed = (result as { success?: unknown } | null | undefined)?.success === false
         const completes = (e as { status?: unknown }).status === 'completed' && wasOpen
         const left = e.agentId === undefined && e.tool === 'TaskUpdate' && completes && !failed && r.isError !== true ? uncheckedAtEnd(c.mission) : null
@@ -939,6 +972,15 @@ export const register: Register = (on, options) => {
     return next(e)
   }).catch(($, e, next) => next(e))
 
+  // Model-led lifecycle attestations. The mod cannot verify commands or terminate a teammate.
+  on('tool.call', { tool: 'mcp__ctk__ctk_goal' }, async ($, e, next) => {
+    await refresh($, c)
+    const action = (e as { action?: unknown }).action
+    if (e.agentId !== undefined && action !== 'status')
+      return { result: JSON.stringify({ ok: false, error: 'only the lead can change Goal state' }) }
+    return { result: JSON.stringify(applyGoalAction(c.goals, c.mission, c.snap, e)) }
+  }).catch(() => ({ result: JSON.stringify({ ok: false, error: 'Goal state unavailable; no action taken' }) }))
+
   // The matcher must be a literal for `claude plugin validate`; policy.test.ts ties it to STATUS_TOOL.
   on('tool.call', { tool: 'mcp__ctk__ctk_team_status' }, async ($, e, next) => {
     await refresh($, c)
@@ -953,6 +995,7 @@ export const register: Register = (on, options) => {
       cap: c.opts.maxWorkers,
       teamsEnabled: facts.teamsEnabled,
       taskTools: facts.taskTools,
+      goal: goalStatus(c.goals, c.snap, c.mission),
       ...missionJson(missionOf(c), (e as { includeUsage?: unknown }).includeUsage === true),
     }
     // Claude Code validates a registered tool's result as a string or an array of content

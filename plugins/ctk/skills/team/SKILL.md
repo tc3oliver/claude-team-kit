@@ -18,7 +18,7 @@ Call `ctk_team_status` if it exists, then branch (never imply a cap you have not
   line and ask before starting anyone; if they go on, say workers run without a confirmed limit.
 - `teamsEnabled` is false: spawn nothing. Ask before adding `{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}` to settings.json; restart Claude Code. `/ctk-doctor` shows readiness.
 - `teamsEnabled` null: say you cannot tell, then proceed. `guard.state` `available` or `active`: proceed.
-- For a new, independent Goal, do not inherit teammates. Check the live roster and follow `references/protocol.md` Goal boundaries; never silently stop or reuse a teammate with unfinished or unverified work.
+- For a new, independent Goal, do not inherit teammates. If `ctk_goal` exists, call `start` before tasks/spawns; obey refusal and read `references/goal-lifecycle.md`. Otherwise follow `references/protocol.md`; never reuse unowned workers.
 
 ## 2. Plan
 - Cut vertical slices: each delivers a working, independently verifiable behavior, and states spec/context
@@ -56,5 +56,5 @@ not started: no owner, slice stays pending, re-offer it when a slot frees. Detai
 
 ## 6. Close
 Integrate, run the full verification once, then `/ctk:review` while teammates are still live, so a finding reaches its owner. Then shut each down: `SendMessage` with `message` an object `{"type":"shutdown_request"}`, never a JSON string (refused). Findings after shutdown take §5's owner-exited branch.
-Follow `references/protocol.md` shutdown checks: confirm every worker exited via `ctk_team_status`, not just `Shutdown request sent`; never claim unknown exits. If the Goal fails or is abandoned, preserve open work and report any live workers.
+With `ctk_goal`, record `verify` and passed `review`, then call `close` BEFORE sending shutdown requests; if refused, do not shut down. Follow `references/goal-lifecycle.md` and `references/protocol.md`; confirm every worker exited via `ctk_team_status`, never from a request acknowledgement. On failure preserve open work and report live workers.
 Any task failed, blocked or unverified: say the goal is NOT complete and name it. If a BL task was explicitly supplied, apply the lead-only completion and recovery rules in `references/backlog.md`.
