@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.9] - 2026-11-13 (prerelease)
+
+### Added
+
+- `ctk_goal` (lead only): `start`, `verify`, `review`, `close`, `abandon` and `status` for one team goal at a time. Teammate spawns and observed `TaskCreate` calls are recorded against the active goal, and `close` is refused while a worker is busy, a task is open or unacknowledged, ownership is ambiguous or the roster cannot be read. It returns the workers to shut down and marks the goal closed only once they have left the roster. It never sends a shutdown or kills a worker, and the ledger is held in memory. `abandon` closes a goal whose worker never showed up in the roster.
+- `ctk explore enable|disable|status [--user]` (off by default): writes an override for Claude Code's built-in Explore agent so it runs on Haiku with read-only search tools. The file carries a hash of its own body, so a later release can tell an untouched file from an edited one; an edited file is reported as a conflict and left alone.
+- Workers shows each worker's cache writes beside its cache reads.
+- `ctk_team_status` lists `cleanupCandidates` (agent id, teammate id, name) when every observed task is complete and the live teammates are idle. Advisory only.
+- The team skill asks whether the work suits a team before cutting slices, and suggests a single session or subagent for overlapping, sequential or tightly coupled work. It warns and never refuses.
+
+### Changed
+
+- A teammate's completed task stays unverified until the lead marks the same task completed with `TaskUpdate` after checking it. Any Bash call used to clear the flag.
+- The team skill reuses idle teammates only within the current goal and checks the roster after shutting teammates down, reporting any that are still live.
+- Idle notices are matched to a teammate by agent id, or by a unique live roster match; ambiguous same-name histories are left untouched.
+
+### Fixed
+
+- A goal task removed with `TaskUpdate status=deleted` no longer blocks verify, review and close for the rest of the session.
+- Docs: option, skill and agent counts, install paths and other stale facts corrected. The shutdown filter added in 0.1.8 has no effect on Claude Code 2.1.319, because the `session.receive` hook is not raised for shutdown messages; the lead is still woken by them. The `task_assignment` echo filter was seen working in a live run.
+
 ## [0.1.8] - 2026-10-26 (prerelease)
 
 ### Fixed

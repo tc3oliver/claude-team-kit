@@ -1,53 +1,67 @@
-# Claude Team Kit 0.1.8 (prerelease)
+# Claude Team Kit 0.1.9 (prerelease)
 
-The lead stops rationing on its own, sees which teammates need attention, and is woken less for
-nothing. No new runtime dependencies (still only `zod`). The worker cap, model routing and sync
-behaviour are unchanged. Two new options, both off by default.
+The lead can tell which teammates belong to the current goal and whether they have really left, a
+teammate's "done" stays unverified until the lead checks it, and the built-in Explore can run on
+Haiku. No new runtime dependencies (still only `zod`). The worker cap, model routing and sync
+behaviour are unchanged. No new plugin options; the Explore override is a CLI command, off until you
+run it.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## The model no longer sees your quota
+## One goal at a time
 
-`ctk_team_status` used to return the 5h and weekly usage, reset times and cost on every call. In a
-long team run the lead read them and stopped opening workers to "wrap up", which nobody had asked for
-([#8](https://github.com/tc3oliver/claude-team-kit/issues/8)). The figures now come back only when
-`/ctk` is asked about usage. The band and Mission Control still show them to you.
+`ctk_goal` is a new lead-only tool: `start`, `verify`, `review`, `close`, `abandon`, `status`.
 
-If you do want a limit, set it yourself: `team.stopAtFiveHourPct` or `team.stopAtCostUsd` (0 is off).
-Past it, a new teammate spawn is refused with `TEAM_BUDGET_REACHED` and you get a notice. Workers that
-are already running carry on.
+- Teammates spawned and tasks created while a goal is active are recorded against it. Idle teammates
+  from an earlier goal are not treated as free capacity.
+- `close` is refused while a worker is busy, a task is open or not acknowledged, ownership is
+  ambiguous, or the roster cannot be read. It returns the workers to shut down, and the goal is
+  closed only once they have left the roster.
+- `abandon` closes a goal whose worker never appeared in the roster, so the next goal can start.
+- CTK still never sends a shutdown or kills a worker; you or the lead do that with Claude Code's own
+  messaging. The ledger lives in memory and is lost on a plugin reload.
 
-## Which teammate needs you
+`ctk_team_status` also lists `cleanupCandidates` once every observed task is complete and the live
+teammates are idle.
 
-- **Stalled**: a teammate with a task in progress and no tool call for 10 minutes, or three failed
-  calls in a row. It shows in the band and on Workers, and you get one notice per stall.
-- **`N ready · M idle`** in the band when there are tasks ready to start and teammates idle.
-- **Unverified**: a task a teammate marked done stays unverified until the lead runs a check.
-- **Collisions**: two live agents writing the same file are flagged, for information only.
-- **Tokens per teammate** on Workers. No price: Claude Code reports cost per session only.
-- The Usage page forecasts when the 5h limit is reached at the current pace.
+## "Done" means checked
 
-## Fewer wasted turns
+A task a teammate completes stays **unverified** until the lead marks the same task completed with
+`TaskUpdate` after checking it. In 0.1.8 any Bash call cleared the flag.
 
-- A teammate, or the lead, that claims a task no longer gets its own `task_assignment` back. That echo
-  used to wake it for a whole extra turn.
-- The lead is no longer woken by shutdown approvals, or by terminations that released no task.
-- The implementer does not load the Artifact and Workflow tools. It reports a test failure outside its
-  own files and finishes, instead of waiting on other workers. Reviewers report at most 8 findings.
-- `/ctk-report` adds a Friction line, and the prompt suggests `/ctk-report` when the team finishes.
+## Explore on Haiku (opt-in)
+
+`ctk explore enable` writes an override for Claude Code's built-in Explore agent so it runs on Haiku
+with read-only search tools; `ctk explore disable` removes it, `status` shows it, `--user` targets
+your user config instead of the project. In a live run the overridden Explore used Haiku with
+Grep and Glob only, while the stock one inherited Sonnet and used Bash. Whether answer quality holds
+up, and how much it saves, was not measured. An override you edited by hand is reported as a
+conflict and left alone.
 
 ## Also
 
-Notices also show as an in-terminal toast, `/ctk-doctor` shows the engine version, `ctk doctor`
-reports the mods check as unknown under WSL, and the team skill has preset recipes
-(`skills/team/references/presets.md`).
+- Workers shows each worker's cache writes beside its cache reads.
+- `/ctk:team` asks whether the work suits a team before slicing, and suggests a single session or
+  subagent for overlapping or tightly coupled work. It warns, never refuses.
+- A goal task deleted with `TaskUpdate` no longer blocks verify, review and close.
+- **Correction to 0.1.8:** the notes said the lead is no longer woken by shutdown approvals. On
+  Claude Code 2.1.319 the hook CTK uses is not raised for shutdown messages, so they still reach the
+  lead. The filter for a teammate's own `task_assignment` echo was seen working live.
+- Stale facts in the docs (option, skill and agent counts, install paths) corrected.
+
+## Not verified live
+
+The goal ledger, the stricter verification rule and the post-shutdown roster check (#13, #14) are
+covered by unit and plugin tests and CI, but have not been run in an interactive Agent Teams session.
+CI pins Claude Code 2.1.322, because 2.1.323 fails `plugin validate --strict` on `.ts` imports in
+hooks modules.
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.7 to 0.1.8 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.8 to 0.1.9 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
 If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
@@ -71,7 +85,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.7`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.8`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -110,8 +124,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.8` with the npm tarball attached. The earlier prereleases
-`v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.9` with the npm tarball attached. The earlier prereleases
+`v0.1.8`, `v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.8` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.9` does. `npm publish` stays a
 manual step after review.
