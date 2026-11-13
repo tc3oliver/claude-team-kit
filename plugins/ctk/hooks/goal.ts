@@ -60,7 +60,10 @@ export const noteGoalTaskUpdate = (ledger: GoalLedger, taskId: string, agentId?:
 }
 
 const openTasks = (goal: GoalRecord, mission: MissionState): string[] =>
-  [...goal.taskIds].filter(id => mission.tasks.get(id)?.status !== 'completed' || mission.unverified.has(id))
+  [...goal.taskIds].filter(id => {
+    const s = mission.tasks.get(id)?.status
+    return (s !== 'completed' && s !== 'deleted') || mission.unverified.has(id)
+  })
 
 /**
  * Readable roster observations only. A known terminal status confirms exit immediately; disappearance

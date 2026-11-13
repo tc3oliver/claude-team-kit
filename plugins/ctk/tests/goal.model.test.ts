@@ -67,6 +67,17 @@ describe('goal ownership', () => {
     expect(goalStatus(ledger, roster, mission)).toMatchObject({ verification: 'unknown', review: 'unknown', unverifiedOrOpen: ['1'] })
   })
 
+  test('a deleted goal task no longer blocks verification', () => {
+    const { ledger, mission } = empty()
+    start(ledger, mission)
+    noteTaskCall(mission, 'TaskCreate', { subject: 'build' }, { task: { id: '1', subject: 'build' } })
+    noteGoalTask(ledger, '1')
+    noteTaskCall(mission, 'TaskUpdate', { taskId: '1', status: 'deleted' }, { success: true })
+    noteGoalTaskUpdate(ledger, '1')
+    expect(goalStatus(ledger, snap(), mission)?.unverifiedOrOpen).toEqual([])
+    expect(applyGoalAction(ledger, mission, snap(), { action: 'verify', goalId: 'goal-1' }).ok).toBe(true)
+  })
+
   test('a worker from another goal or an unseen Task blocks attestation', () => {
     const { ledger, mission } = empty()
     start(ledger, mission)
