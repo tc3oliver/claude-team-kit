@@ -28,11 +28,13 @@ jobs:
           p=$(node -p "require('./plugins/ctk/.claude-plugin/plugin.json').version")
           test "$p" = "$v" || { echo "package $v, plugin $p: they must agree"; exit 1; }
       - name: The tag must equal the package and plugin version
+        id: version
         if: github.ref_type == 'tag'
         run: |
           v=$(node -p "require('./package.json').version")
           p=$(node -p "require('./plugins/ctk/.claude-plugin/plugin.json').version")
           test "$GITHUB_REF_NAME" = "v$v" && test "$p" = "$v" || { echo "tag $GITHUB_REF_NAME, package $v, plugin $p: they must agree"; exit 1; }
+          echo "v=$v" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
@@ -50,5 +52,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: '*.tgz'
+          name: Claude Team Kit ${{ steps.version.outputs.v }}
           body_path: RELEASE_NOTES.md
           prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}

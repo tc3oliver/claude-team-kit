@@ -11,7 +11,9 @@ npm run check
 ```
 
 `npm run check` runs the typecheck, the unit tests, `claude plugin test` and
-`claude plugin validate --strict`.
+`claude plugin validate --strict`. If validate rejects a CTK tool name that exists, a stale
+`plugins/ctk/.claude-plugin/types/claude-code-mcp/` snapshot (local, gitignored, written when the
+mod is saved) is out of date: delete it.
 
 `claude plugin test` must run against the real `claude` binary. Do not use the
 interactive `claude` alias, which adds `--dangerously-skip-permissions`. Call the

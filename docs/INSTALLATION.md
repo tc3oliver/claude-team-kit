@@ -209,8 +209,7 @@ and `extraKnownMarketplaces` objects in `settings.json`, and the mod's per-sessi
 
 The CLI is not needed for the plugin. It adds what a plugin cannot do:
 
-- **A status line.** A plugin may ship only `agent` and `subagentStatusLine` defaults, so it
-  cannot set `statusLine`. The CLI copies a status line script to a stable path and sets
+- **A status line.** A plugin cannot set `statusLine`. The CLI copies a status line script to a stable path and sets
   `statusLine` to it, if you have none.
 - **The Agent Teams flag**, written for you instead of by hand (and, if you ask, the task tools flag).
 - **Profiles and sync** between machines through a git repository you own.

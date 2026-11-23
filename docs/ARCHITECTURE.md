@@ -29,8 +29,7 @@ The npm package and the marketplace checkout carry the same plugin files, except
 leaves out `plugins/ctk/tests/**`, `plugins/ctk/statusline/test/**` and `plugins/ctk/tsconfig.json`
 (`test/packaging.test.ts` pins the list).
 
-A plugin cannot set `statusLine` (it may ship only `agent` and `subagentStatusLine`
-defaults), nor edit `settings.json`, so the status line and the Agent Teams flag are the two
+A plugin cannot set `statusLine` nor edit `settings.json`, so the status line and the Agent Teams flag are the two
 things only the CLI, or you by hand, can provide.
 
 ## Components

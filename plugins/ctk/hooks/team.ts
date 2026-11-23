@@ -63,7 +63,7 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
       agentId: a.id,
       status: a.status,
       effort: a.effort === undefined ? null : String(a.effort),
-      contextPct: a.contextWindowSize !== undefined && a.contextWindowSize > 0 && Number.isFinite(a.tokenCount) ? (a.tokenCount / a.contextWindowSize) * 100 : null,
+      contextPct: a.contextWindowSize !== undefined && a.contextWindowSize > 0 && Number.isFinite(a.tokenCount) ? Math.round((a.tokenCount / a.contextWindowSize) * 100) : null,
     })),
     subagents: agents.filter(a => a.teammateId === undefined).map(a => ({ agentId: a.id, type: a.type, description: a.description, status: a.status })),
     elapsedMs,
