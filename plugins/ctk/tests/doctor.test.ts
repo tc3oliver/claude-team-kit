@@ -2,11 +2,11 @@ import { describe, expect } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
-import { factsFrom, formatDoctor, TEAMS_FIX, TYPES_VERSION } from '../hooks/doctor.ts'
-import { DEFAULT_OPTIONS } from '../shared/policy.ts'
-import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, statusOf, test } from './world.ts'
-import type { EngineOptions, World } from './world.ts'
+import { factsFrom, formatDoctor, TEAMS_FIX, TYPES_VERSION } from '../hooks/doctor'
+import { DEFAULT_OPTIONS } from '../shared/policy'
+import { STATUS_TOOL } from '../hooks/team'
+import { engine, fresh, statusOf, test } from './world'
+import type { EngineOptions, World } from './world'
 
 const FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
 

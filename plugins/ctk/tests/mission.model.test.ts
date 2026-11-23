@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { AgentInfo } from 'claude-code'
+import { agentInfo } from './world'
 
-import { cacheHealth, formatBand } from '../hooks/band.ts'
+import { cacheHealth, formatBand } from '../hooks/band'
 
 import {
   BACK_KEY,
@@ -28,14 +29,14 @@ import {
   taskRows,
   viewKey,
   workerKey,
-} from '../hooks/mission.ts'
-import { emptySnapshot, isLiveStatus, snapshotOf } from '../hooks/team.ts'
-import { emptyStats } from '../shared/stats.ts'
+} from '../hooks/mission'
+import { emptySnapshot, isLiveStatus, snapshotOf } from '../hooks/team'
+import { emptyStats } from '../shared/stats'
 
 const NOW = Date.UTC(2026, 9, 9, 3)
 const MIN = 60_000
 
-const agent = (id: string, name: string, status: AgentInfo['status']): AgentInfo => ({ id, teammateId: `${name}@t`, description: '', type: 'teammate', status })
+const agent = (id: string, name: string, status: AgentInfo['status']): AgentInfo => agentInfo({ id, teammateId: `${name}@t`, description: '', type: 'teammate', status })
 
 const create = (m: ReturnType<typeof newMissionState>, id: string, subject: string) =>
   noteTaskCall(m, 'TaskCreate', { subject, description: 'SECRET detail' }, { task: { id, subject } })

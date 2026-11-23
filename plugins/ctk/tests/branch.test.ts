@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { parseHead, readBranch } from '../hooks/branch.ts'
+import { parseHead, readBranch } from '../hooks/branch'
 
 const files = (map: Record<string, string>) => async (path: string) => {
   const hit = map[path]

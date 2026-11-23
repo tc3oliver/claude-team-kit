@@ -1,8 +1,8 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID } from '../hooks/mission.ts'
-import { CONFIG_TOOL } from '../hooks/team.ts'
-import { engine, fresh, live, spawnInput, test } from './world.ts'
+import { MC_PANE_ID } from '../hooks/mission'
+import { CONFIG_TOOL } from '../hooks/team'
+import { engine, fresh, live, spawnInput, test } from './world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
@@ -11,6 +11,7 @@ const flat = (n: any): string =>
   typeof n === 'string' ? n : n.type === 'Button' ? `⟦${n.props.key}⟧${(n.children ?? []).map(flat).join('')}` : (n.children ?? []).map(flat).join(n.type === 'Box' ? ' ' : '')
 
 const pane = ($: any) => $.ui.mount({ plugin: 'ctk', surface: 'terminal', component: 'Pane', requestId: MC_PANE_ID, props: PANE })
+declare const setTimeout: (fn: (value: unknown) => void, ms: number) => unknown
 const ask = ($: any, input: object) => $.tool.call({ tool: CONFIG_TOOL, ...input })
 const answer = (r: any) => JSON.parse(r.result)
 

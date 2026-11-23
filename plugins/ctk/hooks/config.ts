@@ -1,5 +1,5 @@
-import { DEFAULT_OPTIONS, HUD_IDLE } from '../shared/policy.ts'
-import type { PolicyOptions } from '../shared/policy.ts'
+import { DEFAULT_OPTIONS, HUD_IDLE } from '../shared/policy'
+import type { PolicyOptions } from '../shared/policy'
 
 // Pure logic for changing CTK's own plugin options from the Mods API: what may be set, how a
 // requested value is checked, and the pending-change state machine behind the Confirm button.

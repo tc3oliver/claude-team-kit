@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import * as config from '../hooks/config.ts'
+import * as config from '../hooks/config'
 import {
   cancel,
   confirm,
@@ -13,10 +13,10 @@ import {
   propose,
   sweep,
   validateChange,
-} from '../hooks/config.ts'
-import type { Change, PendingState, ValidateOk } from '../hooks/config.ts'
-import { DEFAULT_OPTIONS, readOptions } from '../shared/policy.ts'
-import type { PolicyOptions } from '../shared/policy.ts'
+} from '../hooks/config'
+import type { Change, PendingState, ValidateOk } from '../hooks/config'
+import { DEFAULT_OPTIONS, readOptions } from '../shared/policy'
+import type { PolicyOptions } from '../shared/policy'
 
 const T0 = Date.UTC(2026, 9, 9, 3, 0, 0)
 const MIN = 60_000

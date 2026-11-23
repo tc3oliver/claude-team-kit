@@ -1,5 +1,5 @@
 import { describe, expect } from 'claude-code/testing'
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { engine, fresh, spawnInput, test } from './world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const GOAL = 'mcp__ctk__ctk_goal'
@@ -39,7 +39,7 @@ describe('goal tool integration', () => {
     await ask($, 'start')
     await $.agent.spawn(spawnInput(0, true, { name: 'w1' }))
     w.agents[0]!.status = 'idle'
-    await $.tool.call({ tool: 'TaskCreate', tool_use_id: 'tc1', subject: 'build' })
+    await $.tool.call({ tool: 'TaskCreate', tool_use_id: 'tc1', subject: 'build', description: '' })
     expect((await status($)).goal).toMatchObject({ taskIds: ['1'], unverifiedOrOpen: ['1'] })
     expect((await ask($, 'verify', { goalId: 'goal-1' })).ok).toBe(false)
     await $.tool.call({ tool: 'TaskUpdate', tool_use_id: 'tu1', agentId: 'a1', taskId: '1', status: 'completed' })

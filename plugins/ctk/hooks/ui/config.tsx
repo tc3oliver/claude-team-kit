@@ -1,10 +1,10 @@
-import { OPTION_GROUPS, groupOfLabel } from '../config.ts'
-import { cancelKey, confirmKey, guardWord } from '../mission.ts'
-import type { McState, Mission } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { hudButtons } from './hud.tsx'
-import { COLOR, guardColor } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { OPTION_GROUPS, groupOfLabel } from '../config'
+import { cancelKey, confirmKey, guardWord } from '../mission'
+import type { McState, Mission } from '../mission'
+import type { Ctx } from './ctx'
+import { hudButtons } from './hud'
+import { COLOR, guardColor } from './theme'
+import type { Extras, Kit } from './types'
 
 const TWO_COLUMNS = 90
 

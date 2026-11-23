@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID, OPEN_KEY } from '../hooks/mission.ts'
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { MC_PANE_ID, OPEN_KEY } from '../hooks/mission'
+import { engine, fresh, spawnInput, test } from './world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 
@@ -51,7 +51,7 @@ const team = async ($: any, on: any, extra: object = {}) => {
   await call($, 'TaskUpdate', 'tu2', { taskId: '3', addBlockedBy: ['1', '2'] })
   await call($, 'Read', 'r1', { agentId: 'a1' })
   await call($, 'Read', 'r2', { agentId: 'a1' })
-  await $.turn.complete({ answer: '', reason: 'answer', durationMs: 1 })
+  await $.turn.complete({ answer: '', reason: 'answer', durationMs: 1, isAborted: false, turnId: 't1' })
   return w
 }
 
@@ -87,8 +87,8 @@ describe('the band opens Mission Control', () => {
       return out
     }
     expect(await colourOf()).toEqual(['dim'])
-    w.usage!.context!.percent = 85
-    await $.turn.complete({ answer: '', reason: 'answer', durationMs: 1 })
+    ;(w.usage!.context as { percent: number }).percent = 85
+    await $.turn.complete({ answer: '', reason: 'answer', durationMs: 1, isAborted: false, turnId: 't1' })
     expect(await colourOf()).toEqual(['error'])
   })
 

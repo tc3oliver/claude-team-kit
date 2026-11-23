@@ -1,11 +1,11 @@
 import { describe, expect, mock } from 'claude-code/testing'
 import type { AgentInfo, On } from 'claude-code'
 
-import { BAND_MARGIN, bandParts, bandSegments, formatBand, formatSummary, fmtElapsed, modelLabel } from '../hooks/band.ts'
-import { test } from './world.ts'
-import { snapshotOf } from '../hooks/team.ts'
-import { displayWidth } from '../shared/hudline.ts'
-import { emptyStats } from '../shared/stats.ts'
+import { BAND_MARGIN, bandParts, bandSegments, formatBand, formatSummary, fmtElapsed, modelLabel } from '../hooks/band'
+import { agentInfo, test } from './world'
+import { snapshotOf } from '../hooks/team'
+import { displayWidth } from '../shared/hudline'
+import { emptyStats } from '../shared/stats'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -35,10 +35,10 @@ const USAGE = {
 }
 
 const AGENTS: AgentInfo[] = [
-  { id: 'a1', teammateId: 'w1@t', description: '', type: 'teammate', status: 'running' },
-  { id: 'a2', teammateId: 'w2@t', description: '', type: 'teammate', status: 'idle' },
-  { id: 'a3', teammateId: 'w3@t', description: '', type: 'teammate', status: 'completed' },
-  { id: 'a4', description: '', type: 'Explore', status: 'running' },
+  agentInfo({ id: 'a1', teammateId: 'w1@t', description: '', type: 'teammate', status: 'running' }),
+  agentInfo({ id: 'a2', teammateId: 'w2@t', description: '', type: 'teammate', status: 'idle' }),
+  agentInfo({ id: 'a3', teammateId: 'w3@t', description: '', type: 'teammate', status: 'completed' }),
+  agentInfo({ id: 'a4', description: '', type: 'Explore', status: 'running' }),
 ]
 
 const filled = () => {

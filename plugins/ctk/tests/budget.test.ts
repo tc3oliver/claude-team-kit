@@ -1,10 +1,10 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { budgetReached, forecastFull, noteSample } from '../hooks/team.ts'
-import type { PctSample } from '../hooks/team.ts'
-import { DEFAULT_OPTIONS } from '../shared/policy.ts'
-import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, spawnInput, statusOf, test } from './world.ts'
+import { budgetReached, forecastFull, noteSample } from '../hooks/team'
+import type { PctSample } from '../hooks/team'
+import { DEFAULT_OPTIONS } from '../shared/policy'
+import { STATUS_TOOL } from '../hooks/team'
+import { engine, fresh, spawnInput, statusOf, test } from './world'
 
 const MIN = 60_000
 

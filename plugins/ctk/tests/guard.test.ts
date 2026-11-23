@@ -1,8 +1,8 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { STATUS_TOOL, startsOutsideCap } from '../hooks/team.ts'
-import { parseStats } from '../shared/stats.ts'
-import { engine, fresh, spawnInput, statusOf, test } from './world.ts'
+import { STATUS_TOOL, startsOutsideCap } from '../hooks/team'
+import { parseStats } from '../shared/stats'
+import { agentInfo, engine, fresh, spawnInput, statusOf, test } from './world'
 
 // What the worker limit does and does not cover, and what the guard can honestly say about itself.
 // The facts under the first block were observed live on Claude Code 2.1.295 (docs/REVIEW.md): a named
@@ -126,7 +126,7 @@ describe('guard health is judged from evidence', () => {
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
     await $.agent.spawn(spawnInput(0))
     // Four teammates the guard never saw (started outside it) appear in the roster.
-    for (let i = 1; i < 4; i++) w.agents.push({ id: `x${i}`, teammateId: `late-${i}@session-test`, description: '', type: 'teammate', status: 'running' })
+    for (let i = 1; i < 4; i++) w.agents.push(agentInfo({ id: `x${i}`, teammateId: `late-${i}@session-test`, description: '', type: 'teammate', status: 'running' }))
     const g = await guard($)
     expect(g.state).toBe('error')
     expect(g.why).toMatch(/4 teammates are live, above the cap of 3/)

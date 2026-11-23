@@ -1,9 +1,9 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { formatReport, REPORT_FILES_MAX } from '../hooks/report.ts'
-import { MEMORY_LIMIT, newMissionState, noteFileChange } from '../hooks/mission.ts'
-import { emptyStats } from '../shared/stats.ts'
-import { engine, fresh, test } from './world.ts'
+import { formatReport, REPORT_FILES_MAX } from '../hooks/report'
+import { MEMORY_LIMIT, newMissionState, noteFileChange } from '../hooks/mission'
+import { emptyStats } from '../shared/stats'
+import { engine, fresh, test } from './world'
 
 const stats = () => ({ ...emptyStats('s', 3, 0), spawnsAccepted: 2, spawnsRejected: 1, toolCalls: 40, workerModels: { sonnet: 2 }, measured: { ...emptyStats('s', 3, 0).measured, costUsd: 1.5, model: 'opus' } })
 

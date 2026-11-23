@@ -1,9 +1,9 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { delayFor, FRAME_MS, HIGHLIGHT_MS, newMotionState, observe, reducedFrom } from '../../hooks/ui/motion.ts'
-import type { Mission } from '../../hooks/mission.ts'
-import { engine, fresh, spawnInput, test } from '../world.ts'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { delayFor, FRAME_MS, HIGHLIGHT_MS, newMotionState, observe, reducedFrom } from '../../hooks/ui/motion'
+import type { Mission } from '../../hooks/mission'
+import { engine, fresh, spawnInput, test } from '../world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }

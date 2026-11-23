@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { renderUsage } from '../../hooks/ui/usage.tsx'
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { engine, fresh, spawnInput, test as worldTest } from '../world.ts'
+import { createCtx } from '../../hooks/ui/ctx'
+import { renderUsage } from '../../hooks/ui/usage'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { engine, fresh, spawnInput, test as worldTest } from '../world'
 
-const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
+const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline' as const, scroll: { offset: 0, bodyRows: 16 }, view: {} }
 const flat = (n: any): string => (typeof n === 'string' ? n : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : ''))
 
 describe('usage view', () => {

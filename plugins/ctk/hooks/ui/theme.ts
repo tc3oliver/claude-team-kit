@@ -1,5 +1,5 @@
-import { pressureTone } from '../../shared/hudline.ts'
-import type { Mission } from '../mission.ts'
+import { pressureTone } from '../../shared/hudline'
+import type { Mission } from '../mission'
 
 // Semantic colours as Mods theme keys only: raw strings do not follow the person's theme, so they
 // would be unreadable on one of light and dark. The theme has no accent or muted key; `suggestion`

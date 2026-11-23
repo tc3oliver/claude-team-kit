@@ -1,6 +1,6 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { engine, fresh, live, spawnInput, test } from './world.ts'
+import { agentInfo, engine, fresh, live, spawnInput, test } from './world'
 
 const spawnSix = ($: any, from = 0, teammate = true) =>
   Promise.all(Array.from({ length: 6 }, (_, i) => $.agent.spawn(spawnInput(from + i, teammate))))
@@ -20,8 +20,8 @@ describe('teammate cap (default 3)', () => {
   test('2 already live + 6 concurrent: exactly 1 more starts', async ($, on) => {
     const w = fresh()
     w.agents.push(
-      { id: 'x1', teammateId: 'a@t', description: '', type: 'teammate', status: 'idle' },
-      { id: 'x2', teammateId: 'b@t', description: '', type: 'teammate', status: 'running' },
+      agentInfo({ id: 'x1', teammateId: 'a@t', description: '', type: 'teammate', status: 'idle' }),
+      agentInfo({ id: 'x2', teammateId: 'b@t', description: '', type: 'teammate', status: 'running' }),
     )
     engine(on, w)
     await spawnSix($)
@@ -32,9 +32,9 @@ describe('teammate cap (default 3)', () => {
   test('finished teammates free their slot; idle ones do not', async ($, on) => {
     const w = fresh()
     w.agents.push(
-      { id: 'x1', teammateId: 'a@t', description: '', type: 'teammate', status: 'completed' },
-      { id: 'x2', teammateId: 'b@t', description: '', type: 'teammate', status: 'killed' },
-      { id: 'x3', teammateId: 'c@t', description: '', type: 'teammate', status: 'idle' },
+      agentInfo({ id: 'x1', teammateId: 'a@t', description: '', type: 'teammate', status: 'completed' }),
+      agentInfo({ id: 'x2', teammateId: 'b@t', description: '', type: 'teammate', status: 'killed' }),
+      agentInfo({ id: 'x3', teammateId: 'c@t', description: '', type: 'teammate', status: 'idle' }),
     )
     engine(on, w)
     await spawnSix($)

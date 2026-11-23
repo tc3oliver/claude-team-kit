@@ -1,10 +1,10 @@
-import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline.ts'
-import type { StatsRecord } from '../shared/stats.ts'
-import { fmtModels } from '../shared/format.ts'
-import { cacheHealth, cacheText, modelLabel, spanText } from './band.ts'
-import type { CacheHealth, CacheUsage } from './band.ts'
-import { forecastFull, isLiveStatus } from './team.ts'
-import type { PctSample, Snapshot, Subagent, Worker } from './team.ts'
+import { DASH, fmtCountdown, fmtPct, resetMs } from '../shared/hudline'
+import type { StatsRecord } from '../shared/stats'
+import { fmtModels } from '../shared/format'
+import { cacheHealth, cacheText, modelLabel, spanText } from './band'
+import type { CacheHealth, CacheUsage } from './band'
+import { forecastFull, isLiveStatus } from './team'
+import type { PctSample, Snapshot, Subagent, Worker } from './team'
 
 // The data behind Mission Control: what CTK observed this session, and the view model built
 // from it. Pure: no host calls (those are in register.tsx). Everything here is held in memory

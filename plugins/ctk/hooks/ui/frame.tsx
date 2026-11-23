@@ -1,10 +1,10 @@
-import { BACK_KEY, CLOSE_KEY, MC_VIEWS, REFRESH_KEY, viewKey } from '../mission.ts'
-import type { McState, Mission } from '../mission.ts'
-import { BODY_ROWS } from './ctx.tsx'
-import type { Ctx } from './ctx.tsx'
-import { displayWidth } from '../../shared/hudline.ts'
-import { pillOf, pressureColor } from './theme.ts'
-import type { Kit } from './types.ts'
+import { BACK_KEY, CLOSE_KEY, MC_VIEWS, REFRESH_KEY, viewKey } from '../mission'
+import type { McState, Mission } from '../mission'
+import { BODY_ROWS } from './ctx'
+import type { Ctx } from './ctx'
+import { displayWidth } from '../../shared/hudline'
+import { pillOf, pressureColor } from './theme'
+import type { Kit } from './types'
 
 // Widths in cells. The hotkey button draws "1: " before its label (seen in real cells), so a tab is label + 3.
 const FOOT_FULL = 84

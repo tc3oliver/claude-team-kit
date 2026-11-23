@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { isNewToolCall, STATUS_TOOL, TOOL_SEEN_LIMIT } from '../hooks/team.ts'
-import { engine, fresh, norm, test } from './world.ts'
+import { isNewToolCall, STATUS_TOOL, TOOL_SEEN_LIMIT } from '../hooks/team'
+import { engine, fresh, norm, test } from './world'
 
 const STATS = '/cfg/ctk/stats/sess_1.json'
 const END = { reason: 'other', sessionId: 'sess/1' } as never

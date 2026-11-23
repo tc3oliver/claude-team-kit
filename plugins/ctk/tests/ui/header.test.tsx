@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { header } from '../../hooks/ui/frame.tsx'
-import { displayWidth } from '../../shared/hudline.ts'
+import { createCtx } from '../../hooks/ui/ctx'
+import { header } from '../../hooks/ui/frame'
+import { displayWidth } from '../../shared/hudline'
 
 const Pass = (p: any) => p.children
 const kit: any = { Box: Pass, Text: Pass, Button: Pass }

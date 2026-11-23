@@ -265,7 +265,7 @@ export const engine = (on: On, w: World, delay: (i: number) => number = () => 3,
     for (let k = 0; k < delay(n); k++) await Promise.resolve()
     const id = `a${n}`
     const teammateId = e.isTeammate ? `${e.name}@session-test` : undefined
-    w.agents.push({ id, teammateId, description: e.description, type: e.subagentType, status: 'running' })
+    w.agents.push(agentInfo({ id, teammateId, description: e.description, type: e.subagentType, status: 'running' }))
     if (teammateId !== undefined && opts.rosterLag !== undefined) w.lag.set(teammateId, opts.rosterLag)
     if (e.isTeammate) {
       w.started += 1
@@ -292,3 +292,6 @@ export const statusOf = (r: unknown): any => {
   if (!valid) throw new Error(`status tool result is not a string or content blocks: ${JSON.stringify(result)}`)
   return JSON.parse(typeof result === 'string' ? result : String((result as { text?: unknown }[])[0]?.text))
 }
+
+/** An AgentInfo from the fields a test cares about; the engine's newer fields (kind, label, ...) are not read here. */
+export const agentInfo = (a: { id: string; teammateId?: string | undefined; description: string; type: string; status: string }): AgentInfo => a as AgentInfo

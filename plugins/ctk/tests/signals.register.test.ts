@@ -1,6 +1,6 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { engine, fresh, spawnInput, test } from './world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 

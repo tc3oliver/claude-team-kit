@@ -547,7 +547,8 @@ Secret scanning is described in [THREAT-MODEL](THREAT-MODEL.md#secrets-handling)
 ## Contributor notes
 
 - TypeScript with `erasableSyntaxOnly` (no enums, parameter properties or namespaces);
-  relative imports use the `.ts` extension. Compiled output requires Node >= 22 (the `engines` field); tests run
+  relative imports use the `.ts` extension, except in `plugins/ctk/hooks` and `plugins/ctk/tests`, which import
+  extensionless because `claude plugin validate` rejects `.ts` there. Compiled output requires Node >= 22 (the `engines` field); tests run
   `.ts` files directly and need a Node that can strip types (CI uses 22 and 24; tests have been
   run on Node 22.19 and 24.21; Node 20 is not declared and not tested).
 - Tests use `node:test` and `node:assert/strict` in `test/**/*.test.ts`, with a temporary

@@ -1,10 +1,10 @@
-import { displayWidth, truncateToWidth } from '../../shared/hudline.ts'
-import { STATIC_MOTION } from './motion.ts'
-import type { Motion } from './motion.ts'
-import { padCells, wrapCells } from './text.ts'
-import { COLOR, dividerText, GLYPH, progressBar, statusColor } from './theme.ts'
-import type { Status, ThemeColor } from './theme.ts'
-import type { Kit } from './types.ts'
+import { displayWidth, truncateToWidth } from '../../shared/hudline'
+import { STATIC_MOTION } from './motion'
+import type { Motion } from './motion'
+import { padCells, wrapCells } from './text'
+import { COLOR, dividerText, GLYPH, progressBar, statusColor } from './theme'
+import type { Status, ThemeColor } from './theme'
+import type { Kit } from './types'
 
 /** Below this many cells of room the tables use their compact form. */
 export const TABLE_ROOM = 62
@@ -100,5 +100,5 @@ export const FRAME_ROWS = 5
  * The body's row budget. Inline the pane opens 16 rows high and must not push the prompt off screen, so it keeps
  * BODY_ROWS; docked, the engine reports the rows the pane may use and the body takes what the frame leaves.
  */
-export const bodyRowsFor = (props: { placement?: 'dock' | 'inline'; scroll?: { bodyRows: number } }): number =>
+export const bodyRowsFor = (props: { placement?: 'dock' | 'inline' | 'widget'; scroll?: { bodyRows: number } }): number =>
   props.placement === 'dock' && props.scroll !== undefined ? Math.max(BODY_ROWS, props.scroll.bodyRows - FRAME_ROWS) : BODY_ROWS

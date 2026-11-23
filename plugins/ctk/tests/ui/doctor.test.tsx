@@ -1,10 +1,10 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { renderDoctor } from '../../hooks/ui/doctor.tsx'
-import { parseDoctor } from '../../hooks/doctor.ts'
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { engine, fresh, test } from '../world.ts'
+import { createCtx } from '../../hooks/ui/ctx'
+import { renderDoctor } from '../../hooks/ui/doctor'
+import { parseDoctor } from '../../hooks/doctor'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { engine, fresh, test } from '../world'
 
 const PANE = (bodyColumns: number) => ({ title: 'CTK Mission Control', isFocused: true, bodyColumns, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} })
 const flat = (n: any): string => (typeof n === 'string' ? n : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : ''))

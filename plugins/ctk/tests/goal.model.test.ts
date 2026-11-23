@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { AgentInfo } from 'claude-code'
-import { applyGoalAction, goalStatus, newGoalLedger, noteGoalSpawn, noteGoalTask, noteGoalTaskUpdate, reconcileGoal } from '../hooks/goal.ts'
-import { newMissionState, noteTaskCall } from '../hooks/mission.ts'
-import { snapshotOf } from '../hooks/team.ts'
+import { agentInfo } from './world'
+import { applyGoalAction, goalStatus, newGoalLedger, noteGoalSpawn, noteGoalTask, noteGoalTaskUpdate, reconcileGoal } from '../hooks/goal'
+import { newMissionState, noteTaskCall } from '../hooks/mission'
+import { snapshotOf } from '../hooks/team'
 
 const NOW = 100_000
 const worker = (id: string, name: string, status: AgentInfo['status']): AgentInfo =>
-  ({ id, teammateId: `${name}@team`, description: '', type: 'teammate', status })
+  agentInfo({ id, teammateId: `${name}@team`, description: '', type: 'teammate', status })
 const snap = (...workers: AgentInfo[]) => snapshotOf(workers, null, NOW)
 const empty = () => ({ ledger: newGoalLedger(), mission: newMissionState() })
 const start = (ledger: ReturnType<typeof newGoalLedger>, mission: ReturnType<typeof newMissionState>, roster = snap()) =>

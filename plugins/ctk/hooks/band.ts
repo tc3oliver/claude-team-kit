@@ -1,8 +1,8 @@
-import { DASH, fmtModels, pct, usd } from '../shared/format.ts'
-import { fmtCountdown, fmtPct, layoutItems, layoutLine, pressureTone, resetMs, SEP, truncateToWidth, usageSegment } from '../shared/hudline.ts'
-import type { Segment } from '../shared/hudline.ts'
-import type { StatsRecord } from '../shared/stats.ts'
-import type { Snapshot } from './team.ts'
+import { DASH, fmtModels, pct, usd } from '../shared/format'
+import { fmtCountdown, fmtPct, layoutItems, layoutLine, pressureTone, resetMs, SEP, truncateToWidth, usageSegment } from '../shared/hudline'
+import type { Segment } from '../shared/hudline'
+import type { StatsRecord } from '../shared/stats'
+import type { Snapshot } from './team'
 
 /** The last API response's prompt-cache figures (a ModelUsage subset), read from local session data only. */
 export type CacheUsage = { input_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }

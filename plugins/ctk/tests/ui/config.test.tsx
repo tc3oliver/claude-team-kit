@@ -1,8 +1,8 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { CONFIG_TOOL } from '../../hooks/team.ts'
-import { engine, fresh, test } from '../world.ts'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { CONFIG_TOOL } from '../../hooks/team'
+import { engine, fresh, test } from '../world'
 
 const flat = (n: any): string =>
   typeof n === 'string' ? n : n.type === 'Button' ? `⟦${n.props.key}⟧${(n.children ?? []).map(flat).join('')}` : (n.children ?? []).map(flat).join(n.type === 'Box' ? '\n' : '')

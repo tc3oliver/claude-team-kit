@@ -1,8 +1,8 @@
 import type { AgentInfo, AgentSpawnInput, SessionUsage } from 'claude-code'
 
-import { AGENT_TYPES, BUDGET_CODE, CAPACITY_CODE, modelFor, ROLES } from '../shared/policy.ts'
-import type { PolicyOptions, Role } from '../shared/policy.ts'
-import type { StatsRecord } from '../shared/stats.ts'
+import { AGENT_TYPES, BUDGET_CODE, CAPACITY_CODE, modelFor, ROLES } from '../shared/policy'
+import type { PolicyOptions, Role } from '../shared/policy'
+import type { StatsRecord } from '../shared/stats'
 
 // Pure team logic: no host calls here. Everything that needs `$` lives in register.tsx.
 

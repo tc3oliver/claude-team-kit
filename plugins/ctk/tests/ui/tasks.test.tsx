@@ -1,9 +1,9 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { moreHint, TASK_ROWS } from '../../hooks/ui/tasks.tsx'
-import { displayWidth } from '../../shared/hudline.ts'
-import { engine, fresh, test } from '../world.ts'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { moreHint, TASK_ROWS } from '../../hooks/ui/tasks'
+import { displayWidth } from '../../shared/hudline'
+import { engine, fresh, test } from '../world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const pane = ($: any, cols = 100) =>

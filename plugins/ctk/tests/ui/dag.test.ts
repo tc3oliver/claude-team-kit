@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { displayWidth } from '../../shared/hudline.ts'
-import type { TaskRow } from '../../hooks/mission.ts'
-import { layoutDag } from '../../hooks/ui/dag.ts'
+import { displayWidth } from '../../shared/hudline'
+import type { TaskRow } from '../../hooks/mission'
+import { layoutDag } from '../../hooks/ui/dag'
 
 type Spec = [id: string, by: string[], status?: TaskRow['status']]
 
@@ -21,6 +21,7 @@ const rows = (specs: Spec[], title = ''): TaskRow[] =>
       ready: status === 'pending' && open.length === 0,
       blocked: (status === 'pending' || status === 'in_progress') && open.length > 0,
       seenByUpdateOnly: false,
+      unverified: false,
     }
   })
 
