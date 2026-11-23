@@ -8,10 +8,16 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same PR makes the older run moot; main keeps every run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -34,6 +40,7 @@ jobs:
     # claude plugin validate/test need the Claude Code binary but no login and no network at test time.
     name: plugin (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -50,12 +57,16 @@ jobs:
       - run: claude plugin validate plugins/ctk --strict
       - run: claude plugin validate . --strict
       - run: claude plugin test plugins/ctk
+      # The test job has no claude, so these skip there; here they drive the real binary against a throwaway config.
+      # On Windows they skip themselves (spawnSync cannot run the npm claude.cmd shim).
+      - run: node --test test/install.integration.test.ts test/native-install.integration.test.ts
       - name: Always-on context budget
         run: node scripts/measure-context.mjs 500
 
   pack:
     name: pack
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -63,8 +74,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run build
-      - run: npm pack --dry-run
+      # prepack runs the build, so this one dry run builds once and lists the files.
       - name: No generated or local files in the tarball
         run: |
           npm pack --dry-run --json > pack.json
