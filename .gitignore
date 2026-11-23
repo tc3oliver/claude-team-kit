@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.tgz
 .omc/
+.claude/worktrees/
 .DS_Store
 plugins/ctk/.claude-plugin/types/
 plugins/ctk/tsconfig.json

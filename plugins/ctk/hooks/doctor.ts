@@ -6,7 +6,7 @@ import type { PolicyOptions } from '../shared/policy'
 
 export const TEAMS_FLAG = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
 /** The Claude Code version the bundled API types were written by (first line of .claude-plugin/types/claude-code/index.d.ts). */
-export const TYPES_VERSION = '2.1.295'
+export const TYPES_VERSION = '2.1.330'
 
 export const TEAMS_FIX = `Add {"env":{"${TEAMS_FLAG}":"1"}} to ~/.claude/settings.json, then restart Claude Code.`
 

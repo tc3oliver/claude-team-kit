@@ -15,8 +15,9 @@ this file lists only what goes wrong most often.
 
 - Plugin tests import `claude-code/testing` and load only under `claude plugin test`; `node --test`
   cannot run them. The root typecheck does not cover the plugin either. `tsc -p plugins/ctk`
-  (needs the generated types) reports errors already on `main` from type drift: compare its
-  error list before and after your change instead of expecting it clean.
+  (needs the generated types) is clean on `main`; `claude plugin validate --strict` type-checks the
+  hooks too. A stale `plugins/ctk/.claude-plugin/types/claude-code-mcp/` snapshot (local, gitignored)
+  can make validate reject a tool name: delete it, it is written again.
 - Call the real `claude` binary by absolute path, not a shell alias or wrapper.
 
 ## Pitfalls
