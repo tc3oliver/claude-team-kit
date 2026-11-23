@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { displayWidth, fmtCountdown, render, resetMs, STATUS_LINE_MARGIN, tierOf, truncateToWidth } from '../ctk-statusline.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../ctk-statusline.mjs', import.meta.url))
@@ -300,6 +300,23 @@ test('hostile repo config (filter driver) skips the dirty marker', t => {
   git(dir, 'config', 'filter.x.clean', `touch ${marker}; cat`)
   writeFileSync(join(dir, '.gitattributes'), 'a.txt filter=x\n')
   writeFileSync(join(dir, 'a.txt'), 'changed\n')
+  assert.ok(at(withDir(dir), wide).endsWith(' │ main'))
+  assert.equal(existsSync(marker), false)
+})
+
+test('hostile upload-pack in a partial clone never runs through a lazy fetch', t => {
+  const src = makeRepo(t)
+  git(src, 'config', 'uploadpack.allowFilter', 'true')
+  const dir = join(tempDir(t, 'ctk-sl-partial-'), 'dst')
+  git(src, '-c', 'protocol.file.allow=always', 'clone', '-q', '--no-checkout', '--filter=blob:none', pathToFileURL(src).href, dir)
+  // Index renames a missing blob, so status's rename detection would fetch it.
+  git(dir, 'read-tree', 'HEAD')
+  git(dir, 'rm', '-q', '--cached', 'a.txt')
+  writeFileSync(join(dir, 'b.txt'), 'x\n')
+  git(dir, 'add', 'b.txt')
+  const marker = join(tempDir(t, 'ctk-sl-marker-'), 'PWNED')
+  git(dir, 'config', 'remote.origin.uploadpack', `touch ${marker}; git-upload-pack`)
+  git(dir, 'config', 'protocol.file.allow', 'always')
   assert.ok(at(withDir(dir), wide).endsWith(' │ main'))
   assert.equal(existsSync(marker), false)
 })

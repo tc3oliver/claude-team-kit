@@ -206,10 +206,11 @@ from the package; its hash is in the ledger, `ctk update` replaces it only if th
 changed, and a copy you edited yourself is never overwritten (reported as a conflict).
 
 A repository's own git config can make `git status` run commands (an fsmonitor hook, filters,
-hooks, pagers, aliases, credential helpers). Because a status line runs on every refresh in
+hooks, pagers, aliases, credential helpers, and in a partial clone the remote's `uploadpack`
+command, which a lazy fetch of a missing blob runs). Because a status line runs on every refresh in
 whatever directory you open, the script reads the repository's config first and skips the
 dirty marker if any such setting is present. When it does run `git status`, it passes
-`core.fsmonitor=false` and an empty `core.hooksPath`, removes the inherited `GIT_DIR`,
+`core.fsmonitor=false` and an empty `core.hooksPath`, sets `GIT_NO_LAZY_FETCH=1`, removes the inherited `GIT_DIR`,
 `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_EXTERNAL_DIFF` variables, and ignores submodules.
 The system and global git config are the user's own and are honoured (Git for Windows sets
 `core.autocrlf=true` in the system config, and ignoring it made every clean repository look

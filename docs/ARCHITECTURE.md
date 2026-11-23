@@ -361,8 +361,9 @@ the script prints one line such as `Opus 5.5 │ Ctx 42% │ 5h 24% (2h34m) │ 
 It reads only that JSON, `.git/HEAD` for the branch (and the repository's git config files),
 and runs one `git status --porcelain -uno` (250 ms timeout) for the dirty marker. A repository's
 own config can make git run commands (`core.fsmonitor`, filters, hooks, pagers, aliases,
-credential helpers and similar); if the script sees any of those, it skips the dirty marker and
-still shows the branch. The git call also runs with `core.fsmonitor=false`, no `hooksPath`, and
+credential helpers, a partial clone's `uploadpack` or `promisor` remote and similar); if the script sees any of those, it skips the dirty marker and
+still shows the branch. The git call also runs with `core.fsmonitor=false`, no `hooksPath`,
+`GIT_NO_LAZY_FETCH=1` (so a partial clone never fetches a missing blob), and
 without the inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_EXTERNAL_DIFF`
 variables. System and global git config are honoured (Git for Windows ships `core.autocrlf=true`
 in the system config); only repo-local config is distrusted. Control characters are stripped from
