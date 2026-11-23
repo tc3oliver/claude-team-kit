@@ -154,4 +154,10 @@ describe('ctk-doctor engine row', () => {
     expect(rowFor('2.2.0')).toContain('minor version differs')
     expect(rowFor(null)).toContain('version not readable')
   })
+
+  test('shows CTK\'s own version when it was read', async () => {
+    const lines = (ctk: string | null) => formatDoctor({ ...factsFrom({ opts: DEFAULT_OPTIONS, envFlag: null, settings: null, toolNames: null }), ctk }).split('\n')
+    expect(row(lines('0.1.10'), 'ctk')).toBe('[info]   ctk: 0.1.10')
+    expect(row(lines(null), 'ctk')).toBe('[info]   ctk: version not readable')
+  })
 })

@@ -331,17 +331,18 @@ async function liveTeammates($: EngineInterface, c: Ctx): Promise<number> {
 // What the readiness report and the status tool's preflight fields rest on. Each read
 // degrades to null on failure; nothing is written.
 async function gatherFacts($: EngineInterface, c: Ctx): Promise<Facts> {
-  const [value, settings, tools, engine] = await Promise.all([
+  const [value, settings, tools, engine, ctk] = await Promise.all([
     $.env.get('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS').then(value => ({ value }), () => null),
     $.settings.read().catch(() => null),
     $.tool.list().catch(() => null),
     // Added after the bundled types (2.1.295): an older build rejects, and the row says so.
     Promise.resolve().then(() => $.session.version()).then(v => v.version, () => null),
+    $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(t => { const v: unknown = JSON.parse(t).version; return typeof v === 'string' ? v : null }, () => null).catch(() => null),
   ])
   const base = factsFrom({ opts: c.opts, envFlag: value, settings, toolNames: tools === null ? null : tools.map(t => t.name) })
   // The guard is judged from what this session saw, with the flag read just now; callers refresh the roster first.
   const guard = guardOf(c.stats, c.snap, base.teamsEnabled, c.ready)
-  return { ...base, guard: { state: guard.state, why: guard.why }, outsideCap: c.stats.spawnsOutsideCap, engine }
+  return { ...base, guard: { state: guard.state, why: guard.why }, outsideCap: c.stats.spawnsOutsideCap, engine, ctk }
 }
 
 // A session.start that fires again (enable, worker respawn, reload) continues this

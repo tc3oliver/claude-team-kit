@@ -26,6 +26,8 @@ const ALLOWED = new Set([
   'fs.list',
   'fs.read',
   'fs.write',
+  // A property, not a call: the plugin's own directory, for /ctk-doctor to read its plugin.json version.
+  'plugin.root',
   // Once per team run, when every teammate has finished: the dim prompt suggestion `/ctk-report` (the person presses Tab; nothing is sent).
   'prompt.suggest',
   'session.cwd',
