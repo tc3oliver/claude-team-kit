@@ -915,7 +915,7 @@ export const register: Register = (on, options) => {
           if (e.tool === 'TaskCreate' && typeof out?.task?.id === 'string' && c.mission.tasks.has(out.task.id)) {
             noteGoalTask(c.goals, out.task.id, e.agentId)
           } else if (e.tool === 'TaskUpdate' && out?.success === true && typeof taskId === 'string') {
-            noteGoalTaskUpdate(c.goals, taskId, e.agentId)
+            noteGoalTaskUpdate(c.goals, taskId, e.agentId, (e as { status?: unknown }).status)
           }
         }
         const failed = (result as { success?: unknown } | null | undefined)?.success === false

@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- `ctk_goal`: a lead that deleted or completed a task from before the goal (cleaning up an earlier team's list) marked the goal's tasks as of unknown origin for good, so `verify`, `review` and `close` were refused after every goal task was done and only `abandon` got out. That cleanup is now ignored; any other change to a task outside the goal, or a change by a worker the goal does not own, still blocks attestation.
+
 ## [0.1.11] - 2026-11-23 (prerelease)
 
 ### Added
