@@ -97,3 +97,12 @@ test('new goals do not inherit old workers and shutdown requires a roster check'
   assert.match(protocol, /not confirmation of exit/)
   assert.match(protocol, /unreadable roster is not proof/)
 })
+
+test('several BL tasks run in parallel only on request, never on overlapping files, and close one by one', () => {
+  const backlog = read('skills/team/references/backlog.md')
+  assert.match(read('skills/team/SKILL.md'), /names one or more `BL-<16-hex>` tasks/)
+  assert.match(backlog, /## Several BL tasks \(explicit request only\)/)
+  assert.match(backlog, /overlap do not run at once: order them with `addBlockedBy`/)
+  assert.match(backlog, /One passing never closes another/)
+  assert.match(backlog, /never a wider set/)
+})

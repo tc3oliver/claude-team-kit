@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- A team can take several Backlog `BL-` tasks at once when the user names them or asks to run the ready queue: each task keeps its own file scope, tasks with overlapping files are ordered with `addBlockedBy`, and each closes on its own verified evidence.
 - `/ctk-doctor` shows CTK's own version (`ctk: 0.1.10`), read from its `plugin.json`, so an update can be confirmed there.
 
 ## [0.1.10] - 2026-11-23 (prerelease)
