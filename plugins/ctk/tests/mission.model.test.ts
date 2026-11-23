@@ -29,6 +29,7 @@ import {
   taskRows,
   viewKey,
   workerKey,
+  workerRows,
 } from '../hooks/mission'
 import { emptySnapshot, isLiveStatus, snapshotOf } from '../hooks/team'
 import { emptyStats } from '../shared/stats'
@@ -471,5 +472,19 @@ describe('cache health', () => {
     const cold = cacheHealth({ input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 90 })
     expect(cold?.state).toBe('cold')
     expect(formatBand(emptyStats('s', 3, 0), emptySnapshot(), 200, { cache: cold })).toContain('Cache cold')
+  })
+})
+
+describe('worker effort and context from the roster', () => {
+  const row = (extra: object) =>
+    workerRows(newMissionState(), snapshotOf([agentInfo({ id: 'a1', teammateId: 'w1@t', description: '', type: 'teammate', status: 'running', ...extra })], null, NOW), NOW)[0]!
+  test('context is tokenCount over the window; effort is the level or number', () => {
+    expect(row({ effort: 'xhigh', tokenCount: 50_000, contextWindowSize: 200_000 })).toMatchObject({ effort: 'xhigh', contextPct: 25 })
+    expect(row({ effort: 4096 }).effort).toBe('4096')
+  })
+  test('a missing or zero window is unknown, not 0%', () => {
+    expect(row({ tokenCount: 5 }).contextPct).toBeNull()
+    expect(row({ tokenCount: 5, contextWindowSize: 0 }).contextPct).toBeNull()
+    expect(row({}).effort).toBeNull()
   })
 })

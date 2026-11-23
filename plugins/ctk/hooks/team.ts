@@ -23,7 +23,8 @@ const BUSY = new Set(['pending', 'running', 'waiting'])
 
 export const isLiveTeammate = (a: AgentInfo): boolean => a.teammateId !== undefined && isLiveStatus(a.status)
 
-export type Worker = { name: string; teammateId: string; agentId: string; status: string }
+/** `effort` is the level or number the roster reports; `contextPct` is tokenCount over contextWindowSize, null unless both are reported and the window is positive. */
+export type Worker = { name: string; teammateId: string; agentId: string; status: string; effort: string | null; contextPct: number | null }
 
 /** An agent the roster lists without a teammate address: an ordinary subagent, which the cap neither counts nor limits. */
 export type Subagent = { agentId: string; type: string; description: string; status: string }
@@ -61,6 +62,8 @@ export const snapshotOf = (agents: AgentInfo[] | null, usage: SessionUsage | nul
       teammateId: a.teammateId as string,
       agentId: a.id,
       status: a.status,
+      effort: a.effort === undefined ? null : String(a.effort),
+      contextPct: a.contextWindowSize !== undefined && a.contextWindowSize > 0 && Number.isFinite(a.tokenCount) ? (a.tokenCount / a.contextWindowSize) * 100 : null,
     })),
     subagents: agents.filter(a => a.teammateId === undefined).map(a => ({ agentId: a.id, type: a.type, description: a.description, status: a.status })),
     elapsedMs,

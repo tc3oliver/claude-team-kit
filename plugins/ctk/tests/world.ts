@@ -293,5 +293,16 @@ export const statusOf = (r: unknown): any => {
   return JSON.parse(typeof result === 'string' ? result : String((result as { text?: unknown }[])[0]?.text))
 }
 
-/** An AgentInfo from the fields a test cares about; the engine's newer fields (kind, label, ...) are not read here. */
-export const agentInfo = (a: { id: string; teammateId?: string | undefined; description: string; type: string; status: string }): AgentInfo => a as AgentInfo
+/** An AgentInfo from the fields a test cares about; the required fields the roster always reports get plain defaults. */
+export const agentInfo = (a: Pick<AgentInfo, 'id' | 'description' | 'type'> & Partial<Omit<AgentInfo, 'status'>> & { status: string }): AgentInfo => ({
+  kind: 'local_agent',
+  taskStatus: 'running',
+  label: '',
+  startTime: 0,
+  cwd: '/w',
+  tokenCount: 0,
+  tokenSamples: [],
+  hasRow: false,
+  ...a,
+  status: a.status as AgentInfo['status'], // callers pass free-form strings
+})

@@ -162,7 +162,7 @@ describe('Workers page idle time', () => {
   const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
   const flatten = (n: any): string => (Array.isArray(n) ? n.map(flatten).join('') : n?.props === undefined ? String(n ?? '') : flatten(n.props.children))
   const detail = (idleMs: number | null) => {
-    const w: any = { agentId: 'a1', name: 'w1', status: 'idle', model: null, toolCalls: 7, currentTask: null, elapsedMs: 760_000, lastActivityMs: 240_000, idleMs, recent: [], stalled: null, usage: null }
+    const w: any = { agentId: 'a1', name: 'w1', status: 'idle', model: null, toolCalls: 7, currentTask: null, elapsedMs: 760_000, lastActivityMs: 240_000, idleMs, recent: [], stalled: null, usage: null, effort: null, contextPct: null }
     const m: any = { workers: [w], subagents: { total: 0, rows: [] }, empty: {}, signals: { collisions: [] } }
     return renderWorkers(kit, m, {} as any, {} as any, createCtx(kit, { bodyColumns: 80 })).map(flatten).find((r: string) => r.includes('tools'))!
   }
@@ -194,5 +194,28 @@ describe('Workers page health and tokens', () => {
     expect(rows({ usage })).toContain('15.4k tok')
     expect(rows({ usage }, true)).toContain('12k in / 3.4k out · 90k cache read / 4k cache write')
     expect(rows({}, true)).toContain('Tokens')
+  })
+})
+
+describe('Workers page effort and context', () => {
+  const kit: any = { Box: (p: any) => p.children, Text: (p: any) => p.children, Button: (p: any) => p.children }
+  const flatten = (n: any): string => (Array.isArray(n) ? n.map(flatten).join('') : n?.props === undefined ? String(n ?? '') : flatten(n.props.children))
+  const rows = (w: object, picked = false, cols = 100) => {
+    const base: any = { agentId: 'a1', name: 'w1', status: 'running', model: null, toolCalls: 7, currentTask: '#1 x', elapsedMs: 760_000, lastActivityMs: 240_000, idleMs: null, recent: [], stalled: null, usage: null, effort: null, contextPct: null, ...w }
+    const m: any = { workers: [base], subagents: { total: 0, rows: [] }, empty: {}, signals: { collisions: [] } }
+    return renderWorkers(kit, m, picked ? ({ selected: { kind: 'worker', id: 'a1' } } as any) : ({} as any), {} as any, createCtx(kit, { bodyColumns: cols })).map(flatten).join('\n')
+  }
+  test('the row shows effort and context; the detail view too', () => {
+    expect(rows({ effort: 'high', contextPct: 72.4 })).toContain('7 tools · 12:40 · effort high · ctx 72% · last 4m ago')
+    const d = rows({ effort: '8000', contextPct: 72.4 }, true)
+    expect(d).toContain('8000')
+    expect(d).toContain('72%')
+  })
+  test('unreported is a dash, never 0%', () => {
+    expect(rows({})).not.toContain('ctx')
+    expect(rows({}, true)).toMatch(/Context\s+unavailable/)
+  })
+  test('narrow rows drop them first', () => {
+    expect(rows({ effort: 'high', contextPct: 72 }, false, 40)).not.toContain('effort')
   })
 })

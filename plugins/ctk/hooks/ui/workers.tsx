@@ -1,11 +1,11 @@
-import { DASH, displayWidth } from '../../shared/hudline'
+import { DASH, displayWidth, fmtPct } from '../../shared/hudline'
 import { modelLabel } from '../band'
 import { BACK_KEY, collisionLine, fmtAge, fmtCount, fmtSpan, fmtTokens, UNAVAILABLE, workerKey } from '../mission'
 import type { McState, Mission, WorkerRow } from '../mission'
 import { moreText } from './ctx'
 import type { Ctx } from './ctx'
 import { glyphProps } from './motion'
-import { COLOR, GLYPH, statusColor, statusOf } from './theme'
+import { COLOR, GLYPH, pressureColor, statusColor, statusOf } from './theme'
 import type { Status } from './theme'
 import type { Extras, Kit } from './types'
 
@@ -57,10 +57,12 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     model: modelOf,
     last: w => (w.lastActivityMs === null ? DASH : fmtAge(w.lastActivityMs)),
     tokens: w => (w.usage === null ? DASH : fmtCount(w.usage.input + w.usage.output)),
+    effort: w => w.effort ?? DASH,
+    ctx: w => fmtPct(w.contextPct),
   }
-  const heads: Record<string, string> = { status: 'STATUS', activity: 'ACTIV', tools: 'TOOLS', idle: 'IDLE', time: 'TIME', model: 'MODEL', last: 'LAST', tokens: 'TOKENS' }
+  const heads: Record<string, string> = { status: 'STATUS', activity: 'ACTIV', tools: 'TOOLS', idle: 'IDLE', time: 'TIME', model: 'MODEL', last: 'LAST', tokens: 'TOKENS', effort: 'EFFORT', ctx: 'CTX' }
   // Columns after the name, in the order they are given up when the room is short; widths follow the content.
-  const cols = ['status', 'activity', 'tools', 'idle', ...(compact || twoLine ? [] : ['time']), 'model', 'last', 'tokens'].map(id => ({ id, head: heads[id]!, w: widest([heads[id]!, ...m.workers.map(w => cellOf[id]!(w))]) }))
+  const cols = ['status', 'activity', 'tools', 'idle', ...(compact || twoLine ? [] : ['time']), 'model', 'last', 'tokens', 'effort', 'ctx'].map(id => ({ id, head: heads[id]!, w: widest([heads[id]!, ...m.workers.map(w => cellOf[id]!(w))]) }))
   // A one-line row keeps the TASK column in preference to the optional columns.
   const reserve = twoLine ? 0 : TASK_MIN
   let left = room - gw - reserve
@@ -81,7 +83,7 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
           <Text bold>{pad(w.name, nameW)}</Text>
           <Text dimColor={w.currentTask === null}>{taskW <= 0 ? '' : ` ${pad(w.currentTask ?? DASH, taskW)}`}</Text>
           {shown.map(c => (
-            <Text key={c.id} color={c.id === 'status' || c.id === 'activity' ? statusColor(st) : undefined} dimColor={cellOf[c.id]!(w) === DASH}>{` ${pad(cellOf[c.id]!(w), c.w)}`}</Text>
+            <Text key={c.id} color={c.id === 'status' || c.id === 'activity' ? statusColor(st) : c.id === 'ctx' ? pressureColor(w.contextPct) : undefined} dimColor={cellOf[c.id]!(w) === DASH}>{` ${pad(cellOf[c.id]!(w), c.w)}`}</Text>
           ))}
         </Text>
       </kit.Button>
@@ -98,7 +100,9 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     const word = idle ? 'idle' : 'last'
     const tools = `${w.toolCalls ?? DASH} tools${w.usage === null ? '' : ` · ${fmtCount(w.usage.input + w.usage.output)} tok`}`
     const clock = w.elapsedMs === null ? DASH : fmtClock(w.elapsedMs)
-    const tails = [[tools, clock, `${word} ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
+    const extra = [w.effort === null ? null : `effort ${w.effort}`, w.contextPct === null ? null : `ctx ${fmtPct(w.contextPct)}`].filter((x): x is string => x !== null)
+    // Effort and context go first when the room is short: the first form is the only one that carries them.
+    const tails = [[tools, clock, ...extra, `${word} ${age}`], [tools, clock, `${word} ${age}`], [tools, clock, age.replace(/ ago$/, '')], [tools, age.replace(/ ago$/, '')], [age.replace(/ ago$/, '')]].map(t => t.join(' · '))
     const need = Math.min(displayWidth(task, ambiguous), TASK_MIN)
     const tail = tails.find(t => room - gw - displayWidth(t, ambiguous) - 3 >= need) ?? tails[tails.length - 1]!
     const detail = `${ctx.clip(task, Math.max(1, room - gw - displayWidth(tail, ambiguous) - 3))} · ${tail}`
@@ -122,14 +126,14 @@ export const renderWorkers = (kit: Kit, m: Mission, mc: McState, _extras: Extras
     return [
       line('w-name', picked.name, { bold: true }),
       field('w-id', 'Agent id', picked.agentId),
-      field('w-model', 'Model', picked.model ?? `${UNAVAILABLE} (the spawn did not report one)`),
+      field('w-model', 'Model', `${picked.model ?? `${UNAVAILABLE} (the spawn did not report one)`} · effort ${picked.effort ?? DASH}`),
       field('w-status', 'Status', picked.stalled === null ? picked.status : `${picked.status}, stalled: ${picked.stalled.reason} for ${fmtSpan(picked.stalled.forMs)}`),
       field('w-task', 'Current task', picked.currentTask ?? `${UNAVAILABLE} (no in-progress task owned by this worker was observed)`),
       field('w-tools', 'Tool calls', picked.toolCalls === null ? UNAVAILABLE : `${picked.toolCalls} (its own loop)`),
       field('w-recent', 'Recent', picked.recent.length === 0 ? `${UNAVAILABLE} (no tool call of its own loop was seen)` : picked.recent.join(' ‹ ')),
       field('w-tokens', 'Tokens', picked.usage === null ? `${UNAVAILABLE} (no turn of its own was reported)` : `${fmtTokens(picked.usage)} · ${fmtCount(picked.usage.cacheRead)} cache read / ${fmtCount(picked.usage.cacheWrite)} cache write`),
-      field('w-last', 'Last activity', fmtAge(picked.lastActivityMs)),
-      field('w-idle', 'Idle for', picked.status === 'idle' ? fmtSpan(picked.idleMs) : 'not idle'),
+      field('w-ctx', 'Context', picked.contextPct === null ? `${UNAVAILABLE} (the roster did not report a window)` : fmtPct(picked.contextPct), pressureColor(picked.contextPct)),
+      field('w-last', 'Last activity', `${fmtAge(picked.lastActivityMs)}${picked.status === 'idle' ? ` · idle for ${fmtSpan(picked.idleMs)}` : ' · not idle'}`),
       <kit.Box key="w-actions" flexDirection="row" columnGap={2}>
         {ctx.button(BACK_KEY, 'Back')}
         {ctx.button(transcriptKey(picked.agentId), 'Open transcript')}
