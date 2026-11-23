@@ -33,6 +33,8 @@ export type Facts = {
   outsideCap: number
   /** `$.session.version().version`; null when it could not be read. */
   engine?: string | null
+  /** CTK's own version from its plugin.json; null when it could not be read. */
+  ctk?: string | null
 }
 
 export type Inputs = {
@@ -103,6 +105,7 @@ const engineRow = (engine: string | null | undefined): Row => {
 
 export const doctorRows = (f: Facts): Row[] => [
   { level: 'ok', text: 'mod: loaded (it answered this command)' },
+  ...(f.ctk === undefined ? [] : [{ level: 'info' as const, text: `ctk: ${f.ctk ?? 'version not readable'}` }]),
   engineRow(f.engine),
   guardRow(f),
   {
