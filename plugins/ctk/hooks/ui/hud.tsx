@@ -1,7 +1,7 @@
-import { HUD_MODES, hudKey } from '../mission.ts'
-import type { HudMode, McState } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import type { Kit } from './types.ts'
+import { HUD_MODES, hudKey } from '../mission'
+import type { HudMode, McState } from '../mission'
+import type { Ctx } from './ctx'
+import type { Kit } from './types'
 
 const modeLabel = (m: HudMode): string => m[0]?.toUpperCase() + m.slice(1)
 

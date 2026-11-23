@@ -1,4 +1,4 @@
-import type { PolicyOptions } from '../shared/policy.ts'
+import type { PolicyOptions } from '../shared/policy'
 
 // Pure readiness logic for /ctk-doctor and the status tool's preflight fields. The host
 // reads (env, settings, tool list) are in register.tsx; a state that could not be read is

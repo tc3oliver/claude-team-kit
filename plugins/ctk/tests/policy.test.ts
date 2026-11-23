@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { STATUS_TOOL } from '../hooks/team.ts'
-import { engine, fresh, norm, spawnInput, statusOf } from './world.ts'
+import { STATUS_TOOL } from '../hooks/team'
+import { engine, fresh, norm, spawnInput, statusOf } from './world'
 
 const STATS = '/cfg/ctk/stats/sess_1.json'
 

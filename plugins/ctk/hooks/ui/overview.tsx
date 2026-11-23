@@ -1,12 +1,12 @@
-import { displayWidth } from '../../shared/hudline.ts'
-import { collisionLine, fmtAge, fmtSpan, UNAVAILABLE, viewKey, workerKey } from '../mission.ts'
-import type { McState, Mission } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { hudButtons } from './hud.tsx'
-import { glyphProps } from './motion.ts'
-import { COLOR, GLYPH, guardColor, pressureBar, progressBar, statusColor, statusOf } from './theme.ts'
-import type { ThemeColor } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { displayWidth } from '../../shared/hudline'
+import { collisionLine, fmtAge, fmtSpan, UNAVAILABLE, viewKey, workerKey } from '../mission'
+import type { McState, Mission } from '../mission'
+import type { Ctx } from './ctx'
+import { hudButtons } from './hud'
+import { glyphProps } from './motion'
+import { COLOR, GLYPH, guardColor, pressureBar, progressBar, statusColor, statusOf } from './theme'
+import type { ThemeColor } from './theme'
+import type { Extras, Kit } from './types'
 
 const num = (v: number | null): string => (v === null ? UNAVAILABLE : String(v))
 
@@ -34,7 +34,7 @@ export const renderOverview = (kit: Kit, m: Mission, mc: McState, _extras: Extra
         const idle = m.idle ?? 0
         const [glyph, color] = m.active === null ? [GLYPH.pending, COLOR.muted] : i < run ? [GLYPH.running, COLOR.active] : i < run + idle ? [GLYPH.idle, COLOR.ready] : ['·', COLOR.muted]
         return (
-          <Text key={i} color={color}>
+          <Text key={String(i)} color={color}>
             {glyph}{' '}
           </Text>
         )

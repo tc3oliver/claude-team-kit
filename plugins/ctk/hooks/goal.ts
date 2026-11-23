@@ -1,6 +1,6 @@
-import type { MissionState } from './mission.ts'
-import { isLiveStatus } from './team.ts'
-import type { Snapshot } from './team.ts'
+import type { MissionState } from './mission'
+import { isLiveStatus } from './team'
+import type { Snapshot } from './team'
 
 // An advisory, session-local ledger. Never schedules, sends messages or terminates workers.
 export const GOAL_TOOL_NAME = 'ctk_goal'

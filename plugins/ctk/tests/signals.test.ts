@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { AgentInfo } from 'claude-code'
+import { agentInfo } from './world'
 
-import { formatBand } from '../hooks/band.ts'
-import { buildMission, collisionLine, newCollisionNote, newMissionState, noteFileChange, noteSpawn, noteTaskCall, noteWorkerActive, noteWorkerToolCall, noteWorkerTurnEnd, signalsOf, stalledOf, STALL_MS, taskRows } from '../hooks/mission.ts'
-import { stallNotices } from '../hooks/notify.ts'
-import { snapshotOf } from '../hooks/team.ts'
-import { emptyStats } from '../shared/stats.ts'
+import { formatBand } from '../hooks/band'
+import { buildMission, collisionLine, newCollisionNote, newMissionState, noteFileChange, noteSpawn, noteTaskCall, noteWorkerActive, noteWorkerToolCall, noteWorkerTurnEnd, signalsOf, stalledOf, STALL_MS, taskRows } from '../hooks/mission'
+import { stallNotices } from '../hooks/notify'
+import { snapshotOf } from '../hooks/team'
+import { emptyStats } from '../shared/stats'
 
 const NOW = Date.UTC(2026, 9, 9, 3)
 const MIN = 60_000
 
-const agent = (id: string, name: string, status: AgentInfo['status']): AgentInfo => ({ id, teammateId: `${name}@t`, description: '', type: 'teammate', status })
+const agent = (id: string, name: string, status: AgentInfo['status']): AgentInfo => agentInfo({ id, teammateId: `${name}@t`, description: '', type: 'teammate', status })
 
 // One worker "w1" owning in-progress task 1, spawned at NOW.
 const team = (status: AgentInfo['status'] = 'running') => {

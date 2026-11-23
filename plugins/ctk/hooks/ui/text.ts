@@ -1,4 +1,4 @@
-import { displayWidth, truncateToWidth } from '../../shared/hudline.ts'
+import { displayWidth, truncateToWidth } from '../../shared/hudline'
 
 // Width-aware text helpers: every length here is terminal cells, never `.length`, so CJK and emoji
 // names align. `ambiguous` is the cell width of East Asian Ambiguous characters (CTK_AMBIGUOUS_WIDTH).

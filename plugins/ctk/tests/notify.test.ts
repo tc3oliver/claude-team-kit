@@ -1,11 +1,11 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { capNotice, SUMMARY_MAX, teamNotices, teamSummary } from '../hooks/notify.ts'
-import { emptySnapshot, snapshotOf } from '../hooks/team.ts'
-import type { TaskRec } from '../hooks/mission.ts'
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { capNotice, SUMMARY_MAX, teamNotices, teamSummary } from '../hooks/notify'
+import { emptySnapshot, snapshotOf } from '../hooks/team'
+import type { TaskRec } from '../hooks/mission'
+import { agentInfo, engine, fresh, spawnInput, test } from './world'
 
-const agent = (name: string, status: string) => ({ id: `id-${name}`, teammateId: `${name}@t`, description: '', type: 'teammate', status })
+const agent = (name: string, status: string) => agentInfo({ id: `id-${name}`, teammateId: `${name}@t`, description: '', type: 'teammate', status })
 const snap = (...a: ReturnType<typeof agent>[]) => snapshotOf(a, null, 0)
 const task = (id: string, status: TaskRec['status'], owner: string | null = null): TaskRec => ({ id, subject: 's', status, owner, blockedBy: [], blocks: [] })
 

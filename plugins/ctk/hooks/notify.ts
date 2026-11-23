@@ -1,6 +1,6 @@
-import type { Stalled, TaskRec } from './mission.ts'
-import { isLiveStatus } from './team.ts'
-import type { Snapshot } from './team.ts'
+import type { Stalled, TaskRec } from './mission'
+import { isLiveStatus } from './team'
+import type { Snapshot } from './team'
 
 // Pure decisions for desktop notifications and for the team summary kept across a compaction.
 // No host calls here (those are in register.tsx).

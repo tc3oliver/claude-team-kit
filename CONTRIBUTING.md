@@ -23,7 +23,8 @@ The full rules are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#contributor-no
 short version:
 
 - TypeScript with `erasableSyntaxOnly`: no enums, parameter properties or
-  namespaces. Relative imports use the `.ts` extension.
+  namespaces. Relative imports use the `.ts` extension, except in `plugins/ctk/hooks` and
+  `plugins/ctk/tests`, which import extensionless (`claude plugin validate` rejects `.ts` there).
 - `zod` is the only runtime dependency. Prefer `node:` built-ins.
 - Tests use `node:test` and `node:assert/strict`, live in `test/**/*.test.ts`,
   and must be deterministic.

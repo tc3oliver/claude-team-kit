@@ -1,13 +1,13 @@
-import { displayWidth } from '../../shared/hudline.ts'
-import { taskKey, UNAVAILABLE } from '../mission.ts'
-import type { McState, Mission, TaskRow } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { layoutDag, taskStatus } from './dag.ts'
-import { backButton } from './frame.tsx'
-import { glyphProps } from './motion.ts'
-import { COLOR, GLYPH, progressBar, statusColor } from './theme.ts'
-import type { Status } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { displayWidth } from '../../shared/hudline'
+import { taskKey, UNAVAILABLE } from '../mission'
+import type { McState, Mission, TaskRow } from '../mission'
+import type { Ctx } from './ctx'
+import { layoutDag, taskStatus } from './dag'
+import { backButton } from './frame'
+import { glyphProps } from './motion'
+import { COLOR, GLYPH, progressBar, statusColor } from './theme'
+import type { Status } from './theme'
+import type { Extras, Kit } from './types'
 
 /**
  * Default cap on the rows this page returns (the inline pane has 16: header, tabs, spacing and footer
@@ -79,7 +79,7 @@ export const renderTasks = (kit: Kit, m: Mission, mc: McState, _extras: Extras, 
       out.push(
         <Text key={`t-dag-${i}`} wrap="truncate-end">
           {segs.map((s, j) => (
-            <Text key={j} color={s.title ? undefined : s.status === undefined ? COLOR.muted : statusColor(s.status)}>
+            <Text key={String(j)} color={s.title ? undefined : s.status === undefined ? COLOR.muted : statusColor(s.status)}>
               {s.text}
             </Text>
           ))}

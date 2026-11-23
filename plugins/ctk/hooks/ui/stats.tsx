@@ -1,8 +1,8 @@
-import { DASH, displayWidth } from '../../shared/hudline.ts'
-import type { McState, Mission } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { COLOR } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { DASH, displayWidth } from '../../shared/hudline'
+import type { McState, Mission } from '../mission'
+import type { Ctx } from './ctx'
+import { COLOR } from './theme'
+import type { Extras, Kit } from './types'
 
 // Hoisted out of unobserved (it ran per segment per frame). Not /g and used with .test, so no
 // lastIndex state; DASH is a single literal character, no metacharacter to escape.
@@ -29,7 +29,7 @@ export const renderStats = ({ Box, Text }: Kit, _m: Mission, _mc: McState, extra
     rows.push(
       <Box key={`s-${n++}`} flexDirection="row" columnGap={2}>
         {cells.map((c, i) => (
-          <Text key={i} wrap="truncate-end" {...(c.muted ? { color: COLOR.muted } : {})}>
+          <Text key={String(i)} wrap="truncate-end" {...(c.muted ? { color: COLOR.muted } : {})}>
             {c.text}
           </Text>
         ))}

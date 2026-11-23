@@ -1,25 +1,25 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { readOptions } from '../shared/policy.ts'
-import type { PolicyOptions } from '../shared/policy.ts'
-import { emptyStats, parseStats, safeSessionId } from '../shared/stats.ts'
-import type { StatsRecord } from '../shared/stats.ts'
-import type { CacheUsage } from './band.ts'
-import { BAND_MARGIN, BAND_SEP, bandParts, cacheHealth, formatSummary, GUARD_QUIET } from './band.ts'
-import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor.ts'
-import type { Facts } from './doctor.ts'
-import { budgetDeny, budgetReached, capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, noteSample, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team.ts'
-import type { PctSample, Snapshot } from './team.ts'
-import { applyGoalAction, goalStatus, newGoalLedger, noteGoalSpawn, noteGoalTask, noteGoalTaskUpdate, reconcileGoal, GOAL_TOOL_NAME } from './goal.ts'
-import type { GoalLedger } from './goal.ts'
-import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config.ts'
-import type { PendingState } from './config.ts'
-import { displayWidth } from '../shared/hudline.ts'
-import { readBranch } from './branch.ts'
-import { TRANSCRIPT_PREFIX } from './ui/workers.tsx'
-import { filterBashOutput, hashOutput } from './outfilter.ts'
-import { formatReport } from './report.ts'
-import { budgetNotice, capNotice, isLifecycleOnly, isOwnAssignmentEcho, LEAD_NAME, NOTIFY_TITLE, stallNotices, teamNotices, teamSummary } from './notify.ts'
+import { readOptions } from '../shared/policy'
+import type { PolicyOptions } from '../shared/policy'
+import { emptyStats, parseStats, safeSessionId } from '../shared/stats'
+import type { StatsRecord } from '../shared/stats'
+import type { CacheUsage } from './band'
+import { BAND_MARGIN, BAND_SEP, bandParts, cacheHealth, formatSummary, GUARD_QUIET } from './band'
+import { factsFrom, formatDoctor, isCtkStatusLine } from './doctor'
+import type { Facts } from './doctor'
+import { budgetDeny, budgetReached, capacityDeny, CONFIG_TOOL_NAME, effectiveLive, emptySnapshot, guardDeny, settingChangeDeny, isNewToolCall, isLiveStatus, measuredOf, noteSample, prunePending, routed, snapshotOf, startsOutsideCap, STATUS_TOOL_NAME, teamHintFor } from './team'
+import type { PctSample, Snapshot } from './team'
+import { applyGoalAction, goalStatus, newGoalLedger, noteGoalSpawn, noteGoalTask, noteGoalTaskUpdate, reconcileGoal, GOAL_TOOL_NAME } from './goal'
+import type { GoalLedger, GoalRequest } from './goal'
+import { cancel, confirm, describeOptions, emptyPending, OPTION_NAMES, propose, sweep, validateChange } from './config'
+import type { PendingState } from './config'
+import { displayWidth } from '../shared/hudline'
+import { readBranch } from './branch'
+import { TRANSCRIPT_PREFIX } from './ui/workers'
+import { filterBashOutput, hashOutput } from './outfilter'
+import { formatReport } from './report'
+import { budgetNotice, capNotice, isLifecycleOnly, isOwnAssignmentEcho, LEAD_NAME, NOTIFY_TITLE, stallNotices, teamNotices, teamSummary } from './notify'
 import {
   buildMission,
   forcedTierColumns,
@@ -42,11 +42,11 @@ import {
   pressMc,
   signalsOf,
   stalledOf,
-} from './mission.ts'
-import type { McState, Mission, MissionState } from './mission.ts'
-import { renderMission } from './missionui.tsx'
-import { delayFor, motionOf, newMotionState, observe, reducedFrom } from './ui/motion.ts'
-import type { MotionState } from './ui/motion.ts'
+} from './mission'
+import type { McState, Mission, MissionState } from './mission'
+import { renderMission } from './missionui'
+import { delayFor, motionOf, newMotionState, observe, reducedFrom } from './ui/motion'
+import type { MotionState } from './ui/motion'
 
 // Every host call is here because `$` may only be handed to top-level functions of this
 // file. Anything pure (cap text, routing, snapshot math, band text) is in team.ts / band.ts.
@@ -705,9 +705,9 @@ export const register: Register = (on, options) => {
         // so a roster that lags behind next() cannot let a spawn past the cap.
         const acceptedAt = await $.clock.now().catch(() => c.lastNow)
         c.pending.set(started.teammateId, acceptedAt)
-        // `teammateId.split('@')[0]` is always a string, so the name fallback needs no further `??`.
-        noteSpawn(c.mission, started.agentId, e.name ?? started.teammateId.split('@')[0], started.model, acceptedAt)
-        noteGoalSpawn(c.goals, started.agentId, started.teammateId, e.name ?? started.teammateId.split('@')[0])
+        // `split('@')[0]` is a string at runtime; the final fallback only satisfies noUncheckedIndexedAccess.
+        noteSpawn(c.mission, started.agentId, e.name ?? started.teammateId.split('@')[0] ?? started.teammateId, started.model, acceptedAt)
+        noteGoalSpawn(c.goals, started.agentId, started.teammateId, e.name ?? started.teammateId.split('@')[0] ?? started.teammateId)
       }
       release()
       await refresh($, c)
@@ -978,7 +978,7 @@ export const register: Register = (on, options) => {
     const action = (e as { action?: unknown }).action
     if (e.agentId !== undefined && action !== 'status')
       return { result: JSON.stringify({ ok: false, error: 'only the lead can change Goal state' }) }
-    return { result: JSON.stringify(applyGoalAction(c.goals, c.mission, c.snap, e)) }
+    return { result: JSON.stringify(applyGoalAction(c.goals, c.mission, c.snap, e as GoalRequest)) }
   }).catch(() => ({ result: JSON.stringify({ ok: false, error: 'Goal state unavailable; no action taken' }) }))
 
   // The matcher must be a literal for `claude plugin validate`; policy.test.ts ties it to STATUS_TOOL.

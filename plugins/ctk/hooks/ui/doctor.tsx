@@ -1,8 +1,8 @@
-import { parseDoctor } from '../doctor.ts'
-import type { McState, Mission } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { COLOR, GLYPH } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { parseDoctor } from '../doctor'
+import type { McState, Mission } from '../mission'
+import type { Ctx } from './ctx'
+import { COLOR, GLYPH } from './theme'
+import type { Extras, Kit } from './types'
 
 const HEADER = 'CTK readiness (read-only; nothing is changed):'
 

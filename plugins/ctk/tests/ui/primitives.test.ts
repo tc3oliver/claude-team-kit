@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { displayWidth } from '../../shared/hudline.ts'
-import { padCells, wrapCells } from '../../hooks/ui/text.ts'
-import { dividerText, pressureBar, pressureColor, progressBar, statusOf } from '../../hooks/ui/theme.ts'
+import { displayWidth } from '../../shared/hudline'
+import { padCells, wrapCells } from '../../hooks/ui/text'
+import { dividerText, pressureBar, pressureColor, progressBar, statusOf } from '../../hooks/ui/theme'
 
 describe('width-aware text helpers', () => {
   test('pad counts cells, so a CJK name still lines up', () => {

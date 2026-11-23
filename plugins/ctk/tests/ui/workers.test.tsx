@@ -1,10 +1,10 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { createCtx } from '../../hooks/ui/ctx.tsx'
-import { fmtClock, renderWorkers, transcriptKey } from '../../hooks/ui/workers.tsx'
-import { BACK_KEY, MC_PANE_ID, workerKey } from '../../hooks/mission.ts'
-import { displayWidth } from '../../shared/hudline.ts'
-import { engine, fresh, spawnInput, test } from '../world.ts'
+import { createCtx } from '../../hooks/ui/ctx'
+import { fmtClock, renderWorkers, transcriptKey } from '../../hooks/ui/workers'
+import { BACK_KEY, MC_PANE_ID, workerKey } from '../../hooks/mission'
+import { displayWidth } from '../../shared/hudline'
+import { engine, fresh, spawnInput, test } from '../world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const pane = ($: any, cols: number) =>
@@ -23,7 +23,7 @@ const open = async ($: any, on: any, names: string[], cols: number, total = name
   await $.session.start(START)
   for (const [i, name] of names.entries()) await $.agent.spawn(spawnInput(i, true, { name, ...extra }))
   // The cap stops at 12 spawns; the roster itself may hold more.
-  for (let i = names.length; i < total; i++) w.agents.push({ ...w.agents[0]!, agentId: `x${i}`, teammateId: `x${i}`, name: `w${i}` })
+  for (let i = names.length; i < total; i++) w.agents.push({ ...w.agents[0]!, id: `x${i}`, teammateId: `x${i}`, name: `w${i}` })
   const p = await pane($, cols)
   await p.press({ key: 'mc:view:workers' })
   return { w, p }
@@ -77,7 +77,7 @@ describe('Workers page', () => {
       const titles = ['Tests for caesar', 'Write the unit tests for the slugify module now']
       for (const [i, name] of ['t-caesar', 't-slug'].entries()) {
         await $.agent.spawn(spawnInput(i, true, { name }))
-        await $.tool.call({ tool: 'TaskCreate', tool_use_id: `tc${i + 1}`, subject: titles[i] })
+        await $.tool.call({ tool: 'TaskCreate', tool_use_id: `tc${i + 1}`, subject: titles[i]!, description: '' })
         await $.tool.call({ tool: 'TaskUpdate', tool_use_id: `tu${i + 1}`, taskId: String(i + 1), status: 'in_progress', owner: name })
       }
       const p = await pane($, cols)

@@ -1,7 +1,7 @@
-import { fmtModels, usd } from '../shared/format.ts'
-import type { StatsRecord } from '../shared/stats.ts'
-import { fmtElapsed } from './band.ts'
-import type { TaskRec } from './mission.ts'
+import { fmtModels, usd } from '../shared/format'
+import type { StatsRecord } from '../shared/stats'
+import { fmtElapsed } from './band'
+import type { TaskRec } from './mission'
 
 // The /ctk-report text, written to be pasted into a PR body. Pure: register.tsx hands in what was observed.
 

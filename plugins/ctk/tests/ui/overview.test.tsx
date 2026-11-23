@@ -1,8 +1,8 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { MC_PANE_ID } from '../../hooks/mission.ts'
-import { bodyRowsFor, moreText } from '../../hooks/ui/ctx.tsx'
-import { engine, fresh, spawnInput, test } from '../world.ts'
+import { MC_PANE_ID } from '../../hooks/mission'
+import { bodyRowsFor, moreText } from '../../hooks/ui/ctx'
+import { engine, fresh, spawnInput, test } from '../world'
 
 const START = { cwd: '/w', surface: null, isInteractive: false }
 const PANE = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }

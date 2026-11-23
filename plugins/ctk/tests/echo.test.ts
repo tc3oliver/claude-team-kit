@@ -1,7 +1,7 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { isLifecycleOnly, isOwnAssignmentEcho } from '../hooks/notify.ts'
-import { engine, fresh, spawnInput, test } from './world.ts'
+import { isLifecycleOnly, isOwnAssignmentEcho } from '../hooks/notify'
+import { engine, fresh, spawnInput, test } from './world'
 
 const msg = (assignedBy: string, wrap = true) => {
   const json = JSON.stringify({ type: 'task_assignment', taskId: '37', subject: 's', assignedBy })

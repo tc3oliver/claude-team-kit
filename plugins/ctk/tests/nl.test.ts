@@ -1,9 +1,9 @@
 import { describe, expect } from 'claude-code/testing'
 
-import { validateChange } from '../hooks/config.ts'
-import { TEAM_HINT, teamHintFor, teamIntent } from '../hooks/team.ts'
-import { DEFAULT_OPTIONS, readOptions } from '../shared/policy.ts'
-import { engine, fresh, test } from './world.ts'
+import { validateChange } from '../hooks/config'
+import { TEAM_HINT, teamHintFor, teamIntent } from '../hooks/team'
+import { DEFAULT_OPTIONS, readOptions } from '../shared/policy'
+import { engine, fresh, test } from './world'
 
 // The natural-language entry: a small, fixed phrase check that attaches one hint line to the prompt. It cannot
 // start a team; the model reads the hint and decides. These tests pin which words count and which prompts are left alone.
@@ -91,7 +91,7 @@ describe('the hook never changes the prompt', () => {
     engine(on, w)
     on('prompt.submit', (_$, e) => ({ text: e.text, context: e.context }))
     await $.session.start({ cwd: '/w', surface: null, isInteractive: false })
-    const r = await $.prompt.submit({ text: '用多agent做完' })
+    const r = await $.prompt.submit({ text: '用多agent做完', wait: false, origin: { kind: 'plugin', name: 'other' } })
     expect(r.text).toBe('用多agent做完')
     expect(r.context ?? []).toEqual([])
   })

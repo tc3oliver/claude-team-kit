@@ -1,8 +1,8 @@
-import { displayWidth, truncateToWidth } from '../../shared/hudline.ts'
-import type { TaskRow } from '../mission.ts'
-import { padCells } from './text.ts'
-import { GLYPH } from './theme.ts'
-import type { Status } from './theme.ts'
+import { displayWidth, truncateToWidth } from '../../shared/hudline'
+import type { TaskRow } from '../mission'
+import { padCells } from './text'
+import { GLYPH } from './theme'
+import type { Status } from './theme'
 
 // A layered dependency graph drawn only from the edges the model declared (blockedBy). Pure and
 // deterministic: column = longest declared path, row = barycenter of the parents with the id as the

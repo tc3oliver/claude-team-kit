@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { filterBashOutput, hashOutput, MAX_LINES } from '../hooks/outfilter.ts'
+import { filterBashOutput, hashOutput, MAX_LINES } from '../hooks/outfilter'
 
 const noisy = (n: number, fail?: string) =>
   [...Array.from({ length: n }, (_, i) => `ok ${i} passing test number ${i}`), ...(fail ? [fail] : []), 'done'].join('\n')

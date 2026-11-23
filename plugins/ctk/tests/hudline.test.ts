@@ -13,8 +13,8 @@ import {
   truncateToWidth,
   usageSegment,
   windowFigures,
-} from '../shared/hudline.ts'
-import type { Segment } from '../shared/hudline.ts'
+} from '../shared/hudline'
+import type { Segment } from '../shared/hudline'
 
 const MIN = 60_000
 const HOUR = 60 * MIN

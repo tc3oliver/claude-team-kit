@@ -1,4 +1,4 @@
-import type { Mission } from '../mission.ts'
+import type { Mission } from '../mission'
 
 // Motion for Mission Control, kept as plain values so the views stay pure. What a person sees is
 // `Motion` (a frame counter and the keys to highlight); `MotionState` is what register.tsx keeps to

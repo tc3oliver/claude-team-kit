@@ -1,9 +1,9 @@
 import { describe, expect } from 'claude-code/testing'
 
-import * as mission from '../hooks/mission.ts'
-import { MC_PANE_ID } from '../hooks/mission.ts'
-import { register } from '../hooks/register.tsx'
-import { calls, engine, fresh, norm, test } from './world.ts'
+import * as mission from '../hooks/mission'
+import { MC_PANE_ID } from '../hooks/mission'
+import { register } from '../hooks/register'
+import { calls, engine, fresh, norm, test } from './world'
 
 // The two hot paths, measured, with the numbers pinned so a regression fails a test instead of
 // only showing up in a transcript: one pane draw builds the Mission once (D2), and a burst of
@@ -14,8 +14,9 @@ import { calls, engine, fresh, norm, test } from './world.ts'
 // mission.missionBuilds countable. Host-call counts cross realms through the event chain, so the
 // world.ts spy answers those.
 
+declare const console: { log: (...a: unknown[]) => void }
 const START = { cwd: '/w', surface: null, isInteractive: false }
-const PANE_PROPS = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} }
+const PANE_PROPS = { title: 'CTK Mission Control', isFocused: true, bodyColumns: 100, placement: 'inline' as const, scroll: { offset: 0, bodyRows: 16 }, view: {} }
 const STATS = '/cfg/ctk/stats/sess_1.json'
 
 type Handler = ($: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) => Promise<unknown>

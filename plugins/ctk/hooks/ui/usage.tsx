@@ -1,8 +1,8 @@
-import { UNAVAILABLE } from '../mission.ts'
-import type { McState, Mission } from '../mission.ts'
-import type { Ctx } from './ctx.tsx'
-import { COLOR, pressureBar } from './theme.ts'
-import type { Extras, Kit } from './types.ts'
+import { UNAVAILABLE } from '../mission'
+import type { McState, Mission } from '../mission'
+import type { Ctx } from './ctx'
+import { COLOR, pressureBar } from './theme'
+import type { Extras, Kit } from './types'
 
 export const renderUsage = (kit: Kit, m: Mission, _mc: McState, _extras: Extras, ctx: Ctx) => {
   const { Box } = kit
