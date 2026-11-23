@@ -4,12 +4,29 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.10] - 2026-11-23 (prerelease)
+
+### Security
+
+- The status line could run a command from a repository's own config: in a partial clone, `git status` may fetch a missing blob, and that fetch runs the remote's `uploadpack` command. The repo-config gate now also skips `uploadpack`, `promisor`, `partialclone` and `gitproxy`, and the git call sets `GIT_NO_LAZY_FETCH=1`. Same class as claude-hud's GHSA-f7gq-pcm8-rxr4.
 
 ### Added
 
 - `ctk doctor --report` prints a Markdown bug report with secrets and your home directory removed, for pasting into an issue.
 - Mission Control Workers (list and detail) and `ctk_team_status` show each teammate's effort and context fill, read from the roster (`effort`, `tokenCount` / `contextWindowSize`); a dash when the roster does not report it. Seen live on Claude Code 2.1.330: a `ctk:explorer` teammate reported effort `medium` and its context fill.
+
+### Changed
+
+- The cap notice names spawns that are still starting (`0 live, 5 starting, cap 5`); parallel spawns fill the cap before any is in the roster.
+- Relative imports in the hooks module and its tests are extensionless, and 33 type errors they hid are fixed, so `claude plugin validate --strict` passes on Claude Code 2.1.323 and later. CI runs 2.1.330.
+
+### Removed
+
+- The 0.1.8 filter for `shutdown_approved` and `teammate_terminated`, and its always-zero `/ctk-report` line. No mod hook is raised for those deliveries (checked on 2.1.319 and 2.1.330), so it never ran; the lead is still woken by them. The `task_assignment` echo filter stays.
+
+### Docs
+
+- The cap holds for spawns from a Code Mode script (one live run on 2.1.330). anthropics/claude-code#92533 was fixed in 2.1.288, so only the 2.1.287 floor is affected.
 
 ## [0.1.9] - 2026-11-13 (prerelease)
 
