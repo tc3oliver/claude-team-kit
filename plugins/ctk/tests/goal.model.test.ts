@@ -91,6 +91,37 @@ describe('goal ownership', () => {
     expect(applyGoalAction(ledger, mission, own, { action: 'verify', goalId: 'goal-1' }).ok).toBe(false)
   })
 
+  test('the lead cleaning up a pre-goal task does not block a finished goal', () => {
+    const { ledger, mission } = empty()
+    noteTaskCall(mission, 'TaskCreate', { subject: 'old' }, { task: { id: '9', subject: 'old' } })
+    noteTaskCall(mission, 'TaskUpdate', { taskId: '9', status: 'deleted' }, { success: true })
+    start(ledger, mission)
+    // Deleted again (or completed) after start, as the lead did in the reported session.
+    noteGoalTaskUpdate(ledger, '9', undefined, 'deleted')
+    noteGoalTaskUpdate(ledger, '9', undefined, 'completed')
+    noteTaskCall(mission, 'TaskCreate', { subject: 'build' }, { task: { id: '10', subject: 'build' } })
+    noteGoalTask(ledger, '10')
+    noteGoalSpawn(ledger, 'a1', 'w1@team', 'w1')
+    noteTaskCall(mission, 'TaskUpdate', { taskId: '10', status: 'completed' }, { success: true })
+    noteGoalTaskUpdate(ledger, '10', undefined, 'completed')
+    const roster = snap(worker('a1', 'w1', 'idle'))
+    expect(goalStatus(ledger, roster, mission)?.unknownTasks).toBe(false)
+    expect(applyGoalAction(ledger, mission, roster, { action: 'verify', goalId: 'goal-1' }).ok).toBe(true)
+    expect(applyGoalAction(ledger, mission, roster, { action: 'review', goalId: 'goal-1', result: 'passed' }).ok).toBe(true)
+    expect(applyGoalAction(ledger, mission, roster, { action: 'close', goalId: 'goal-1' })).toMatchObject({ ok: true, goal: { phase: 'closing' } })
+  })
+
+  test('other changes to a task outside the goal still block attestation', () => {
+    const { ledger, mission } = empty()
+    start(ledger, mission)
+    noteGoalTaskUpdate(ledger, 'old', undefined, 'in_progress')
+    expect(goalStatus(ledger, snap(), mission)?.unknownTasks).toBe(true)
+    const other = empty()
+    start(other.ledger, other.mission)
+    noteGoalTaskUpdate(other.ledger, 'old', 'stranger', 'deleted')
+    expect(goalStatus(other.ledger, snap(), other.mission)?.unknownTasks).toBe(true)
+  })
+
   test('failed review requires a new verification attestation; wrong goal id never mutates', () => {
     const { ledger, mission } = empty()
     start(ledger, mission)

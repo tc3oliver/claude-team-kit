@@ -49,10 +49,14 @@ export const noteGoalTask = (ledger: GoalLedger, taskId: string, agentId?: strin
   goal.taskIds.add(taskId)
 }
 
-/** An unowned TaskUpdate is not silently adopted into an active goal. */
-export const noteGoalTaskUpdate = (ledger: GoalLedger, taskId: string, agentId?: string): void => {
+/**
+ * An unowned TaskUpdate is not silently adopted into an active goal. The lead closing or deleting a task
+ * from before the goal is cleanup, not goal work: it changes nothing here.
+ */
+export const noteGoalTaskUpdate = (ledger: GoalLedger, taskId: string, agentId?: string, status?: unknown): void => {
   const goal = ledger.current
   if (goal?.phase !== 'active') return
+  if (agentId === undefined && !goal.taskIds.has(taskId) && (status === 'deleted' || status === 'completed')) return
   if (!goal.taskIds.has(taskId) || (agentId !== undefined && !goal.workers.has(agentId))) {
     goal.unknownTasks = true
   }
