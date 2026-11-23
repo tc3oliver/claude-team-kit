@@ -59,26 +59,6 @@ export const isOwnAssignmentEcho = (text: string, name: string): boolean => {
   }
 }
 
-const BLOCK = /<teammate-message\b[^>]*>([\s\S]*?)<\/teammate-message>/g
-
-/**
- * True only for a delivery to the lead that is nothing but shutdown bookkeeping: `shutdown_approved`, and
- * `teammate_terminated` that released no task ("<name> has shut down." and nothing more). The band and
- * Mission Control already show the exit; a block of any other kind, or text outside the blocks, is false.
- */
-export const isLifecycleOnly = (text: string): boolean => {
-  try {
-    const bodies = [...text.matchAll(BLOCK)].map(m => m[1]!.trim())
-    if (bodies.length === 0 || text.replace(BLOCK, '').trim() !== '') return false
-    return bodies.every(b => {
-      const m = JSON.parse(b) as { type?: unknown; message?: unknown }
-      return m.type === 'shutdown_approved' || (m.type === 'teammate_terminated' && typeof m.message === 'string' && /^\S+ has shut down\.$/.test(m.message))
-    })
-  } catch {
-    return false
-  }
-}
-
 // Parallel spawns fill the cap before any is live, so `starting` is named too.
 export const capNotice = (live: number, starting: number, max: number): string =>
   `Teammate spawn refused: ${live} live${starting > 0 ? `, ${starting} starting` : ''}, cap ${max}.`
