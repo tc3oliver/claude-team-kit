@@ -4,12 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.11] - 2026-11-23 (prerelease)
 
 ### Added
 
 - A team can take several Backlog `BL-` tasks at once when the user names them or asks to run the ready queue: each task keeps its own file scope, tasks with overlapping files are ordered with `addBlockedBy`, and each closes on its own verified evidence.
-- `/ctk-doctor` shows CTK's own version (`ctk: 0.1.10`), read from its `plugin.json`, so an update can be confirmed there.
+- `/ctk-doctor` shows CTK's own version (`ctk: 0.1.11`), read from its `plugin.json`, so an update can be confirmed there.
+
+### Changed
+
+- Team skill: after a failed goal the lead keeps the workers for a fix, reports the live ones and asks the user. Only if the user drops the fix does it record the handoff, shut the owned workers down, mark the open tasks deleted and `abandon` the goal. Before, `close` was refused and shutdown was forbidden, so the workers stayed live and the next goal could not start. Several BL tasks form one goal and take the same path when one fails.
+- `ctk_team_status` rounds a worker's context percentage. The release workflow names a release `Claude Team Kit <version>`.
+
+### Docs
+
+- Contributor notes: `tsc -p plugins/ctk` is clean on `main`, and a stale local `claude-code-mcp` types snapshot can make validate reject a real tool name. `subagentStatusLine`, removed in Claude Code 2.1.323, is no longer described as something a plugin may ship. `/ctk-doctor` reports the types version as 2.1.330.
 
 ## [0.1.10] - 2026-11-23 (prerelease)
 
