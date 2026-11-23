@@ -98,6 +98,15 @@ test('new goals do not inherit old workers and shutdown requires a roster check'
   assert.match(protocol, /unreadable roster is not proof/)
 })
 
+test('a failed goal keeps its workers until the user drops the fix', () => {
+  const lifecycle = read('skills/team/references/goal-lifecycle.md')
+  assert.match(read('skills/team/SKILL.md'), /On failure keep the workers for a fix, report the live ones and ask the user/)
+  assert.match(lifecycle, /Failure path/)
+  assert.match(lifecycle, /Never shut workers down on a failure without that answer/)
+  assert.match(lifecycle, /status: deleted/)
+  assert.match(read('skills/team/references/backlog.md'), /the requested set is one Goal/)
+})
+
 test('several BL tasks run in parallel only on request, never on overlapping files, and close one by one', () => {
   const backlog = read('skills/team/references/backlog.md')
   assert.match(read('skills/team/SKILL.md'), /names one or more `BL-<16-hex>` tasks/)
