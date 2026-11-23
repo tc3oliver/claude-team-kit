@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - `ctk doctor --report` prints a Markdown bug report with secrets and your home directory removed, for pasting into an issue.
+- Mission Control Workers (list and detail) and `ctk_team_status` show each teammate's effort and context fill, read from the roster (`effort`, `tokenCount` / `contextWindowSize`); a dash when the roster does not report it. Seen live on Claude Code 2.1.330: a `ctk:explorer` teammate reported effort `medium` and its context fill.
 
 ## [0.1.9] - 2026-11-13 (prerelease)
 

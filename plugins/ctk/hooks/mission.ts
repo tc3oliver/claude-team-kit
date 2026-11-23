@@ -411,6 +411,10 @@ export type WorkerRow = {
   stalled: Stalled | null
   /** Tokens its turns used so far; null when none was reported. Tokens only: Claude Code reports no cost per worker. */
   usage: TokenUse | null
+  /** Reasoning effort the roster reports (a level or a number); null when not reported. */
+  effort: string | null
+  /** Context fill in percent (tokenCount / contextWindowSize); null when the roster did not report both. */
+  contextPct: number | null
 }
 
 /** A live worker owning an in-progress task with no activity for this long is stalled. */
@@ -454,6 +458,8 @@ export const workerRows = (m: MissionState, snap: Snapshot, nowMs: number, rows:
       elapsedMs: rec === undefined || nowMs < rec.startedAt ? null : nowMs - rec.startedAt,
       stalled: stalled.find(s => s.name === w.name) ?? null,
       usage: rec?.usage ?? null,
+      effort: w.effort,
+      contextPct: w.contextPct,
     }
   })
 
@@ -817,7 +823,7 @@ export const missionText = (m: Mission): string => {
   if (m.signals.cleanupCandidates.length > 0) lines.push(`  cleanup:  ${m.signals.cleanupCandidates.map(w => `${w.name} (${w.agentId})`).join(', ')} idle after observed tasks; review before shutdown`)
   for (const w of m.workers) {
     lines.push(
-      `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}${w.usage === null ? '' : `, tokens ${fmtTokens(w.usage)}`}`,
+      `  worker ${w.name}: ${w.status}, model ${w.model ?? UNAVAILABLE}, tool calls ${w.toolCalls === null ? UNAVAILABLE : w.toolCalls}, last activity ${fmtAge(w.lastActivityMs)}${w.idleMs === null ? '' : `, idle ${fmtSpan(w.idleMs)}`}${w.currentTask === null ? '' : `, on ${w.currentTask}`}${w.usage === null ? '' : `, tokens ${fmtTokens(w.usage)}`}${w.effort === null ? '' : `, effort ${w.effort}`}${w.contextPct === null ? '' : `, context ${fmtPct(w.contextPct)}`}`,
     )
   }
   return lines.join('\n')
