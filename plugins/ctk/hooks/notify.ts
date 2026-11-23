@@ -79,7 +79,9 @@ export const isLifecycleOnly = (text: string): boolean => {
   }
 }
 
-export const capNotice = (live: number, max: number): string => `Teammate spawn refused: ${live} live, cap ${max}.`
+// Parallel spawns fill the cap before any is live, so `starting` is named too.
+export const capNotice = (live: number, starting: number, max: number): string =>
+  `Teammate spawn refused: ${live} live${starting > 0 ? `, ${starting} starting` : ''}, cap ${max}.`
 
 const OPEN = new Set(['pending', 'in_progress', 'unknown'])
 /** Most entries of each list in the summary; the rest is a count. */

@@ -691,7 +691,7 @@ export const register: Register = (on, options) => {
         const now = await $.clock.now().catch(() => 0)
         if (now - c.lastCapNotice >= CAP_NOTICE_GAP_MS) {
           c.lastCapNotice = now
-          void announce($, [capNotice(live, c.opts.maxWorkers)])
+          void announce($, [capNotice(live, starting, c.opts.maxWorkers)])
         }
         await refresh($, c)
         return { deny: capacityDeny(live, starting, c.opts.maxWorkers) }

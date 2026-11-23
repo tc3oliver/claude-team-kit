@@ -169,10 +169,14 @@ in practice:
   worktree workers gets workers CTK does not limit, and Mission Control shows how many started outside the cap.
   Whether a later Claude Code changes which calls are teammates is not something CTK can know in advance.
 - **CTK's `tool.call` hooks and worktree subagents.** [anthropics/claude-code#92533](https://github.com/anthropics/claude-code/issues/92533)
-  reports that a Bash `tool.call` hook makes `isolation: "worktree"` subagents refuse every Bash call. Not reproduced
-  with CTK at default options on 2.1.319 (`-p`, Haiku, one run with the issue's flags): the subagent's Bash ran in its
-  worktree, and CTK's tool count of 2 shows its hook saw that call and the `Agent` call. Interactive sessions and repeat
-  runs were not tested.
+  reported that a Bash `tool.call` hook, or one with no matcher (CTK registers one), makes `isolation: "worktree"`
+  subagents refuse every Bash call. It was closed on 2026-11-15 as fixed in Claude Code 2.1.288, so only 2.1.287, the
+  oldest build CTK supports, is affected; update Claude Code if you use worktree subagents there. Not reproduced with
+  CTK at default options on 2.1.319 (`-p`, Haiku, one run with the issue's flags).
+- **Code Mode and the cap: not tested.** Since Claude Code 2.1.326 a session with Agent Teams can start in Code Mode,
+  where a script makes the tool calls. Whether a teammate spawned from such a script reaches CTK's `agent.spawn` hook
+  is unknown: the 2.1.330 session used for the check had no Code Mode. In that session six parallel spawns at the
+  default cap of 5 started five teammates and refused the sixth with `TEAM_CAPACITY_REACHED`.
 - **Shutdown bookkeeping still wakes the lead.** The `session.receive` filter for `shutdown_approved` and
   `teammate_terminated` has no effect on 2.1.319: in an interactive team run, a probe mod saw the hook fire for a
   teammate's text and its `idle_notification`, each as one bare message body, but not for the shutdown messages,

@@ -61,6 +61,13 @@ describe('teamSummary', () => {
   })
 })
 
+describe('capNotice', () => {
+  test('names spawns still starting', async () => {
+    expect(capNotice(0, 5, 5)).toBe('Teammate spawn refused: 0 live, 5 starting, cap 5.')
+    expect(capNotice(3, 0, 3)).toBe('Teammate spawn refused: 3 live, cap 3.')
+  })
+})
+
 describe('wired into the hooks', () => {
   test('cap refusal and team completion each notify once', async ($, on) => {
     const w = fresh()
@@ -69,10 +76,10 @@ describe('wired into the hooks', () => {
     for (let i = 0; i < 3; i++) await $.agent.spawn(spawnInput(i))
     const refused = await $.agent.spawn(spawnInput(9))
     expect(refused.deny).toBeDefined()
-    expect(w.notices).toEqual([capNotice(3, 3)])
+    expect(w.notices).toEqual([capNotice(3, 0, 3)])
     for (const a of w.agents) a.status = 'completed'
     await $.session.measure({ changed: [] } as never)
     await $.session.measure({ changed: [] } as never)
-    expect(w.notices).toEqual([capNotice(3, 3), 'All teammates finished.'])
+    expect(w.notices).toEqual([capNotice(3, 0, 3), 'All teammates finished.'])
   })
 })
