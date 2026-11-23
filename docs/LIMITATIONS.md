@@ -173,10 +173,10 @@ in practice:
   subagents refuse every Bash call. It was closed on 2026-11-15 as fixed in Claude Code 2.1.288, so only 2.1.287, the
   oldest build CTK supports, is affected; update Claude Code if you use worktree subagents there. Not reproduced with
   CTK at default options on 2.1.319 (`-p`, Haiku, one run with the issue's flags).
-- **Code Mode and the cap: not tested.** Since Claude Code 2.1.326 a session with Agent Teams can start in Code Mode,
-  where a script makes the tool calls. Whether a teammate spawned from such a script reaches CTK's `agent.spawn` hook
-  is unknown: the 2.1.330 session used for the check had no Code Mode. In that session six parallel spawns at the
-  default cap of 5 started five teammates and refused the sixth with `TEAM_CAPACITY_REACHED`.
+- **Code Mode and the cap.** Since Claude Code 2.1.326 a session with Agent Teams can start in Code Mode, where a
+  script makes the tool calls. On 2.1.330 (Haiku, `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`, one run) a single REPL
+  script made six `Agent` calls at the default cap of 5: five teammates started and the sixth was refused with
+  `TEAM_CAPACITY_REACHED`, as with six parallel calls outside Code Mode. Code Mode is experimental and may change.
 - **Shutdown bookkeeping still wakes the lead.** The `session.receive` filter for `shutdown_approved` and
   `teammate_terminated` has no effect on 2.1.319: in an interactive team run, a probe mod saw the hook fire for a
   teammate's text and its `idle_notification`, each as one bare message body, but not for the shutdown messages,
