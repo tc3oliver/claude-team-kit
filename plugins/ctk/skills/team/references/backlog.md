@@ -16,6 +16,7 @@ This is a conditional team guide, not a Backlog dependency. Without an explicitl
 - Keep each BL task's changes separable (one commit per BL task when the repository commits), so one can be verified, closed or reverted alone.
 - Close each BL task on its own verified AC and evidence. One passing never closes another; a failing one stays open with an accurate Handoff while verified ones close.
 - Stop after the requested set. Do not pull more tasks from `next` unless the user asked to drain the queue.
+- With `ctk_goal`, the requested set is one Goal. Close each verified BL task as it passes; if another fails, the Goal cannot Close: leave that BL task open with its note and take the failure path in `goal-lifecycle.md` (keep the workers, ask the user).
 
 ## Execution and completion
 
