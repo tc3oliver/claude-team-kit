@@ -177,12 +177,11 @@ in practice:
   script makes the tool calls. On 2.1.330 (Haiku, `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`, one run) a single REPL
   script made six `Agent` calls at the default cap of 5: five teammates started and the sixth was refused with
   `TEAM_CAPACITY_REACHED`, as with six parallel calls outside Code Mode. Code Mode is experimental and may change.
-- **Shutdown bookkeeping still wakes the lead.** The `session.receive` filter for `shutdown_approved` and
-  `teammate_terminated` has no effect on 2.1.319: in an interactive team run, a probe mod saw the hook fire for a
-  teammate's text and its `idle_notification`, each as one bare message body, but not for the shutdown messages,
-  which reached the lead unchanged. `/ctk-report` therefore never counts a dropped shutdown notice. The
-  `task_assignment` echo filter does work: in the same kind of run the teammate's own claim echo was dropped
-  (`/ctk-report`: 1 echo dropped) and never reached its transcript.
+- **Shutdown bookkeeping still wakes the lead.** A teammate's `shutdown_approved` reaches the lead as a new prompt and
+  wakes it for a turn. No mod hook sees that delivery: on 2.1.330 a probe mod logged `session.receive`,
+  `prompt.submit` and `prompt.attachment` through a team run, and none was raised for it (on 2.1.319 `session.receive`
+  was not either). CTK's filter for it never ran, so 0.1.10 removed it. The `task_assignment` echo filter does work:
+  in a live run the teammate's own claim echo was dropped (`/ctk-report`: 1 echo dropped).
 - **Model routing in recordings:** the lead and the implementers were both Sonnet in the recorded
   runs, so routing to different models was not shown live.
 - **The band** is verified by rendering tests (80-column truncation, missing figures as `–`),
