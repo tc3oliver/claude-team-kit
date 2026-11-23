@@ -457,6 +457,11 @@ ctk doctor
 all checks passed
 ```
 
+To report a problem, run `ctk doctor --report`: it prints a Markdown block (CTK, Node, OS and Claude
+Code versions, the checks, the plugin options) with secret-looking keys and values masked at any
+depth and your home directory shown as `~`. Read it before pasting it into an issue. With `--json` it
+prints the same data as JSON.
+
 Exit `0` all passed, `2` warnings, `1` failures. A warning or failure prints a `fix:` line
 under it. `doctor` fails when `claude plugin list --json` reports load errors for the plugin
 (after the install directory was moved: `plugin: ctk@ctk-kit failed to load: Marketplace

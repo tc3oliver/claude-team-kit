@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `ctk doctor --report` prints a Markdown bug report with secrets and your home directory removed, for pasting into an issue.
+
 ## [0.1.9] - 2026-11-13 (prerelease)
 
 ### Added

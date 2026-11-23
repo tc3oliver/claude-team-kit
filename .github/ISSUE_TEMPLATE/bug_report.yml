@@ -51,6 +51,6 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: "`ctk doctor` output"
-      description: Paste it, with any personal paths or tokens redacted.
+      label: "`ctk doctor --report` output"
+      description: Paste the output of `ctk doctor --report`; it masks secrets and your home directory. Read it before posting.
       render: text

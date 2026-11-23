@@ -32,8 +32,8 @@ Usage: ctk <command> [options]
 
 Commands:
   install      Install the plugin, status line and settings (--no-statusline, --no-enable-teams)
-  doctor       Check the installation (exit 0 ok, 2 warnings, 1 failures)
-  sync         Sync the profile through a git repo (init|status|pull|publish|resolve)
+  doctor       Check the installation (exit 0 ok, 2 warnings, 1 failures; --report: issue-ready report)
+  sync        Sync the profile through a git repo (init|status|pull|publish|resolve)
   update       Refresh the plugin, re-copy the status line, re-apply the profile
   rollback     Undo the latest transaction (--to <id>: that one and every later one)
   uninstall    Remove what ctk added; keep backups
@@ -54,10 +54,15 @@ settings.json keys, all in one backed-up transaction. Safe to run again: a secon
 Options:
   --no-statusline      Do not manage the status line (remembered in the device layer)
   --no-enable-teams    Do not set the agent-teams flag (remembered in the device layer)`,
-  doctor: `Usage: ctk doctor
+  doctor: `Usage: ctk doctor [--report]
 
 Check Node, Claude Code, the plugin, the marketplace, settings.json, the ledger and the backups.
-Each check prints pass, warn or fail with a one-line fix. Exit 0 all pass, 2 warnings, 1 failures.`,
+Each check prints pass, warn or fail with a one-line fix. Exit 0 all pass, 2 warnings, 1 failures.
+
+Options:
+  --report             Print a Markdown bug report to paste into a GitHub issue (versions, OS, the
+                       checks, the plugin options). Secret-looking keys and values are masked at
+                       any depth and your home directory shows as ~. With --json, the same data.`,
   update: `Usage: ctk update
 
 Refresh the marketplace and plugin when the packaged version changed, re-copy the status line
@@ -116,6 +121,7 @@ const OPTIONS = {
   'device-layer': { type: 'boolean' },
   'no-apply': { type: 'boolean' },
   user: { type: 'boolean' },
+  report: { type: 'boolean' },
 } as const
 
 export type Io = { out: (line: string) => void; err: (line: string) => void; env: NodeJS.ProcessEnv; cwd: string; claudeBin?: string }
@@ -236,7 +242,7 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
         case 'update':
           return runUpdate(ctx)
         case 'doctor':
-          return runDoctor(ctx)
+          return runDoctor(ctx, { report: v.report === true })
         case 'stats':
           return runStats(ctx)
         case 'explore':
