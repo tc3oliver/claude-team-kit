@@ -1,41 +1,32 @@
-# Claude Team Kit 0.1.11 (prerelease)
+# Claude Team Kit 0.1.12 (prerelease)
 
-A small release on top of 0.1.10: a team can take several Backlog tasks at once, a failed goal no
-longer leaves its workers stuck, and `/ctk-doctor` shows which CTK version is loaded. No new runtime
-dependencies (still only `zod`) and no new plugin options. The worker cap, model routing and sync
-behaviour are unchanged.
+A bug-fix release: a finished `ctk_goal` goal could not be closed if the lead had cleaned up an
+earlier team's tasks after starting it. No new runtime dependencies (still only `zod`), no new plugin
+options, and the worker cap, model routing and sync behaviour are unchanged.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## Several Backlog tasks in one team
+## Fixed: a finished goal that would not close
 
-When you name several `BL-` tasks, or ask a team to run the ready queue, the lead takes them
-together. Each task keeps its own files, tasks that would touch the same files are ordered rather
-than run at once, and each closes on its own verified evidence: one passing never closes another.
-The lead stops after the set you asked for. Nothing changes unless you ask for several. Companion
-change in the Backlog Skill: tc3oliver/skills#26.
+After `ctk_goal start`, a lead that deleted or completed a task left over from an earlier team marked
+the goal's tasks as of unknown origin, permanently. Every goal task could then be done and `verify`,
+`review` and `close` were still refused; only `abandon` got out. Found in a real session. That
+cleanup is now ignored. Any other change to a task outside the goal, or a change by a worker the
+goal does not own, still blocks the goal, as before.
 
-## A failed goal no longer strands its workers
-
-With `ctk_goal`, a goal whose verification or review keeps failing cannot close, and the lead was
-told not to shut workers down while it could not close. The workers stayed live and the next goal
-was refused. Now the lead keeps them for a fix, tells you which are live and which tasks are open,
-and asks. If you drop the fix, it records the handoff, shuts the workers down, clears the open
-tasks and abandons the goal, so the next one can start. Skill-guided: not yet run live.
+On 0.1.11, the workaround is to delete stale tasks before `ctk_goal start`.
 
 ## Also
 
-- `/ctk-doctor` shows `ctk: 0.1.11`, read from the plugin's own manifest.
-- `ctk_team_status` rounds each worker's context percentage.
-- Contributor notes corrected (the plugin type-checks cleanly; `subagentStatusLine` was removed by
-  Claude Code 2.1.323), and releases are now named `Claude Team Kit <version>` automatically.
+The CI now runs the tests that drive the real `claude` binary (install, uninstall, native install)
+on Linux and macOS; they had always been skipped there.
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.10 to 0.1.11 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.11 to 0.1.12 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
 If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
@@ -59,7 +50,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.10`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.11`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -98,8 +89,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.11` with the npm tarball attached. The earlier prereleases
-`v0.1.10`, `v0.1.9`, `v0.1.8`, `v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.12` with the npm tarball attached. The earlier prereleases
+`v0.1.11`, `v0.1.10`, `v0.1.9`, `v0.1.8`, `v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.11` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.12` does. `npm publish` stays a
 manual step after review.

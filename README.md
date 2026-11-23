@@ -138,7 +138,7 @@ When a team finishes, `/ctk-report` prints a Markdown summary (tasks, spawns, co
 - The hard limit counts native teammates only. Ordinary subagents are not counted or limited.
 - The team workflow is guided by a skill that the model may follow imperfectly. CTK is not another scheduler.
 - Used interactively on macOS. Linux and Windows are covered by CI only, and the agent install prompt has not been run end to end.
-- Status: public preview, released as the GitHub pre-release [`v0.1.11`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.11): a team can take several Backlog tasks at once, a failed goal no longer strands its workers, and `/ctk-doctor` shows the loaded CTK version. The install commands above follow `main`.
+- Status: public preview, released as the GitHub pre-release [`v0.1.12`](https://github.com/tc3oliver/claude-team-kit/releases/tag/v0.1.12): a finished `ctk_goal` goal now closes after the lead cleans up an earlier team's tasks; 0.1.11 added several Backlog tasks per team and a clear path after a failed goal. The install commands above follow `main`.
 
 More: [Limitations](docs/LIMITATIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT-MODEL.md)
 
