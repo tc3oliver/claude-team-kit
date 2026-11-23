@@ -17,7 +17,7 @@ const CONFIG_LIMIT = 64 * 1024
 // A repo's own config can make git run commands (fsmonitor, filters, hooks, pagers, ...).
 // If any of these appear, skip the dirty marker; the branch is still shown.
 const UNSAFE_CONFIG =
-  /fsmonitor|\[\s*filter|\bfilter\.|hookspath|textconv|\[\s*include|\bpager\b|sshcommand|askpass|\[\s*alias|\beditor\s*=|\bexternal\s*=|\[\s*gpg|\bprogram\s*=|credential/i
+  /fsmonitor|\[\s*filter|\bfilter\.|hookspath|textconv|\[\s*include|\bpager\b|sshcommand|askpass|\[\s*alias|\beditor\s*=|\bexternal\s*=|\[\s*gpg|\bprogram\s*=|credential|uploadpack|gitproxy|promisor|partialclone/i
 
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const str = v => {
@@ -240,7 +240,8 @@ const repoConfigSafe = dotGit => {
 
 const gitEnv = () => {
   // System and global config are honoured on purpose (Git for Windows ships core.autocrlf=true in the system config). Only repo-local config is distrusted, see repoConfigSafe.
-  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', GIT_TERMINAL_PROMPT: '0' }
+  // GIT_NO_LAZY_FETCH: in a partial clone, status may fetch a missing blob, which runs the remote's upload-pack command.
+  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' }
   for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_EXTERNAL_DIFF']) delete env[k]
   return env
 }
