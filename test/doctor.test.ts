@@ -190,3 +190,31 @@ test('doctor task-tools: info when off, ok when on and applied, warn when reques
   assert.equal(status(r2, 'task-tools'), 'warn')
   assert.equal(r2.code, 2)
 })
+
+test('doctor --report masks nested secrets and the home dir; --json has the same data', async t => {
+  const { homedir } = await import('node:os')
+  const { scrub } = await import('../src/cli/commands/doctor.ts')
+  const e = makeEnv(t)
+  writeFileSync(join(e.ctx.configDir, '.claude.json'), '{}')
+  await runInstall(e.ctx, flags, e.root)
+  const s = readJson(e.ctx.paths.settings)
+  s.env = { ...s.env, ANTHROPIC_API_KEY: 'sk-ant-api03-SECRETSECRETSECRET123456' }
+  s.auth = { api_key: 'NESTEDSECRETVALUE9876' }
+  s.pluginConfigs['ctk@ctk-kit'].options.deep = { nested: { password: 'hunter2hunter2', note: `${homedir()}/proj` } }
+  writeJson(e.ctx.paths.settings, s)
+  const r = await runDoctor(e.ctx, { report: true })
+  const text = r.lines.join('\n')
+  const json = JSON.stringify(r.data)
+  for (const out of [text, json]) {
+    assert.doesNotMatch(out, /SECRETSECRET|NESTEDSECRET|hunter2/)
+    assert.ok(!out.includes(homedir()))
+  }
+  assert.match(text, /"password": "\[redacted\]"/)
+  assert.match(text, /"note": "~\/proj"/)
+  assert.match(text, /^### ctk doctor report/)
+  const rep = r.data.report as Record<string, unknown>
+  assert.deepEqual(Object.keys(rep).sort(), ['arch', 'checks', 'claudeCode', 'ctk', 'ctkStatusLine', 'node', 'options', 'os', 'platform'])
+  assert.equal(rep.ctkStatusLine, true)
+  assert.deepEqual(scrub({ a: [{ api_key: 'x' }], b: '/h/me/x' }, '/h/me'), { a: [{ api_key: '[redacted]' }], b: '~/x' })
+  if (process.env.SHOW_REPORT) console.log(text)
+})

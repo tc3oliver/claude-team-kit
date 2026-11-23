@@ -1,16 +1,17 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { arch, homedir, release, type } from 'node:os'
 import { join } from 'node:path'
 
 import { claudeProblem, isWsl, probeClaude, listMarketplaces, listPlugins, MODS_MIN_VERSION, versionAtLeast } from '../../core/claude.ts'
 import { readJsonIfExists, verifyBackup, type BackupManifest } from '../../core/fsx.ts'
 import { deepEqual, isObject, pointerGet } from '../../core/jsonx.ts'
-import { findEntry, loadLedger, type Ledger } from '../../core/ledger.ts'
+import { ctkVersion, findEntry, loadLedger, type Ledger } from '../../core/ledger.ts'
 import { MARKETPLACE_NAME, PLUGIN_ID } from '../../core/paths.ts'
 import { loadEffective } from '../../core/profilestore.ts'
 import { readSettings, type SettingsFile } from '../../core/settings.ts'
 import { isCtkStatusLine } from '../../install/statusline.ts'
 import { MANAGED_MARKER } from '../../sync/files.ts'
+import { isDeniedKey, scanText } from '../../sync/secrets.ts'
 import { EXIT, type Ctx } from '../context.ts'
 import type { Report } from '../report.ts'
 
@@ -21,7 +22,18 @@ const TASK_TOOLS_ENV = 'CLAUDE_CODE_ENABLE_TODO_TOOLS'
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
-export const runDoctor = async (ctx: Ctx): Promise<Report> => {
+const SECRETISH = /key|token|secret|passw|auth|credential/i
+
+/** Copy of `v` safe to paste in an issue: secret-looking keys are masked at any depth, secret-looking
+ *  string values are masked, and the home directory becomes `~`. */
+export const scrub = (v: unknown, home = homedir()): unknown => {
+  if (typeof v === 'string') return scanText('value.txt', v).length > 0 ? '[redacted]' : home.length > 1 ? v.split(home).join('~') : v
+  if (Array.isArray(v)) return v.map(x => scrub(x, home))
+  if (isObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, isDeniedKey(k) || SECRETISH.test(k) ? '[redacted]' : scrub(x, home)]))
+  return v
+}
+
+export const runDoctor = async (ctx: Ctx, opts: { report?: boolean } = {}): Promise<Report> => {
   const checks: Check[] = []
   // Existence only (the file holds credentials and is never read), and checked first: any `claude`
   // subprocess below creates <config>/.claude.json itself.
@@ -34,6 +46,8 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
 
   const probe = await probeClaude(ctx)
   const version = probe.version
+  let options: unknown = null
+  let ctkStatusLine: boolean | null = null
   if (version === null) add('claude', 'fail', claudeProblem(probe), 'install Claude Code and make sure "claude" is on PATH')
   else add('claude', 'pass', `Claude Code ${version}`)
   if (version !== null && isWsl()) {
@@ -116,7 +130,9 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
         ? add('task-tools', 'pass', `Task tools are on (${TASK_TOOLS_ENV} is set)`)
         : add('task-tools', 'warn', `Task tools are requested by the profile but ${TASK_TOOLS_ENV} is ${set === undefined ? 'not set' : `"${String(set)}"`} in settings.json`, 'run "ctk update" (a different value of your own is kept: remove it to let ctk set it)')
     }
+    options = pointerGet(settings.data, `/pluginConfigs/${PLUGIN_ID}/options`) ?? null
     const sl = pointerGet(settings.data, '/statusLine')
+    ctkStatusLine = sl !== undefined && isCtkStatusLine(sl)
     if (sl === undefined) add('statusline', 'warn', 'no status line configured', 'run "ctk install"')
     else if (!isCtkStatusLine(sl)) add('statusline', 'pass', 'your own status line is kept; the HUD runs via the mod band only')
     else if (existsSync(ctx.paths.statusline)) add('statusline', 'pass', 'CTK status line active')
@@ -196,5 +212,24 @@ export const runDoctor = async (ctx: Ctx): Promise<Report> => {
   const mark = { pass: 'ok  ', info: 'info', warn: 'warn', fail: 'FAIL' } as const
   const lines = checks.flatMap(c => [`[${mark[c.status]}] ${c.id}: ${c.message}`, ...(c.fix && c.status !== 'pass' ? [`       fix: ${c.fix}`] : [])])
   lines.push(code === EXIT.ok ? 'all checks passed' : code === EXIT.attention ? 'passed with warnings' : 'some checks failed')
+  if (opts.report) {
+    const safe = scrub({ ctk: ctkVersion(), node: process.versions.node, os: `${type()} ${release()}`, platform: process.platform, arch: arch(), claudeCode: version, ctkStatusLine, options, checks }) as Record<string, unknown>
+    const fence = (t: string) => ['```', ...t.split('\n'), '```']
+    const md = [
+      '### ctk doctor report',
+      '',
+      `- CTK ${String(safe.ctk)}, Node ${String(safe.node)}`,
+      `- OS: ${String(safe.os)} (${String(safe.platform)}/${String(safe.arch)})`,
+      `- Claude Code: ${safe.claudeCode === null ? 'not found' : String(safe.claudeCode)}`,
+      `- CTK status line: ${safe.ctkStatusLine === null ? 'unknown' : safe.ctkStatusLine ? 'yes' : 'no'}`,
+      '',
+      'Plugin options:',
+      ...fence(JSON.stringify(safe.options, null, 2)),
+      '',
+      'Checks:',
+      ...fence((safe.checks as Check[]).flatMap(c => [`[${mark[c.status]}] ${c.id}: ${c.message}`, ...(c.fix && c.status !== 'pass' ? [`       fix: ${c.fix}`] : [])]).join('\n')),
+    ]
+    return { code, data: { report: safe }, lines: md }
+  }
   return { code, data: { checks }, lines }
 }
