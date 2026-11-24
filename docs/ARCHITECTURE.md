@@ -107,7 +107,7 @@ hooks it registers and the host calls it makes; for this build that is:
   `session.compact` (adds the team state to the summarizer's instructions), `command.run` (only `ctk-stats`, `ctk-doctor`, `ctk-mission` and `ctk-report`), `ui.render` (only `AbovePrompt`).
 - Host calls: `agent.list`, `clock.now`, `command.register`, `env.get`, `fs.list` (the recall directory, with each file's age, at session start and end), `fs.read`, `fs.write`,
   `session.cwd`, `session.id`, `session.usage`, `settings.read`, `tool.list`, `tool.register`, `ui.invalidate`,
-  `ui.notify` (desktop notifications), `ui.resolve`, `ui.view` (the Workers detail page's "Open transcript" button; Claude Code 2.1.300 or newer, a failure is ignored).
+  `ui.notify` (desktop notifications), `ui.resolve`, `ui.scroll` (brings a waiting change's Confirm row into view in CTK's own pane), `ui.view` (the Workers detail page's "Open transcript" button; Claude Code 2.1.300 or newer, a failure is ignored).
 - Environment reads: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CONFIG_DIR`, `HOME`,
   `USERPROFILE`. Environment writes: none.
 

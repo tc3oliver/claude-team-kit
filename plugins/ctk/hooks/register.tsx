@@ -30,6 +30,7 @@ import {
   newMcState,
   newCollisionNote,
   newMissionState,
+  confirmKey,
   noteFileChange,
   noteWorkerActive,
   noteSpawn,
@@ -40,6 +41,7 @@ import {
   noteWorkerTurnEnd,
   OPEN_KEY,
   pressMc,
+  REFRESH_KEY,
   signalsOf,
   stalledOf,
 } from './mission'
@@ -442,13 +444,26 @@ async function loadDoctor($: EngineInterface, c: Ctx) {
   }
 }
 
+// While a change waits, the pane shows the Config page with its Confirm row at the window's end, so the text it answers shows above it: a short pane keeps
+// the place the person scrolled to, which can leave only the footer in sight.
+async function revealPending($: EngineInterface, c: Ctx) {
+  const waiting = sweep(c.cfg, c.lastNow).pending
+  if (waiting === null) return
+  c.mc = { ...c.mc, view: 'config', selected: null }
+  $.ui.invalidate('ui.render')
+  await $.ui.scroll({ in: MC_PANE_ID, to: { key: confirmKey(waiting.id) }, block: 'end' }).catch(() => undefined)
+}
+
 // Opens Mission Control. It is always called from the person's own press or command, which is what lets
 // the pane be placed at any terminal width. Resolves false when no pane could be drawn.
 async function openMission($: EngineInterface, c: Ctx): Promise<boolean> {
   try {
     await refresh($, c)
+    // Set before the open, so the first draw is already the page with the Confirm button.
+    if (sweep(c.cfg, c.lastNow).pending !== null) c.mc = { ...c.mc, view: 'config', selected: null }
     if (c.mc.view === 'doctor') await loadDoctor($, c)
     const r = await $.ui.open({ id: MC_PANE_ID, title: 'CTK Mission Control', focus: true, closeOnEscape: true, rows: 16 })
+    if (r.isPlaced) await revealPending($, c)
     return r.isPlaced
   } catch {
     return false
@@ -479,6 +494,7 @@ async function handlePress($: EngineInterface, c: Ctx, key: string) {
     else if (r.effect === 'doctor') await loadDoctor($, c)
     else if (r.effect === 'refresh') await refresh($, c)
     else if (r.effect === 'confirm' || r.effect === 'cancel') await decideChange($, c, r.effect, r.id ?? '')
+    if (key === REFRESH_KEY) await revealPending($, c)
     $.ui.invalidate('ui.render')
   } catch {
     // Mission Control is a view; its failure changes nothing else.
@@ -568,9 +584,10 @@ async function decideChange($: EngineInterface, c: Ctx, answer: 'confirm' | 'can
 // Nothing is applied here.
 async function configTool($: EngineInterface, c: Ctx, input: Record<string, unknown>): Promise<string> {
   if (input.action === 'show') {
+    const waiting = sweep(c.cfg, await $.clock.now().catch(() => c.lastNow)).pending
     return JSON.stringify({
       options: describeOptions(c.opts).map(r => ({ option: r.name, value: r.shown, allowed: r.allowed, default: r.defaultShown })),
-      waiting: c.cfg.pending === null ? null : c.cfg.pending.change.text,
+      waiting: waiting === null ? null : waiting.change.text,
     })
   }
   if (input.action !== 'propose') return JSON.stringify({ error: 'action must be "show" or "propose"' })
