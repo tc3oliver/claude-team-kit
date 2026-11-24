@@ -7,7 +7,7 @@ code that ships with it or that its design draws on.
 
 These are installed with the package and are distributed in the tarball.
 
-### zod 4.6.5
+### zod 4.6.7
 
 Licence: MIT. Copyright (c) 2025 Colin McDonnell.
 

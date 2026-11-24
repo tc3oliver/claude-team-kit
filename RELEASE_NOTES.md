@@ -1,32 +1,36 @@
-# Claude Team Kit 0.1.12 (prerelease)
+# Claude Team Kit 0.1.13 (prerelease)
 
-A bug-fix release: a finished `ctk_goal` goal could not be closed if the lead had cleaned up an
-earlier team's tasks after starting it. No new runtime dependencies (still only `zod`), no new plugin
-options, and the worker cap, model routing and sync behaviour are unchanged.
+A bug-fix release: a proposed setting could show no Confirm button, and `zod` is updated for a
+security advisory. No new runtime dependencies (still only `zod`), no new plugin options, and the
+worker cap, model routing and sync behaviour are unchanged.
 
 This is still a **public preview**. Agent Teams are experimental in Claude Code and Mods (which carry
 the cap and the team line) are early access, so it can break when Claude Code changes. Read "Known
 limitations" before you rely on it.
 
-## Fixed: a finished goal that would not close
+## Fixed: the Confirm button of a proposed setting
 
-After `ctk_goal start`, a lead that deleted or completed a task left over from an earlier team marked
-the goal's tasks as of unknown origin, permanently. Every goal task could then be done and `verify`,
-`review` and `close` were still refused; only `abandon` got out. Found in a real session. That
-cleanup is now ignored. Any other change to a task outside the goal, or a change by a worker the
-goal does not own, still blocks the goal, as before.
+A short Mission Control pane that had been scrolled kept its place when a setting was proposed, so
+only Refresh and Close showed. Refresh, the band and `/ctk-mission` also stayed on the last page
+opened. While a change waits, all of them now go to the Config page and bring the Confirm row into
+view. Reproduced and checked live on Claude Code 2.1.331. If the
+running Claude Code cannot scroll a pane, the Config page still opens.
 
-On 0.1.11, the workaround is to delete stale tasks before `ctk_goal start`.
+`ctk_config show` no longer reports a proposal older than 10 minutes as waiting. A proposal is held
+in memory, so restarting Claude Code still drops it.
 
-## Also
+On 0.1.12, the workaround is to press 5 for Config and scroll the pane up, or to use
+`/plugin configure ctk@ctk-kit`.
 
-The CI now runs the tests that drive the real `claude` binary (install, uninstall, native install)
-on Linux and macOS; they had always been skipped there.
+## Security
+
+`zod` is now at least 4.6.7. Versions before 4.6.6 can exhaust memory while validating oversized
+constrained collections (GHSA-mrhx-c7xc-m3w5).
 
 ## Upgrade
 
 `/plugin marketplace update ctk-kit`, then `/plugin update ctk@ctk-kit`. **An update only arrives
-when the plugin `version` changes** (the manifest pins it), and it did — 0.1.11 to 0.1.12 — so a
+when the plugin `version` changes** (the manifest pins it), and it did — 0.1.12 to 0.1.13 — so a
 normal update reaches you and keeps your options, the worker cap and model routing.
 
 If you prefer a plain status line, set `CTK_COLOR=0` in the `env` object of your
@@ -50,7 +54,7 @@ to the `env` object of your `settings.json` and restarting (a plugin cannot do t
 `/plugin uninstall ctk@ctk-kit`, then `/plugin marketplace remove ctk-kit`. The mod's counters stay
 in `<config>/ctk/stats/`. Claude Code has no rollback command; to return to an earlier release,
 remove the marketplace, add it at that tag (`/plugin marketplace add
-tc3oliver/claude-team-kit#v0.1.11`) and install again with your options. Details:
+tc3oliver/claude-team-kit#v0.1.12`) and install again with your options. Details:
 [docs/INSTALLATION.md](docs/INSTALLATION.md#update-and-remove-native).
 
 ## Known limitations
@@ -89,8 +93,8 @@ credentials or settings files.
 
 ## Published as
 
-This is the GitHub **prerelease** `v0.1.12` with the npm tarball attached. The earlier prereleases
-`v0.1.11`, `v0.1.10`, `v0.1.9`, `v0.1.8`, `v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
+This is the GitHub **prerelease** `v0.1.13` with the npm tarball attached. The earlier prereleases
+`v0.1.12`, `v0.1.11`, `v0.1.10`, `v0.1.9`, `v0.1.8`, `v0.1.7`, `v0.1.6`, `v0.1.5`, `v0.1.4`, `v0.1.3`, `v0.1.2`, `v0.1.1` and `v0.1.0` are unchanged. Not published to npm and not in any official Claude
 Code plugin directory. The repository works as a plugin marketplace as it is, and installing from the
-tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.12` does. `npm publish` stays a
+tag is what `/plugin marketplace add tc3oliver/claude-team-kit#v0.1.13` does. `npm publish` stays a
 manual step after review.
