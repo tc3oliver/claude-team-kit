@@ -47,6 +47,8 @@ const ALLOWED = new Set([
   'ui.notify',
   'ui.open',
   'ui.resolve',
+  // Brings the Confirm row of a waiting option change into the window of CTK's own pane.
+  'ui.scroll',
   // The Workers detail page's "Open transcript" button: shows that agent's transcript, nothing else.
   'ui.view',
 ])

@@ -43,6 +43,27 @@ describe('the model can only propose', () => {
     expect(t).toContain('⟦mc:cfg:cancel:c1⟧')
   })
 
+  test('opening Mission Control or pressing Refresh on another page leads back to the Confirm button', async ($, on) => {
+    await session($, on)
+    await ask($, { action: 'propose', option: 'maxWorkers', value: 2 })
+    const p = await pane($)
+    await p.press({ key: 'mc:view:usage' })
+    expect(flat(await p.drawn())).not.toContain('⟦mc:cfg:confirm:c1⟧')
+    await p.press({ key: 'mc:refresh' })
+    expect(flat(await p.drawn())).toContain('⟦mc:cfg:confirm:c1⟧')
+    await p.press({ key: 'mc:view:usage' })
+    await $.command.run({ command: 'ctk-mission', args: '' } as never)
+    expect(flat(await p.drawn())).toContain('⟦mc:cfg:confirm:c1⟧')
+  })
+
+  test('show stops reporting a proposal the pane no longer offers', async ($, on) => {
+    const { clock } = await session($, on)
+    await ask($, { action: 'propose', option: 'maxWorkers', value: 2 })
+    expect(answer(await ask($, { action: 'show' })).waiting).toContain('3 -> 2')
+    await clock.advance(10 * 60_000 + 1)
+    expect(answer(await ask($, { action: 'show' })).waiting).toBeNull()
+  })
+
   test('show lists the real options and values, and any waiting change', async ($, on) => {
     await session($, on)
     const r = answer(await ask($, { action: 'show' }))
