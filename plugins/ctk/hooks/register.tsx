@@ -444,14 +444,18 @@ async function loadDoctor($: EngineInterface, c: Ctx) {
   }
 }
 
-// While a change waits, the pane shows the Config page with its Confirm row at the window's end, so the text it answers shows above it: a short pane keeps
-// the place the person scrolled to, which can leave only the footer in sight.
+// While a change waits, the pane shows the Config page with its Confirm row at the window's end, so the text it
+// answers shows above it: a short pane keeps the place the person scrolled to, which can leave only the footer in sight.
 async function revealPending($: EngineInterface, c: Ctx) {
   const waiting = sweep(c.cfg, c.lastNow).pending
   if (waiting === null) return
   c.mc = { ...c.mc, view: 'config', selected: null }
   $.ui.invalidate('ui.render')
-  await $.ui.scroll({ in: MC_PANE_ID, to: { key: confirmKey(waiting.id) }, block: 'end' }).catch(() => undefined)
+  try {
+    await $.ui.scroll({ in: MC_PANE_ID, to: { key: confirmKey(waiting.id) }, block: 'end' })
+  } catch {
+    // An older Claude Code may not have $.ui.scroll and throws at the call; the pane is open either way.
+  }
 }
 
 // Opens Mission Control. It is always called from the person's own press or command, which is what lets

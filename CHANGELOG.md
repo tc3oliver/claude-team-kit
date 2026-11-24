@@ -4,12 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.13] - 2026-11-24 (prerelease)
 
 ### Fixed
 
 - Mission Control: a short pane that had been scrolled kept its place when a setting was proposed, so only Refresh and Close showed and there was no Confirm button to find. A proposal, opening Mission Control and Refresh now go to the Config page and bring the Confirm row into view while a change waits.
 - `ctk_config show` reported a proposal older than 10 minutes as still waiting although the pane no longer offered it.
+
+### Security
+
+- `zod` is now at least 4.6.7: versions before 4.6.6 can exhaust memory while validating oversized constrained collections (GHSA-mrhx-c7xc-m3w5).
 
 ## [0.1.12] - 2026-11-23 (prerelease)
 

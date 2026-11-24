@@ -1,6 +1,6 @@
 {
   "name": "claude-team-kit",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "A worker cap, role-based models and a team HUD for Claude Code's native Agent Teams. Lightweight, token-aware, portable.",
   "license": "MIT",
   "author": {
@@ -64,7 +64,7 @@
     "check": "npm run typecheck && npm test && npm run test:plugin && npm run validate:plugin"
   },
   "dependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
